@@ -12,6 +12,7 @@ jobs:
   # TODO: get version from tag, prepare Cargo.toml with version number
 
   build:
+    name: build packages
     strategy:
       matrix:
         version: ["3.11"] # ["3.7", "3.8", "3.9", "3.10", "3.11"]
@@ -68,6 +69,6 @@ jobs:
         shell: bash
         run: |
           mkdir dist
-          mv temp/*/**/* dist
+          mv temp/*/* dist
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
