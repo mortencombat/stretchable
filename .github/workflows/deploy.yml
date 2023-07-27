@@ -21,19 +21,25 @@ jobs:
     strategy:
       matrix:
         version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        platform: [win, linux, mac_x64, mac_arm]
         include:
-          - os: windows-latest
+          - platform: win
+            os: windows-latest
             target: "x86_64-pc-windows-msvc"
-          - os: ubuntu-latest
+          - platform: linux
+            os: ubuntu-latest
             target: "x86_64-unknown-linux-gnu"
-          - os: macos-latest
+          - platform: mac_x64
+            os: macos-latest
             target: "x86_64-apple-darwin"
-          - os: macos-latest
+          - platform: mac_arm
+            os: macos-latest
             target: "aarch64-apple-darwin"
 
     runs-on: ${{ matrix.os }}
     steps:
       - run: |
+          echo "${{ matrix.platform }}"
           echo "${{ matrix.os }}"
           echo "${{ matrix.version }}"
           echo "${{ matrix.target }}"
