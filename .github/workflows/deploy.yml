@@ -43,7 +43,9 @@ jobs:
           pip install "maturin>=1.1,<2.0" build
       # TODO: update Cargo.toml with version from tag
       - name: Build package
-        run: python -m build --config-setting build-args=--target=${{ matrix.target }}
+        run: |
+          rustup target add ${{ matrix.target }} 
+          python -m build --config-setting build-args=--target=${{ matrix.target }}
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -53,6 +55,7 @@ jobs:
   publish:
     name: upload release to PyPI
     runs-on: ubuntu-latest
+    needs: build
     environment: production
     permissions:
       id-token: write
