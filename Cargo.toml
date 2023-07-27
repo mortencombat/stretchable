@@ -13,3 +13,5 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.16.5", features = ["extension-module"] }
 dict_derive = "0.4.0"
 stretch = "0.3.2"
+target = "2.0.0"
+asd = "0.1.0"
