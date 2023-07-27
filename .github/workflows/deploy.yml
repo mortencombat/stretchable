@@ -69,6 +69,6 @@ jobs:
         shell: bash
         run: |
           mkdir dist
-          mv temp/*/* dist
+          mv -f temp/*/* dist
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
