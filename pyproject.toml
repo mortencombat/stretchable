@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin==1.1.0"]
+requires = ["maturin>=1.1,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -18,9 +18,11 @@ classifiers = [
 
 [tool.maturin]
 python-source = "src"
+module-name = "stretchable.stretch"
 
 [project.optional-dependencies]
 build = [
-    "maturin==1.1.0",
+    "maturin>=1.1,<2.0",
+    "build",
     "twine",
 ]
