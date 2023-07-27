@@ -212,7 +212,6 @@ dependencies = [
 name = "stretchable"
 version = "0.3.2"
 dependencies = [
- "asd",
  "dict_derive",
  "pyo3",
  "stretch",
