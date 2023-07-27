@@ -535,7 +535,7 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
 
 // for pyo3-pack, name must match module.
 #[pymodule]
-fn stretchable(_py: Python, m: &PyModule) -> PyResult<()> {
+fn stretch(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pymodule!(_bindings))?;
     Ok(())
 }

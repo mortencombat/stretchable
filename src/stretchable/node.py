@@ -1,8 +1,7 @@
 import math
 from typing import Callable, List, Optional
 
-from . import _bindings
-from .stretch import Stretch
+from . import Stretch, _bindings
 from .layout import Layout
 from .style import _NAN, Size, Style
 
