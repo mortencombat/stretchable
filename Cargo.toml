@@ -1,0 +1,15 @@
+[package]
+name = "stretchable"
+version = "0.3.1"
+edition = "2021"
+authors = ["Kenneth Trelborg Vestergaard"]
+description = "Python bindings for Stretch (high performance flexbox implementation)"
+
+[lib]
+name = "stretchable"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.16.5", features = ["extension-module"] }
+dict_derive = "0.4.0"
+stretch = "0.3.2"
