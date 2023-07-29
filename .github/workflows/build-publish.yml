@@ -45,16 +45,17 @@ jobs:
             targets: i686-unknown-linux-gnu,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
           - os: ubuntu-latest
             targets: i686-unknown-linux-musl,x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
-            compat: musllinux_1_2
+            # compat: musllinux_1_2
 
     runs-on: ${{ matrix.platform.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.targets }}
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Install dependencies
