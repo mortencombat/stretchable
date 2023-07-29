@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [prepare, build]
     if: needs.prepare.outputs.publish == 'true'
-    environment: production
+    environment: release
     permissions:
       id-token: write
     steps:
