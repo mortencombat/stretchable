@@ -14,7 +14,7 @@ Helpful resources to getting started with CSS Flexbox include:
 
 # Usage
 
-See [demos]() for examples of basic usage. Keep in mind that the current version of Stretchable is early stage and the API can be expected to change (eg. improve).
+See [demos](https://github.com/mortencombat/stretchable/tree/main/demos) for examples of basic usage. Keep in mind that the current version of Stretchable is early stage and the API can be expected to change (eg. improve).
 
 # Contributing
 
