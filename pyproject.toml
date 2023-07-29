@@ -5,6 +5,7 @@ build-backend = "maturin"
 [project]
 name = "stretchable"
 requires-python = ">=3.7"
+keywords = ["flexbox", "stretch", "css", "layout"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -26,3 +27,7 @@ build = [
     "build",
     "twine",
 ]
+
+[project.urls]
+homepage = "https://github.com/mortencombat/stretchable"
+repository = "https://github.com/mortencombat/stretchable"
