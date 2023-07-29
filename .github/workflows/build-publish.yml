@@ -84,7 +84,7 @@ jobs:
           maturin pep517 write-sdist --sdist-directory dist/
           foreach ($target in "${{ matrix.platform.targets }}".Split(" ")) {
             rustup target add $target
-            maturin pep517 build-wheel --release --compatibility $compat --target $target --out dist/
+            maturin pep517 build-wheel --compatibility $compat --target $target --out dist/
             # python -m build --config-setting build-args="'--target $target$compat'"
           }
         shell: pwsh
