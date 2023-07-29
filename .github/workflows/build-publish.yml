@@ -32,7 +32,7 @@ jobs:
           echo "publish=$pub" >> "$GITHUB_OUTPUT"
 
   build:
-    name: build packages
+    name: Build packages
     needs: prepare
     strategy:
       matrix:
@@ -77,13 +77,13 @@ jobs:
         run: |
           # Split targets and build for each
           if ("${{ matrix.platform.compat }}") {
-            $compat = " --compatibility=${{ matrix.platform.compat }}"
+            $compat = " --compatibility ${{ matrix.platform.compat }}"
           } else {
             $compat = ""
           }
           foreach ($target in "${{ matrix.platform.targets }}".Split(" ")) {
             rustup target add $target
-            python -m build --config-setting build-args="'--target=$target$compat'"
+            python -m build --config-setting build-args="'--target $target$compat'"
           }
         shell: pwsh
       - name: Upload build artifacts
@@ -93,7 +93,7 @@ jobs:
           path: dist/
 
   publish:
-    name: upload release to PyPI
+    name: Upload release to PyPI
     runs-on: ubuntu-latest
     needs: [prepare, build]
     if: needs.prepare.outputs.publish == 'true'
