@@ -37,7 +37,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-        target: [x86, x64_64, aarch64]
+        target: [x86, x86_64, aarch64]
         exclude:
           - os: macos-latest
             target: x86
