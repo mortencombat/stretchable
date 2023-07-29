@@ -1,9 +1,7 @@
 from enum import IntEnum
 from typing import Generic, Optional, TypeVar
 
-from . import _bindings
-
-# from multiprocessing.sharedctypes import Value
+from .stretch import _bindings
 
 # ========================================================================= #
 # STYLE - ENUMS                                                             #
