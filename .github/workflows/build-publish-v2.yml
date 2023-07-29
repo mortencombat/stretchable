@@ -44,7 +44,7 @@ jobs:
           - target: x86_64
             arch: x64
           - target: aarch64
-            arch: arm64
+            arch: x64
         exclude:
           - os: ubuntu-latest
             target: i686
@@ -57,7 +57,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11.4
+          python-version: 3.11
           architecture: ${{ matrix.arch }}
       - name: Install dependencies
         run: |
