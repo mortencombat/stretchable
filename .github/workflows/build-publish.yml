@@ -36,19 +36,15 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-        target: [i686, x86_64, aarch64]
+        target: [x86_64, aarch64]
         include:
-          - target: i686
+          - os: windows-latest
+            target: i686
             arch: x86
           - target: x86_64
             arch: x64
           - target: aarch64
             arch: x64
-        exclude:
-          - os: ubuntu-latest
-            target: i686
-          - os: macos-latest
-            target: i686
 
     runs-on: ${{ matrix.os }}
     steps:
