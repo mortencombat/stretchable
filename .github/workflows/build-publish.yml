@@ -85,6 +85,7 @@ jobs:
             rustup target add $target
             python -m build --config-setting build-args='--target=$target$compat'
           }
+        shell: pwsh
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
