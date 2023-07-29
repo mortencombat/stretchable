@@ -38,20 +38,21 @@ jobs:
       matrix:
         platform:
           - os: windows-latest
-            targets: x86 x64
+            targets: i686-pc-windows-msvc,x86_64-pc-windows-msvc
           - os: macos-latest
-            targets: x86_64-apple-darwin aarch64-apple-darwin
+            targets: x86_64-apple-darwin,aarch64-apple-darwin
           - os: ubuntu-latest
-            targets: x86_64 i686 aarch64 armv7 s90x ppc64le ppc64
-            compat: auto
+            targets: i686-unknown-linux-gnu,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
           - os: ubuntu-latest
-            targets: x86_64-unknown-linux-musl i686-unknown-linux-musl aarch64-unknown-linux-musl armv7-unknown-linux-musleabihf
+            targets: i686-unknown-linux-musl,x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
             compat: musllinux_1_2
 
     runs-on: ${{ matrix.platform.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.targets }}
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
@@ -77,14 +78,14 @@ jobs:
       - name: Build packages
         run: |
           if ("${{ matrix.platform.compat }}") {
-            $compat = "${{ matrix.platform.compat }}"
+            $compat = "--compatibility ${{ matrix.platform.compat }}"
           } else {
-            $compat = "off"
+            $compat = ""
           }
           maturin pep517 write-sdist --sdist-directory dist/
-          foreach ($target in "${{ matrix.platform.targets }}".Split(" ")) {
-            rustup target add $target
-            maturin pep517 build-wheel --compatibility $compat --target $target --out dist/
+          foreach ($target in "${{ matrix.platform.targets }}".Split(",")) {
+            # rustup target add $target
+            maturin pep517 build-wheel $compat --target $target --out dist/
             # python -m build --config-setting build-args="'--target $target$compat'"
           }
         shell: pwsh
