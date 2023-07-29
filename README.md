@@ -10,18 +10,13 @@ The project is based on the translation of the bindings from Swift to Python, fr
 
 Helpful resources to getting started with CSS Flexbox include:
 
+- [A Complete Guide to Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
 - [Flexbox Froggy](https://flexboxfroggy.com/)
 - [Yoga Playground](https://yogalayout.com/playground)
 
 # Build and Test
 
-TODO: Explain how to build and test the package/code.
-
-To build the package distribution, use `python -m build`.
-
-To upload the package distribution, use `twine upload dist/* --repository stretchable`
-
-NOTE: All of this will be setup in GitHub Actions when the project is added to Github, build, test and uploading of package will be done automatically.
+Build and publish is handled automatically using Github Actions.
 
 # Contribute
 
