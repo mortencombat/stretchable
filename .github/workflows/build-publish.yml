@@ -1,9 +1,8 @@
 name: Build and Publish Python Package
 
 on:
-  workflow_dispatch
-  # release:
-  #   types: [published]
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -36,28 +35,29 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        platform:
-          - os: windows-latest
-            targets: i686-pc-windows-msvc,x86_64-pc-windows-msvc
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        target: [i686, x86_64, aarch64]
+        include:
+          - target: i686
+            arch: x86
+          - target: x86_64
+            arch: x64
+          - target: aarch64
+            arch: x64
+        exclude:
+          - os: ubuntu-latest
+            target: i686
           - os: macos-latest
-            targets: x86_64-apple-darwin,aarch64-apple-darwin
-          - os: ubuntu-latest
-            targets: i686-unknown-linux-gnu,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
-          - os: ubuntu-latest
-            targets: i686-unknown-linux-musl,x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
-            # compat: musllinux_1_2
+            target: i686
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform.targets }}
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: 3.11
+          architecture: ${{ matrix.arch }}
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -76,20 +76,21 @@ jobs:
           }
           $cargo | Out-File -Force -Encoding "UTF8" -FilePath "Cargo.toml"
         shell: pwsh
-      - name: Build packages
-        run: |
-          if ("${{ matrix.platform.compat }}") {
-            $compat = "--compatibility ${{ matrix.platform.compat }}"
-          } else {
-            $compat = ""
-          }
-          maturin pep517 write-sdist --sdist-directory dist/
-          foreach ($target in "${{ matrix.platform.targets }}".Split(",")) {
-            # rustup target add $target
-            maturin pep517 build-wheel $compat --target $target --out dist/
-            # python -m build --config-setting build-args="'--target $target$compat'"
-          }
-        shell: pwsh
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          maturin-version: v1.1.0
+          manylinux: auto
+          args: --release --out dist -m Cargo.toml
+      - name: Build wheels (musllinux)
+        uses: PyO3/maturin-action@v1
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          target: ${{ matrix.target }}-unknown-linux-musl
+          maturin-version: v1.1.0
+          manylinux: musllinux_1_2
+          args: --release --out dist -m Cargo.toml
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
