@@ -40,7 +40,7 @@ jobs:
           - os: windows-latest
             targets: x86 x64
           - os: macos-latest
-            targets: x86_64 aarch64
+            targets: x86_64-apple-darwin aarch64-apple-darwin
           - os: ubuntu-latest
             targets: x86_64 i686 aarch64 armv7 s90x ppc64le ppc64
             compat: auto
@@ -83,7 +83,7 @@ jobs:
           }
           foreach ($target in "${{ matrix.platform.targets }}".Split(" ")) {
             rustup target add $target
-            python -m build --config-setting build-args='--target=$target$compat'
+            python -m build --config-setting build-args="'--target=$target$compat'"
           }
         shell: pwsh
       - name: Upload build artifacts
