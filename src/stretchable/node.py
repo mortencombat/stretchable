@@ -1,7 +1,6 @@
-import math
 from collections.abc import Iterable
 from enum import StrEnum, auto
-from typing import Callable, List, Self, SupportsIndex, Tuple
+from typing import Callable, List, Self, SupportsIndex
 
 from attrs import define
 
@@ -41,30 +40,6 @@ def reset():
     Stretch.reset()
 
 
-@define
-class Layout:
-    x: float
-    y: float
-    width: float
-    height: float
-    children: list[Self]
-
-    @staticmethod
-    def from_float_list(floats: List[float], offset: int = 0) -> Tuple[Self, int]:
-        next_offset = offset + 5
-        x, y, width, height, child_count = floats[offset:next_offset]
-
-        children: List[Box] = []
-        for _ in range(int(child_count)):
-            (layout, next_offset) = Layout.from_float_list(floats, next_offset)
-            children.append(layout)
-
-        return (
-            Layout(x, y, width, height, children),
-            next_offset,
-        )
-
-
 class BoxType(StrEnum):
     CONTENT = auto()
     PADDING = auto()
@@ -78,10 +53,6 @@ class Box:
     y: float
     width: float
     height: float
-
-    @staticmethod
-    def from_layout(layout: Layout) -> Self:
-        return Box(layout.x, layout.y, layout.width, layout.height)
 
 
 class Children(list):
@@ -186,10 +157,19 @@ class Node:
             raise NotImplementedError
         return self._box
 
-    def _set_layout(self, layout: Layout):
-        self._box = Box.from_layout(layout)
-        for n, l in zip(self.children, layout.children):
-            n._set_layout(l)
+    def _set_layout(self, floats: List[float], offset: int = 0) -> int:
+        next_offset = offset + 5
+        x, y, width, height, child_count = floats[offset:next_offset]
+        self._box = Box(x, y, width, height)
+
+        if child_count != len(self.children):
+            raise Exception(
+                f"Number of children in computed layout ({child_count}) does not match number of child nodes ({len(self.children)})"
+            )
+        for child in self.children:
+            next_offset = child._set_layout(floats, next_offset)
+
+        return next_offset
 
     def compute_layout(self, size: Size = None):
         """
@@ -206,13 +186,12 @@ class Node:
             outer and inner box
         """
 
-        float_layout = _bindings.stretch_node_compute_layout(
+        layout = _bindings.stretch_node_compute_layout(
             Stretch.get_ptr(),
             self._ptr,
             size.width.value if size and size.width.unit == Dimension.POINTS else NAN,
             size.height.value if size and size.height.unit == Dimension.POINTS else NAN,
         )
-        layout, _ = Layout.from_float_list(float_layout)
         self._set_layout(layout)
 
     def __str__(self):
