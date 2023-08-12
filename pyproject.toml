@@ -16,6 +16,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "attrs>=23.1.0,<24.0",
+    ]
 
 [tool.maturin]
 python-source = "src"

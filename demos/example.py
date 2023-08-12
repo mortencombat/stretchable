@@ -1,25 +1,25 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from stretchable import Node, Rect, Size, Style, pct, pt, reset
+from stretchable import Node, reset
+from stretchable.style import Rect, Size, pct
 
 reset()
 
 
-def print_layout(node, level: int = 0):
-    print(
-        " " * level
-        + f"x={node.x:.1f}, y={node.y:.1f}, width={node.width:.1f}, height={node.height:.1f}"
-    )
+def print_layout(node: Node, level: int = 0):
+    box = node.get_box()
+    print(" " * level + str(box))
     for child in node.children:
         print_layout(child, level + 2)
 
 
 def plot_node(node, ax):
     # TODO: plot node
+    box = node.get_box()
     ax.add_patch(
         Rectangle(
-            (node.x, node.y), node.width, node.height, edgecolor="k", facecolor="none"
+            (box.x, box.y), box.width, box.height, edgecolor="k", facecolor="none"
         )
     )
 
@@ -27,24 +27,18 @@ def plot_node(node, ax):
         plot_node(child, ax)
 
 
-p, m, b = 50 * pt, 20 * pt, 15 * pt
+m, b, p = 20, 2.5 * pct, 12.15
 
-root = Node(
-    style=Style(
-        padding=Rect(start=0 * pt, end=0 * pt, top=50 * pt, bottom=0 * pt),
+root = Node().add(
+    Node(
+        size=Size(300, 200),
+        padding=Rect(p, p, p, p),
+        margin=Rect(m, m, m, m),
+        border=Rect(b, b, b, b),
+    ).add(
+        Node(size=Size(100 * pct, 100 * pct)),
     ),
-    children=[
-        Node(
-            style=Style(
-                size=Size(200 * pt, 200 * pt),
-                padding=Rect(p, p, p, p),
-                margin=Rect(m, m, m, m),
-                border=Rect(b, b, b, b),
-            ),
-        )
-    ],
 )
-
 
 w, h = 500, 500
 layout = root.compute_layout(Size(w, h))
@@ -60,3 +54,5 @@ ax.invert_yaxis()
 ax.axis("equal")
 
 plt.savefig("demos/example.jpg")
+
+# %%

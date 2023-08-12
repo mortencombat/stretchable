@@ -1,11 +1,10 @@
 from enum import IntEnum
-from typing import Generic, Optional, TypeVar
+from math import isnan
+from typing import Generic, Self, TypeVar
+
+from attrs import define, field
 
 from .stretch import _bindings
-
-# ========================================================================= #
-# STYLE - ENUMS                                                             #
-# ========================================================================= #
 
 
 class AlignItems(IntEnum):
@@ -85,31 +84,16 @@ class Dimension(IntEnum):
     PERCENT: int = 3
 
 
-# ========================================================================= #
-# STYLE - DATA                                                              #
-# ========================================================================= #
-
-
 T = TypeVar("T")
 
 
+@define(frozen=True)
 class DimensionValue(Generic[T]):
-    def __init__(self, unit: Dimension, value: T = 0):
-        self.unit = unit
-        self.value = value
+    unit: Dimension = Dimension.UNDEFINED
+    value: float = float("nan")
 
-    @property
-    def stretch_value(self):
-        if self.unit == Dimension.UNDEFINED:
-            return dict(dim=0, value=self.value)
-        elif self.unit == Dimension.AUTO:
-            return dict(dim=1, value=self.value)
-        elif self.unit == Dimension.POINTS:
-            return dict(dim=2, value=self.value)
-        elif self.unit == Dimension.PERCENT:
-            return dict(dim=3, value=self.value)
-        else:
-            raise RuntimeError("This should never happen")
+    def to_stretch(self) -> dict:
+        return dict(dim=self.unit.value, value=self.value)
 
     def __mul__(self, other):
         if self.unit in (Dimension.AUTO, Dimension.UNDEFINED):
@@ -122,216 +106,124 @@ class DimensionValue(Generic[T]):
 
     def __str__(self):
         if self.unit == Dimension.AUTO:
-            return "(auto)"
+            return "<auto>"
         elif self.unit == Dimension.UNDEFINED:
-            return "(undefined)"
+            return "<undef>"
         elif self.unit == Dimension.POINTS:
-            return f"{self.value:.2f} pt"
+            return f"{self.value:.2f} pts"
         elif self.unit == Dimension.PERCENT:
             return f"{self.value*100:.2f} %"
-        # return "(value: unit={}, value={})".format(self.unit, self.value)
+
+    @staticmethod
+    def from_value(value: object = None) -> Self:
+        if not value:
+            return UNDEF
+        if isinstance(value, (int, float)):
+            return DimensionValue(Dimension.POINTS, value)
+        elif isinstance(value, DimensionValue):
+            return value
+        elif isnan(value):
+            return UNDEF
+
+        raise ValueError(f"{value} not recognized as a supported value")
 
 
-pt = DimensionValue(Dimension.POINTS, 1)
 pct = DimensionValue(Dimension.PERCENT, 0.01)
-auto = DimensionValue(Dimension.AUTO)
-undef = DimensionValue(Dimension.UNDEFINED)
-
-DimensionValue.AUTO = auto
-DimensionValue.UNDEFINED = undef
+AUTO = DimensionValue(Dimension.AUTO)
+UNDEF = DimensionValue()
+NAN = float("nan")
 
 
-class Size(Generic[T]):
-    def __init__(self, width: T, height: T):
-        # self.width: T = Dimension.new(width) if width is not None else _NAN
-        # self.height: T = Dimension.new(height) if height is not None else _NAN
-        self.width: T = width if width is not None else _NAN
-        self.height: T = height if height is not None else _NAN
+@define(frozen=True)
+class Size:
+    width: DimensionValue = field(default=AUTO, converter=DimensionValue.from_value)
+    height: DimensionValue = field(default=AUTO, converter=DimensionValue.from_value)
 
-    def __str__(self):
-        return "(size: width={}, height={})".format(self.width, self.height)
-
-
-class Rect(Generic[T]):
-    def __init__(
-        self,
-        start: DimensionValue[T],
-        end: DimensionValue[T],
-        top: DimensionValue[T],
-        bottom: DimensionValue[T],
-    ):
-        self.start: DimensionValue[T] = start
-        self.end: DimensionValue[T] = end
-        self.top: DimensionValue[T] = top
-        self.bottom: DimensionValue[T] = bottom
-
-    def __str__(self):
-        return "(rect: start={}, end={}, top={}, bottom={})".format(
-            self.start, self.end, self.top, self.bottom
+    def to_stretch(self) -> dict[str, float]:
+        return dict(
+            width=self.width.to_stretch(),
+            height=self.height.to_stretch(),
         )
 
 
-# ========================================================================= #
-# STYLE                                                                     #
-# ========================================================================= #
+@define(frozen=True)
+class Rect:
+    start: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+    end: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+    top: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+    bottom: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+
+    def to_stretch(self) -> dict[str, float]:
+        return dict(
+            start=self.start.to_stretch(),
+            end=self.end.to_stretch(),
+            top=self.top.to_stretch(),
+            bottom=self.bottom.to_stretch(),
+        )
 
 
-_NAN = float("nan")
-
-
+@define(frozen=True)
 class Style:
-    def __init__(
-        self,
-        display: Display = Display.FLEX,
-        position_type: PositionType = PositionType.RELATIVE,
-        direction: Direction = Direction.INHERIT,
-        flex_direction: FlexDirection = FlexDirection.ROW,
-        flex_wrap: FlexWrap = FlexWrap.NO_WRAP,
-        overflow: Overflow = Overflow.HIDDEN,
-        align_items: AlignItems = AlignItems.STRETCH,
-        align_self: AlignSelf = AlignSelf.AUTO,
-        align_content: AlignContent = AlignContent.FLEX_START,
-        justify_content: JustifyContent = JustifyContent.FLEX_START,
-        position: Rect[DimensionValue] = Rect(
-            start=DimensionValue.UNDEFINED,
-            end=DimensionValue.UNDEFINED,
-            top=DimensionValue.UNDEFINED,
-            bottom=DimensionValue.UNDEFINED,
-        ),
-        margin: Rect[DimensionValue] = Rect(
-            start=DimensionValue.UNDEFINED,
-            end=DimensionValue.UNDEFINED,
-            top=DimensionValue.UNDEFINED,
-            bottom=DimensionValue.UNDEFINED,
-        ),
-        padding: Rect[DimensionValue] = Rect(
-            start=DimensionValue.UNDEFINED,
-            end=DimensionValue.UNDEFINED,
-            top=DimensionValue.UNDEFINED,
-            bottom=DimensionValue.UNDEFINED,
-        ),
-        border: Rect[DimensionValue] = Rect(
-            start=DimensionValue.UNDEFINED,
-            end=DimensionValue.UNDEFINED,
-            top=DimensionValue.UNDEFINED,
-            bottom=DimensionValue.UNDEFINED,
-        ),
-        flex_grow: float = 0.0,
-        flex_shrink: float = 1.0,
-        flex_basis: DimensionValue = DimensionValue.AUTO,
-        size: Size[DimensionValue] = Size(
-            width=DimensionValue.AUTO, height=DimensionValue.AUTO
-        ),
-        min_size: Size[DimensionValue] = Size(
-            width=DimensionValue.AUTO, height=DimensionValue.AUTO
-        ),
-        max_size: Size[DimensionValue] = Size(
-            width=DimensionValue.AUTO, height=DimensionValue.AUTO
-        ),
-        aspect_ratio: Optional[float] = None,
-    ):
-        self.display: Display = display
-        self.positionType: PositionType = position_type
-        self.direction: Direction = direction
-        self.flexDirection: FlexDirection = flex_direction
-        self.flexWrap: FlexWrap = flex_wrap
-        self.overflow: Overflow = overflow
-        self.alignItems: AlignItems = align_items
-        self.alignSelf: AlignSelf = align_self
-        self.alignContent: AlignContent = align_content
-        self.justifyContent: JustifyContent = justify_content
-        self.position: Rect = position
-        self.margin: Rect = margin
-        self.padding: Rect = padding
-        self.border: Rect = border
-        self.flexGrow: float = flex_grow
-        self.flexShrink: float = flex_shrink
-        self.flexBasis: DimensionValue = flex_basis
-        self.size: Size = size
-        self.minSize: Size = min_size
-        self.maxSize: Size = max_size
-        self.aspectRatio: Optional[float] = aspect_ratio
+    display: Display = Display.FLEX
+    position_type: PositionType = PositionType.RELATIVE
+    direction: Direction = Direction.INHERIT
+    flex_direction: FlexDirection = FlexDirection.ROW
+    flex_wrap: FlexWrap = FlexWrap.NO_WRAP
+    overflow: Overflow = Overflow.HIDDEN
+    align_items: AlignItems = AlignItems.STRETCH
+    align_self: AlignSelf = AlignSelf.AUTO
+    align_content: AlignContent = AlignContent.FLEX_START
+    justify_content: JustifyContent = JustifyContent.FLEX_START
+    position: Rect = field(factory=Rect)
+    margin: Rect = field(factory=Rect)
+    padding: Rect = field(factory=Rect)
+    border: Rect = field(factory=Rect)
+    flex_grow: float = 0.0
+    flex_shrink: float = 1.0
+    flex_basis: DimensionValue = AUTO
+    size: Size = field(factory=Size)
+    min_size: Size = field(factory=Size)
+    max_size: Size = field(factory=Size)
+    aspect_ratio: float = None
 
-        self._ptr: int = _bindings.stretch_style_create(
-            display=display.value,
-            position_type=position_type.value,
-            direction=direction.value,
-            flex_direction=flex_direction.value,
-            flex_wrap=flex_wrap.value,
-            overflow=overflow.value,
-            align_items=align_items.value,
-            align_self=align_self.value,
-            align_content=align_content.value,
-            justify_content=justify_content.value,
-            position=dict(
-                start=position.start.stretch_value,
-                end=position.end.stretch_value,
-                top=position.top.stretch_value,
-                bottom=position.bottom.stretch_value,
-            ),
-            margin=dict(
-                start=margin.start.stretch_value,
-                end=margin.end.stretch_value,
-                top=margin.top.stretch_value,
-                bottom=margin.bottom.stretch_value,
-            ),
-            padding=dict(
-                start=padding.start.stretch_value,
-                end=padding.end.stretch_value,
-                top=padding.top.stretch_value,
-                bottom=padding.bottom.stretch_value,
-            ),
-            border=dict(
-                start=border.start.stretch_value,
-                end=border.end.stretch_value,
-                top=border.top.stretch_value,
-                bottom=border.bottom.stretch_value,
-            ),
-            flex_grow=flex_grow,
-            flex_shrink=flex_shrink,
-            flex_basis=flex_basis.stretch_value,
-            size=dict(width=size.width.stretch_value, height=size.height.stretch_value),
-            min_size=dict(
-                width=min_size.width.stretch_value, height=min_size.height.stretch_value
-            ),
-            max_size=dict(
-                width=max_size.width.stretch_value, height=max_size.height.stretch_value
-            ),
-            aspect_ratio=aspect_ratio if aspect_ratio is not None else _NAN,
-        )
+    __ptr: int = field(init=False, default=None)
+
+    def __attrs_post_init__(self):
+        object.__setattr__(self, "_Style__ptr", None)
+
+    @property
+    def _ptr(self) -> int:
+        if not self.__ptr:
+            object.__setattr__(
+                self,
+                "_Style__ptr",
+                _bindings.stretch_style_create(
+                    display=self.display.value,
+                    position_type=self.position_type.value,
+                    direction=self.direction.value,
+                    flex_direction=self.flex_direction.value,
+                    flex_wrap=self.flex_wrap.value,
+                    overflow=self.overflow.value,
+                    align_items=self.align_items.value,
+                    align_self=self.align_self.value,
+                    align_content=self.align_content.value,
+                    justify_content=self.justify_content.value,
+                    position=self.position.to_stretch(),
+                    margin=self.margin.to_stretch(),
+                    padding=self.padding.to_stretch(),
+                    border=self.border.to_stretch(),
+                    flex_grow=self.flex_grow,
+                    flex_shrink=self.flex_shrink,
+                    flex_basis=self.flex_basis.to_stretch(),
+                    size=self.size.to_stretch(),
+                    min_size=self.min_size.to_stretch(),
+                    max_size=self.max_size.to_stretch(),
+                    aspect_ratio=self.aspect_ratio or NAN,
+                ),
+            )
+        return self.__ptr
 
     def __del__(self):
-        _bindings.stretch_style_free(self._ptr)
-
-    def __str__(self):
-        return "\n".join(
-            [
-                "(style:" "display={}".format(self.display),
-                "positionType={}".format(self.positionType),
-                "direction={}".format(self.direction),
-                "flexDirection={}".format(self.flexDirection),
-                "flexWrap={}".format(self.flexWrap),
-                "overflow={}".format(self.overflow),
-                "alignItems={}".format(self.alignItems),
-                "alignSelf={}".format(self.alignSelf),
-                "alignContent={}".format(self.alignContent),
-                "justifyContent={}".format(self.justifyContent),
-                "position={}".format(self.position),
-                "margin={}".format(self.margin),
-                "padding={}".format(self.padding),
-                "border={}".format(self.border),
-                "flexGrow={}".format(self.flexGrow),
-                "flexShrink={}".format(self.flexShrink),
-                "flexBasis={}".format(self.flexBasis),
-                "size={}".format(self.size),
-                "minSize={}".format(self.minSize),
-                "maxSize={}".format(self.maxSize),
-                "aspectRatio={}".format(self.aspectRatio),
-                ")",
-            ]
-        )
-
-
-# ========================================================================= #
-# END                                                                       #
-# ========================================================================= #
+        if self.__ptr:
+            _bindings.stretch_style_free(self.__ptr)
+            object.__setattr__(self, "_Style__ptr", None)
