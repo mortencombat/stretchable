@@ -87,6 +87,10 @@ class Dimension(IntEnum):
 T = TypeVar("T")
 
 
+class ValueConversionError(Exception):
+    pass
+
+
 @define(frozen=True)
 class DimensionValue(Generic[T]):
     unit: Dimension = Dimension.UNDEFINED
@@ -113,6 +117,18 @@ class DimensionValue(Generic[T]):
             return f"{self.value:.2f} pts"
         elif self.unit == Dimension.PERCENT:
             return f"{self.value*100:.2f} %"
+
+    def to_float(self, container: float = None) -> float:
+        if self.unit == Dimension.POINTS:
+            return self.value
+        elif self.unit == Dimension.PERCENT:
+            if not container:
+                raise ValueConversionError(
+                    "Container dimension is required to convert percentage to absolute value"
+                )
+            return self.value * container
+        else:
+            return 0
 
     @staticmethod
     def from_value(value: object = None) -> Self:
@@ -160,6 +176,9 @@ class Rect:
             top=self.top.to_stretch(),
             bottom=self.bottom.to_stretch(),
         )
+
+    def __str__(self) -> str:
+        return f"Rect(start={self.start}, end={self.end}, top={self.top}, bottom={self.bottom})"
 
 
 @define(frozen=True)

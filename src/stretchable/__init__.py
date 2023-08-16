@@ -5,4 +5,4 @@
 # https://github.com/vislyhq/stretch
 
 # import bindings etc.
-from .node import Node, reset
+from .node import BoxType, Node, reset
