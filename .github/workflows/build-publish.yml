@@ -66,7 +66,7 @@ jobs:
           $cargo = Get-Content "Cargo.toml"
           for ($i = 0; $i -lt $cargo.Length; $i++) { 
               if ($cargo[$i] -match '^version = ".+"') {
-                  $cargo[$i] = "version = ""$VERSION"""
+                  $cargo[$i] = "version = ""$env:VERSION"""
                   break
               }
           }
