@@ -64,11 +64,9 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           $cargo = Get-Content "Cargo.toml"
-          Write-Host "Version: $env:VERSION"
           for ($i = 0; $i -lt $cargo.Length; $i++) { 
               if ($cargo[$i] -match '^version = ".+"') {
                   $cargo[$i] = "version = ""$env:VERSION"""
-                  Write-Host "Set version to $env:VERSION in Cargo.toml"
                   break
               }
           }
