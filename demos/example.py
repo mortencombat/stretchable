@@ -42,23 +42,46 @@ def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
                 facecolor="none",
             )
         )
+        if t == BoxType.BORDER:
+            ax.annotate(f"Node {index}", (box.x, box.y), color=f"C{index}")
 
     for child in node.children:
         plot_node(child, ax, index=index + 1, flip_y=flip_y)
 
 
-m, b, p = 10 * pct, 2.5, 12
+"""
+NOTE:   There is an issue with rounding. For example, float borders and the calculated boxes will not line up.
 
-root = Node().add(
+"""
+
+m, b, p = 30, 3, 10 * pct
+
+root = Node(
+    border=Rect(b, b, b, b),
+).add(
     Node(
         size=Size(300, 200),
-        padding=Rect(p, p, p, p),
         margin=Rect(m, m, m, m),
         border=Rect(b, b, b, b),
+        padding=Rect(p, p, p, p),
     ).add(
-        Node(size=Size(100 * pct, 100 * pct)),
+        Node(
+            size=Size(100 * pct, 100 * pct),
+            border=Rect(b, b, b, b),
+            padding=Rect(0.75 * p, 0.75 * p, 0.75 * p, 0.75 * p),
+        ).add(
+            Node(
+                size=Size(100 * pct, 100 * pct),
+                border=Rect(b, b, b, b),
+                padding=Rect(0.5 * p, 0.5 * p, 0.5 * p, 0.5 * p),
+            )
+        ),
     ),
 )
+
+# Which of these supports percentages:
+#   Border, margin, padding ?
+#   Enforce requirement
 
 # THERE IS AN ISSUE WITH PERCENTAGES
 # HOW DOES CSS/STRETCH INTERPRET PERCENTAGES
@@ -71,14 +94,12 @@ print_layout(root, box_type=BoxType.MARGIN, relative=False)
 
 fig, ax = plt.subplots(figsize=(420 / 25.4, 297 / 25.4))
 
-# NEXT STEP:
-#   1) Plot all boxes for all nodes, to verify that everything lines up
-#   2) Test with flip_y
-
-plot_node(root, ax)
+flip_y = False
+plot_node(root, ax, flip_y=flip_y)
 ax.set_xlim(left=0, right=w)
 ax.set_ylim(top=h, bottom=0)
-ax.invert_yaxis()
+if not flip_y:
+    ax.invert_yaxis()
 ax.axis("equal")
 
 plt.savefig("demos/example.jpg")

@@ -6,6 +6,8 @@ from attrs import define, field
 
 from .stretch import _bindings
 
+SCALING_FACTOR: int = 1000
+
 
 class AlignItems(IntEnum):
     FLEX_START: int = 0
@@ -97,7 +99,12 @@ class DimensionValue(Generic[T]):
     value: float = float("nan")
 
     def to_stretch(self) -> dict:
-        return dict(dim=self.unit.value, value=self.value)
+        return dict(
+            dim=self.unit.value,
+            value=(self.value * SCALING_FACTOR)
+            if self.unit == Dimension.POINTS
+            else self.value,
+        )
 
     def __mul__(self, other):
         if self.unit in (Dimension.AUTO, Dimension.UNDEFINED):

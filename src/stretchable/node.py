@@ -5,7 +5,7 @@ from typing import Callable, List, Self, SupportsIndex
 from attrs import define
 
 from .stretch import _bindings
-from .style import NAN, Dimension, Rect, Size, Style
+from .style import NAN, SCALING_FACTOR, Dimension, Rect, Size, Style
 
 
 class LayoutNotComputedError(Exception):
@@ -172,8 +172,8 @@ class Node:
             _w, _h = None, None
         start = rect.start.to_float(_w)
         end = rect.end.to_float(_w)
-        top = rect.top.to_float(_h)
-        bottom = rect.bottom.to_float(_h)
+        top = rect.top.to_float(_w)
+        bottom = rect.bottom.to_float(_w)
 
         return (
             x - factor * start,
@@ -223,7 +223,7 @@ class Node:
             elif box_type == BoxType.MARGIN:
                 actions = ((self.style.margin, 1),)
 
-            box_parent = self._parent.get_box(BoxType.CONTENT) if self._parent else None
+            box_parent = self._parent.get_box(BoxType.BORDER) if self._parent else None
             # print("BoxType:", box_type)
             for rect, factor in actions:
                 # print(f"  {factor=} {rect}")
@@ -251,7 +251,12 @@ class Node:
     def _set_layout(self, floats: List[float], offset: int = 0) -> int:
         next_offset = offset + 5
         x, y, width, height, child_count = floats[offset:next_offset]
-        self._box = Box(x, y, width, height)
+        self._box = Box(
+            x / SCALING_FACTOR,
+            y / SCALING_FACTOR,
+            width / SCALING_FACTOR,
+            height / SCALING_FACTOR,
+        )
 
         if child_count != len(self.children):
             raise Exception(
