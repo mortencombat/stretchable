@@ -1,3 +1,4 @@
+import math
 from collections.abc import Iterable
 from enum import StrEnum, auto
 from typing import Callable, List, Self, SupportsIndex
@@ -84,7 +85,7 @@ class Children(list):
     def __setitem__(self, __index: int, node: "Node") -> None:
         assert __index >= 0 and __index < len(self)
         _bindings.stretch_node_replace_child_at_index(
-            Stretch.get_ptr(), self._ptr, __index, node._ptr
+            Stretch.get_ptr(), self._parent._ptr, __index, node._ptr
         )
         super().__setitem__(__index, node)
 
@@ -103,7 +104,7 @@ class Node:
         self._ptr = _bindings.stretch_node_create(Stretch.get_ptr(), self.style._ptr)
         self._children = Children(self)
         self.add(*children)
-        self._measure = measure
+        self.measure = measure
         self._box = None
         self._parent = None
 
@@ -121,21 +122,51 @@ class Node:
 
     @style.setter
     def style(self, value: Style) -> None:
+        _bindings.stretch_node_set_style(Stretch.get_ptr(), self._ptr, value._ptr)
         self._style = value
-        # TODO: set node style
 
     @property
     def measure(self) -> MeasureFunc:
         return self._measure
 
+    @staticmethod
+    def _measure_callback(node: Self, width: float, height: float) -> dict[str, float]:
+        if not node:
+            return dict(width=None, height=None)
+        w, h = node.measure(
+            None if math.isnan(width) else width / SCALING_FACTOR,
+            None if math.isnan(height) else height / SCALING_FACTOR,
+        )
+        return dict(
+            width=w * SCALING_FACTOR if w else None,
+            height=h * SCALING_FACTOR if h else None,
+        )
+
     @measure.setter
     def measure(self, value: MeasureFunc) -> None:
-        assert callable(value)
+        if callable(value):
+            self._measure = value
+            _bindings.stretch_node_set_measure(
+                Stretch.get_ptr(), self._ptr, self, Node._measure_callback
+            )
+        else:
+            self._measure = None
+
+    def dispose(self) -> None:
+        """
+        This method disposes of references to the node.
+        Unless a measure function is defined, invoking this function is not necessary.
+
+        But if a measure function is set, the issue is that the required function call
+        (stretch_node_set_measure) includes a reference to the node instance itself.
+
+        This means that the node is never garbage collected (__del__ is not invoked)
+        and therefore 'stretch_node_free' is not invoked and the node is never deleted/
+        removed from stretch.
+        """
+
         _bindings.stretch_node_set_measure(
-            Stretch.get_ptr(),
-            self._ptr,
-            self,
-            lambda node, w, h: dict(**zip(("width", "height"), node.measure(w, h))),
+            Stretch.get_ptr(), self._ptr, None, Node._measure_callback
         )
 
     def __del__(self):
@@ -166,10 +197,7 @@ class Node:
         A positive factor expands, negative factor contracts.
         """
 
-        if container:
-            _w, _h = container.width, container.height
-        else:
-            _w, _h = None, None
+        _w = container.width if container else None
         start = rect.start.to_float(_w)
         end = rect.end.to_float(_w)
         top = rect.top.to_float(_w)
@@ -272,7 +300,7 @@ class Node:
         """Returns the root node."""
         return self._parent._root if self._parent else self
 
-    def compute_layout(self, size: Size = None):
+    def compute_layout(self, size: Size = None) -> Box:
         """
         Computes the layout of the node and any child nodes.
         After invoking this, the position of nodes can be retrieved from the
@@ -290,12 +318,17 @@ class Node:
         layout = _bindings.stretch_node_compute_layout(
             Stretch.get_ptr(),
             self._ptr,
-            size.width.value if size and size.width.unit == Dimension.POINTS else NAN,
-            size.height.value if size and size.height.unit == Dimension.POINTS else NAN,
+            size.width.value * SCALING_FACTOR
+            if size and size.width.unit == Dimension.POINTS
+            else NAN,
+            size.height.value * SCALING_FACTOR
+            if size and size.height.unit == Dimension.POINTS
+            else NAN,
         )
         self._set_layout(layout)
+        return self.get_box()
 
-    def __str__(self):
-        return "(node: _ptr={}, measure={}, children={})".format(
-            self._ptr, self._children, self._measure
-        )
+    # def __str__(self):
+    #     return "(node: _ptr={}, measure={}, children={})".format(
+    #         self._ptr, self._children, self._measure
+    #     )

@@ -6,3 +6,4 @@
 
 # import bindings etc.
 from .node import BoxType, Node, reset
+from .style import Rect, Size, Style

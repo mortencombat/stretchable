@@ -30,7 +30,9 @@ build = [
     "build",
     "twine",
 ]
+test = [
+    "pytest",
+    ]
 
 [project.urls]
-homepage = "https://github.com/mortencombat/stretchable"
-repository = "https://github.com/mortencombat/stretchable"
+Homepage = "https://github.com/mortencombat/stretchable"
