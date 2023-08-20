@@ -2,7 +2,7 @@ from enum import IntEnum
 from math import isnan
 from typing import Generic, Self, TypeVar
 
-from attrs import define, field
+from attrs import define, field, validators
 
 from .stretch import _bindings
 
@@ -155,12 +155,13 @@ pct = DimensionValue(Dimension.PERCENT, 0.01)
 AUTO = DimensionValue(Dimension.AUTO)
 UNDEF = DimensionValue()
 NAN = float("nan")
+Dim = DimensionValue | float | None
 
 
 @define(frozen=True)
 class Size:
-    width: DimensionValue = field(default=AUTO, converter=DimensionValue.from_value)
-    height: DimensionValue = field(default=AUTO, converter=DimensionValue.from_value)
+    width: Dim = field(default=AUTO, converter=DimensionValue.from_value)
+    height: Dim = field(default=AUTO, converter=DimensionValue.from_value)
 
     def to_stretch(self) -> dict[str, float]:
         return dict(
@@ -169,12 +170,50 @@ class Size:
         )
 
 
-@define(frozen=True)
+@define(frozen=True, init=False)
 class Rect:
-    start: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
-    end: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
     top: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+    end: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
     bottom: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+    start: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+
+    def __init__(
+        self,
+        *values: Dim,
+        top: Dim = None,
+        end: Dim = None,
+        bottom: Dim = None,
+        start: Dim = None,
+    ) -> None:
+        n = len(values)
+        if top or end or bottom or start:
+            if n > 0:
+                raise Exception("Use either positional or named values, not both")
+            self.__attrs_init__(top, end, bottom, start)
+        else:
+            if n == 0:
+                self.__attrs_init__()
+            elif n == 1:
+                self.__attrs_init__(values[0], values[0], values[0], values[0])
+            elif n == 2:
+                self.__attrs_init__(values[0], values[1], values[0], values[1])
+            elif n == 3:
+                self.__attrs_init__(values[0], values[1], values[2], values[1])
+            elif n == 4:
+                self.__attrs_init__(*values)
+            else:
+                raise Exception(f"Unsupported number of arguments ({n})")
+
+    @staticmethod
+    def from_value(value: object = None) -> Self:
+        if not value:
+            return Rect()
+        elif isinstance(value, Rect):
+            return value
+        elif isinstance(value, (int, float, DimensionValue)):
+            return Rect(value)
+        else:
+            raise TypeError("Unsupported value type")
 
     def to_stretch(self) -> dict[str, float]:
         return dict(
@@ -199,18 +238,35 @@ class Style:
     align_items: AlignItems = AlignItems.STRETCH
     align_self: AlignSelf = AlignSelf.AUTO
     align_content: AlignContent = AlignContent.FLEX_START
-    justify_content: JustifyContent = JustifyContent.FLEX_START
+    justify_content: JustifyContent = field(
+        default=JustifyContent.FLEX_START,
+        validator=[validators.instance_of(JustifyContent)],
+    )
     position: Rect = field(factory=Rect)
-    margin: Rect = field(factory=Rect)
-    padding: Rect = field(factory=Rect)
-    border: Rect = field(factory=Rect)
+    margin: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
+    padding: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
+    border: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
     flex_grow: float = 0.0
     flex_shrink: float = 1.0
-    flex_basis: DimensionValue = AUTO
+    flex_basis: Dim = field(default=AUTO, converter=DimensionValue.from_value)
     size: Size = field(factory=Size)
     min_size: Size = field(factory=Size)
     max_size: Size = field(factory=Size)
-    aspect_ratio: float = None
+    aspect_ratio: float = field(default=None)
+
+    @aspect_ratio.validator
+    def check_aspect_ratio(self, attr, value):
+        if not value:
+            return
+        elif not isinstance(value, (int, float)):
+            raise TypeError(f"{attr.name} must be int or float")
+        elif value <= 0:
+            raise ValueError(f"{attr.name} must be > 0")
+
+    # TODO:
+    #   add validators for remaining attributes
+    #   create methods to clone style with modified settings
+    #   add tests to check that changing styles after node instancing has desired effect
 
     _ptr: int = field(init=False, default=None)
 
@@ -278,7 +334,8 @@ class Style:
     #     return self.__ptr
 
     def __del__(self):
-        _bindings.stretch_style_free(self._ptr)
+        if self._ptr:
+            _bindings.stretch_style_free(self._ptr)
 
         # if self.__ptr:
         #     _bindings.stretch_style_free(self.__ptr)

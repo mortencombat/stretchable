@@ -41,7 +41,7 @@ def reset():
     Stretch.reset()
 
 
-class BoxType(StrEnum):
+class Box(StrEnum):
     CONTENT = auto()  # Innermost box, corresponding to inside of padding
     PADDING = auto()  # Outside of padding / inside of border
     BORDER = auto()  # Outside of border
@@ -49,7 +49,7 @@ class BoxType(StrEnum):
 
 
 @define
-class Box:
+class Layout:
     x: float
     y: float
     width: float
@@ -91,11 +91,12 @@ class Children(list):
 
 
 class Node:
-    __slots__ = ("_style", "_children", "_measure", "_ptr", "_box", "_parent")
+    __slots__ = ("_style", "_children", "_measure", "_ptr", "_layout", "_parent")
 
     def __init__(
         self, *children, style: Style = None, measure: MeasureFunc = None, **kwargs
     ):
+        self._ptr = None
         if not style:
             style = Style(**kwargs)
         elif kwargs:
@@ -105,7 +106,7 @@ class Node:
         self._children = Children(self)
         self.add(*children)
         self.measure = measure
-        self._box = None
+        self._layout = None
         self._parent = None
 
     def add(self, *children) -> Self:
@@ -170,13 +171,17 @@ class Node:
         )
 
     def __del__(self):
-        _bindings.stretch_node_free(Stretch.get_ptr(), self._ptr)
+        if self._ptr:
+            _bindings.stretch_node_free(Stretch.get_ptr(), self._ptr)
 
     @property
     def dirty(self) -> bool:
-        return _bindings.stretch_node_dirty(Stretch.get_ptr(), self._ptr)
+        return not self._layout or _bindings.stretch_node_dirty(
+            Stretch.get_ptr(), self._ptr
+        )
 
     def mark_dirty(self):
+        self._layout = None
         _bindings.stretch_node_mark_dirty(Stretch.get_ptr(), self._ptr)
 
     @staticmethod
@@ -186,7 +191,7 @@ class Node:
         width: float,
         height: float,
         rect: Rect,
-        container: Box = None,
+        container: Layout = None,
         *,
         factor: float = 1.0,
     ) -> tuple[float, float, float, float]:
@@ -210,12 +215,37 @@ class Node:
             height + factor * (top + bottom),
         )
 
-    def get_box(
+    @property
+    def x(self) -> float:
+        if self.dirty:
+            raise LayoutNotComputedError
+        return self._layout.x
+
+    @property
+    def y(self) -> float:
+        if self.dirty:
+            raise LayoutNotComputedError
+        return self._layout.y
+
+    @property
+    def width(self) -> float:
+        if self.dirty:
+            raise LayoutNotComputedError
+        return self._layout.width
+
+    @property
+    def height(self) -> float:
+        if self.dirty:
+            raise LayoutNotComputedError
+        return self._layout.height
+
+    def get_layout(
         self,
-        box_type: BoxType = BoxType.BORDER,
+        box_type: Box = Box.BORDER,
+        *,
         relative: bool = True,
         flip_y: bool = False,
-    ) -> Box:
+    ) -> Layout:
         # https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
         # TODO: Consider if this works property for RTL direction
 
@@ -224,14 +254,19 @@ class Node:
         if self.dirty:
             raise LayoutNotComputedError
 
-        if box_type == BoxType.PADDING and relative and not flip_y:
-            return self._box
+        if box_type == Box.PADDING and relative and not flip_y:
+            return self._layout
 
-        x, y, w, h = self._box.x, self._box.y, self._box.width, self._box.height
+        x, y, w, h = (
+            self._layout.x,
+            self._layout.y,
+            self._layout.width,
+            self._layout.height,
+        )
 
         # NOTE: Consider if/how box_parent can be reused in some scenarios and refactor
 
-        if box_type != BoxType.BORDER:
+        if box_type != Box.BORDER:
             # Expand or contract:
             #   BoxType.CONTENT: -border -padding
             #   BoxType.PADDING: -border
@@ -241,17 +276,17 @@ class Node:
             # Points can be used directly. Percentages need to converted based on container dimension.
             # (which container dimension/box?)
 
-            if box_type == BoxType.CONTENT:
+            if box_type == Box.CONTENT:
                 actions = (
                     (self.style.border, -1),
                     (self.style.padding, -1),
                 )
-            elif box_type == BoxType.PADDING:
+            elif box_type == Box.PADDING:
                 actions = ((self.style.border, -1),)
-            elif box_type == BoxType.MARGIN:
+            elif box_type == Box.MARGIN:
                 actions = ((self.style.margin, 1),)
 
-            box_parent = self._parent.get_box(BoxType.BORDER) if self._parent else None
+            box_parent = self._parent.get_layout(Box.BORDER) if self._parent else None
             # print("BoxType:", box_type)
             for rect, factor in actions:
                 # print(f"  {factor=} {rect}")
@@ -262,24 +297,24 @@ class Node:
                 # print(f"    -> {x=} {y=} {w=} {h=}")
 
         if not relative and self._parent:
-            box_parent = self._parent.get_box(BoxType.BORDER, False)
+            box_parent = self._parent.get_layout(Box.BORDER, relative=False)
             x += box_parent.x
             y += box_parent.y
 
         if flip_y:
             box_ref = (
-                self._parent.get_box(BoxType.CONTENT)
+                self._parent.get_layout(Box.CONTENT)
                 if relative
-                else self._root.get_box(BoxType.MARGIN)
+                else self._root.get_layout(Box.MARGIN)
             )
             y = box_ref.height - y - h
 
-        return Box(x, y, w, h)
+        return Layout(x, y, w, h)
 
     def _set_layout(self, floats: List[float], offset: int = 0) -> int:
         next_offset = offset + 5
         x, y, width, height, child_count = floats[offset:next_offset]
-        self._box = Box(
+        self._layout = Layout(
             x / SCALING_FACTOR,
             y / SCALING_FACTOR,
             width / SCALING_FACTOR,
@@ -300,19 +335,16 @@ class Node:
         """Returns the root node."""
         return self._parent._root if self._parent else self
 
-    def compute_layout(self, size: Size = None) -> Box:
+    def compute_layout(self, size: Size = None) -> Layout:
         """
         Computes the layout of the node and any child nodes.
         After invoking this, the position of nodes can be retrieved from the
-        x, y, width and height properties on each node.
-        NOTE:
-            x and y are relative to the parent node
-            x, y, width and height define the node frame box (includes margins but not padding)
-            To get the outer box, expand the frame box by the set amount of margin.
-            To get the inner/content box, contract the frame box by the set amount of padding.
-        TODO:
-            Consider including arg (relative_position: bool) and integrating functionality to get the
-            outer and inner box
+        x, y, width and height properties on each node. These values define
+        the border box relative to the parent node.
+        (the border box includes padding and border, but not margins)
+
+        To get the layout of other box types, position relative to the root node,
+        or with y values measured from the bottom edge, use get_layout().
         """
 
         layout = _bindings.stretch_node_compute_layout(
@@ -326,7 +358,7 @@ class Node:
             else NAN,
         )
         self._set_layout(layout)
-        return self.get_box()
+        return self.get_layout()
 
     # def __str__(self):
     #     return "(node: _ptr={}, measure={}, children={})".format(

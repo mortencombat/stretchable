@@ -32,6 +32,7 @@ build = [
 ]
 test = [
     "pytest",
+    "hypothesis",
     ]
 
 [project.urls]

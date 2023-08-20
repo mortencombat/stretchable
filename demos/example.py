@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from stretchable import BoxType, Node, reset
+from stretchable import Box, Node, reset
 from stretchable.style import Rect, Size, pct
 
 reset()
@@ -11,27 +11,27 @@ def print_layout(
     node: Node,
     level: int = 0,
     *,
-    box_type: BoxType = BoxType.PADDING,
+    box_type: Box = Box.PADDING,
     relative: bool = True,
 ):
-    for t in BoxType:
-        box = node.get_box(box_type=t, relative=relative)
+    for t in Box:
+        box = node.get_layout(t, relative=relative)
         print(" " * level + t._name_ + ": " + str(box))
     for child in node.children:
         print_layout(child, level + 2, box_type=box_type, relative=relative)
 
 
 linestyles = {
-    BoxType.CONTENT: "dotted",
-    BoxType.PADDING: "dashed",
-    BoxType.BORDER: "solid",
-    BoxType.MARGIN: "dashdot",
+    Box.CONTENT: "dotted",
+    Box.PADDING: "dashed",
+    Box.BORDER: "solid",
+    Box.MARGIN: "dashdot",
 }
 
 
 def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
-    for t in BoxType:
-        box = node.get_box(t, relative=False, flip_y=flip_y)
+    for t in Box:
+        box = node.get_layout(t, relative=False, flip_y=flip_y)
         ax.add_patch(
             Rectangle(
                 (box.x, box.y),
@@ -42,7 +42,7 @@ def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
                 facecolor="none",
             )
         )
-        if t == BoxType.BORDER:
+        if t == Box.BORDER:
             ax.annotate(f"Node {index}", (box.x, box.y), color=f"C{index}")
 
     for child in node.children:
@@ -90,7 +90,7 @@ root = Node(
 w, h = 500, 500
 layout = root.compute_layout(Size(w, h))
 
-print_layout(root, box_type=BoxType.MARGIN, relative=False)
+print_layout(root, box_type=Box.MARGIN, relative=False)
 
 fig, ax = plt.subplots(figsize=(420 / 25.4, 297 / 25.4))
 
