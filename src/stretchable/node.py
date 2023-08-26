@@ -9,6 +9,7 @@ from attrs import define
 
 from .stretch import _bindings
 from .style import (
+    AUTO,
     NAN,
     SCALING_FACTOR,
     UNDEF,
@@ -152,28 +153,31 @@ class Node:
                     value = float(value.rstrip("px"))
                 elif value.endswith("%"):
                     value = float(value.rstrip("%")) * pct
+                elif value.lower() == "auto":
+                    value = AUTO
                 else:
-                    value = value.strip()
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        value = value.strip()
                 values[name.strip()] = value
 
             args["size"] = Size(
-                values["width"] if "width" in values else UNDEF,
-                values["height"] if "height" in values else UNDEF,
+                values["width"] if "width" in values else AUTO,
+                values["height"] if "height" in values else AUTO,
+            )
+            args["position"] = Rect.from_css_attrs(values)
+            args["margin"] = Rect.from_css_attrs(
+                values, prefix="margin", common="width"
+            )
+            args["border"] = Rect.from_css_attrs(
+                values, prefix="border", common="width"
+            )
+            args["padding"] = Rect.from_css_attrs(
+                values, prefix="padding", common="width"
             )
 
-            args["position"] = Rect(
-                top=values["top"] if "top" in values else UNDEF,
-                bottom=values["bottom"] if "bottom" in values else UNDEF,
-                start=values["left"] if "left" in values else UNDEF,
-                end=values["right"] if "right" in values else UNDEF,
-            )
-
-            if "border-width" in values:
-                args["border"] = values["border-width"]
-
-            if "margin" in values:
-                args["margin"] = values["margin"]
-
+            # Non-value attributes (text/enums)
             for c in (
                 JustifyContent,
                 AlignItems,
@@ -195,8 +199,24 @@ class Node:
                     attr_name = "_".join(parts).lower()
                 if css_name in values:
                     args[attr_name] = c[values[css_name].upper().replace("-", "_")]
+                    del values[css_name]
 
-        # print(args)
+            # TODO: support max_height etc.
+            #       Look into rounding issues, currently tolerance is set to 0.5, but could this be reduced?
+            #       Is Chrome rounding, is stretch "too precise", or is stretch not calculating correctly?
+
+            # Remaining value-based attributes (all other than size and position?)
+            for name, value in values.items():
+                if (
+                    name in ("width", "height", "left", "right", "top", "bottom")
+                    or name.startswith("border")
+                    or name.startswith("margin")
+                    or name.startswith("padding")
+                ):
+                    continue
+                args[name.lower().replace("-", "_")] = value
+
+        print(args)
         node = Node(**args)
 
         for child in element:

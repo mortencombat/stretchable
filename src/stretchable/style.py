@@ -215,6 +215,39 @@ class Rect:
         else:
             raise TypeError("Unsupported value type")
 
+    @staticmethod
+    def from_css_attrs(
+        attributes: dict[str, Dim],
+        *,
+        prefix: str = None,
+        common: str = None,
+        start: str = "left",
+        end: str = "right",
+        top: str = "top",
+        bottom: str = "bottom",
+        default: Dim = UNDEF,
+    ) -> Self:
+        def _get_attr_name(prefix: str, name: str) -> str:
+            return f"{prefix}-{name}" if prefix else name
+
+        if common:
+            name = _get_attr_name(prefix, common)
+            if name in attributes:
+                return Rect(attributes[name])
+        if prefix and prefix in attributes:
+            return Rect(attributes[prefix])
+
+        values = [default] * 4
+        no_attrs = True
+        for i, key in enumerate((top, end, bottom, start)):
+            name = _get_attr_name(prefix, key)
+            if name in attributes:
+                values[i] = attributes[name]
+                no_attrs = False
+        if no_attrs:
+            return None
+        return Rect(*values)
+
     def to_stretch(self) -> dict[str, float]:
         return dict(
             start=self.start.to_stretch(),
@@ -242,7 +275,7 @@ class Style:
         default=JustifyContent.FLEX_START,
         validator=[validators.instance_of(JustifyContent)],
     )
-    position: Rect = field(factory=Rect)
+    position: Rect = field(factory=Rect, converter=Rect.from_value)
     margin: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
     padding: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
     border: Rect | Dim = field(factory=Rect, converter=Rect.from_value)

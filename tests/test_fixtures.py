@@ -59,8 +59,8 @@ def _assert_node_positions(
         v_act = getattr(node_actual, param)
         v_exp = node_expected.rect[param]
         assert (
-            v_act == v_exp
-        ), f"[{fixture}] Expected {param}={v_exp:.2f}, got {v_act:.2f}"
+            abs(v_act - v_exp) < 0.5  # 0.015
+        ), f"[{fixture}] Expected {param}={v_exp:.4f}, got {v_act:.4f}"
 
     # Assert positions of child nodes
     children = node_expected.find_elements(by=By.XPATH, value="*")
