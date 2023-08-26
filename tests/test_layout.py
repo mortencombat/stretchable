@@ -87,9 +87,6 @@ def test_multiple_levels(
 
     main.compute_layout()
 
-    for n in (main, child1, child2):
-        print(f"{n.x} {n.y} {n.width} {n.height}")
-
     # Check child1 border box position
     layout = child1.get_layout(relative=False)
     w_exp = 0.5 * (width - 2 * (border + padding))

@@ -139,7 +139,7 @@ class DimensionValue(Generic[T]):
 
     @staticmethod
     def from_value(value: object = None) -> Self:
-        if not value:
+        if value is None:
             return UNDEF
         if isinstance(value, (int, float)):
             return DimensionValue(Dimension.POINTS, value)
@@ -170,7 +170,7 @@ class Size:
         )
 
 
-@define(frozen=True, init=False)
+@define(frozen=True)
 class Rect:
     top: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
     end: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
@@ -301,42 +301,6 @@ class Style:
             ),
         )
 
-    # @property
-    # def _ptr(self) -> int:
-    #     if not self.__ptr:
-    #         object.__setattr__(
-    #             self,
-    #             "_Style__ptr",
-    #             _bindings.stretch_style_create(
-    #                 display=self.display.value,
-    #                 position_type=self.position_type.value,
-    #                 direction=self.direction.value,
-    #                 flex_direction=self.flex_direction.value,
-    #                 flex_wrap=self.flex_wrap.value,
-    #                 overflow=self.overflow.value,
-    #                 align_items=self.align_items.value,
-    #                 align_self=self.align_self.value,
-    #                 align_content=self.align_content.value,
-    #                 justify_content=self.justify_content.value,
-    #                 position=self.position.to_stretch(),
-    #                 margin=self.margin.to_stretch(),
-    #                 padding=self.padding.to_stretch(),
-    #                 border=self.border.to_stretch(),
-    #                 flex_grow=self.flex_grow,
-    #                 flex_shrink=self.flex_shrink,
-    #                 flex_basis=self.flex_basis.to_stretch(),
-    #                 size=self.size.to_stretch(),
-    #                 min_size=self.min_size.to_stretch(),
-    #                 max_size=self.max_size.to_stretch(),
-    #                 aspect_ratio=self.aspect_ratio or NAN,
-    #             ),
-    #         )
-    #     return self.__ptr
-
     def __del__(self):
         if self._ptr:
             _bindings.stretch_style_free(self._ptr)
-
-        # if self.__ptr:
-        #     _bindings.stretch_style_free(self.__ptr)
-        #     object.__setattr__(self, "_Style__ptr", None)

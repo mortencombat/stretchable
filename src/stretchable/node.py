@@ -1,12 +1,33 @@
 import math
+import re
 from collections.abc import Iterable
 from enum import StrEnum, auto
 from typing import Callable, List, Self, SupportsIndex
+from xml.etree import ElementTree
 
 from attrs import define
 
 from .stretch import _bindings
-from .style import NAN, SCALING_FACTOR, Dimension, Rect, Size, Style
+from .style import (
+    NAN,
+    SCALING_FACTOR,
+    UNDEF,
+    AlignContent,
+    AlignItems,
+    AlignSelf,
+    Dimension,
+    Direction,
+    Display,
+    FlexDirection,
+    FlexWrap,
+    JustifyContent,
+    Overflow,
+    PositionType,
+    Rect,
+    Size,
+    Style,
+    pct,
+)
 
 
 class LayoutNotComputedError(Exception):
@@ -108,6 +129,79 @@ class Node:
         self.measure = measure
         self._layout = None
         self._parent = None
+
+    @staticmethod
+    def from_xml(xml: str) -> Self:
+        root = ElementTree.fromstring(xml)
+        return Node._from_xml(root)
+
+    @staticmethod
+    def _from_xml(element: ElementTree.Element) -> Self:
+        # TODO: apply element attrs to Node(...)
+        args = dict()
+        if "style" in element.attrib:
+            style = element.attrib["style"]
+            # Parse style value
+            values = dict()
+            for entry in style.split(";"):
+                entry = entry.strip()
+                if not entry:
+                    continue
+                name, _, value = entry.partition(":")
+                if value.endswith("px"):
+                    value = float(value.rstrip("px"))
+                elif value.endswith("%"):
+                    value = float(value.rstrip("%")) * pct
+                else:
+                    value = value.strip()
+                values[name.strip()] = value
+
+            args["size"] = Size(
+                values["width"] if "width" in values else UNDEF,
+                values["height"] if "height" in values else UNDEF,
+            )
+
+            args["position"] = Rect(
+                top=values["top"] if "top" in values else UNDEF,
+                bottom=values["bottom"] if "bottom" in values else UNDEF,
+                start=values["left"] if "left" in values else UNDEF,
+                end=values["right"] if "right" in values else UNDEF,
+            )
+
+            if "border-width" in values:
+                args["border"] = values["border-width"]
+
+            if "margin" in values:
+                args["margin"] = values["margin"]
+
+            for c in (
+                JustifyContent,
+                AlignItems,
+                AlignSelf,
+                AlignContent,
+                Direction,
+                Display,
+                FlexDirection,
+                Overflow,
+                PositionType,
+                FlexWrap,
+            ):
+                if c == PositionType:
+                    css_name = "position"
+                    attr_name = "position_type"
+                else:
+                    parts = re.findall("[A-Z][a-z]*", c.__name__)
+                    css_name = "-".join(parts).lower()
+                    attr_name = "_".join(parts).lower()
+                if css_name in values:
+                    args[attr_name] = c[values[css_name].upper().replace("-", "_")]
+
+        # print(args)
+        node = Node(**args)
+
+        for child in element:
+            node.add(Node._from_xml(child))
+        return node
 
     def add(self, *children) -> Self:
         self._children.extend(children)
