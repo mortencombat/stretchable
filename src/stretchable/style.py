@@ -170,6 +170,9 @@ class Size:
             height=self.height.to_stretch(),
         )
 
+    def __str__(self) -> str:
+        return f"Size(width={str(self.width)}, height={str(self.height)})"
+
 
 @define(frozen=True)
 class Rect:
@@ -271,7 +274,7 @@ class Style:
     overflow: Overflow = Overflow.HIDDEN
     align_items: AlignItems = AlignItems.STRETCH
     align_self: AlignSelf = AlignSelf.AUTO
-    align_content: AlignContent = AlignContent.FLEX_START
+    align_content: AlignContent = AlignContent.STRETCH
     justify_content: JustifyContent = field(
         default=JustifyContent.FLEX_START,
         validator=[validators.instance_of(JustifyContent)],
@@ -366,37 +369,44 @@ class Style:
                 props[name.strip()] = parse_value(value)
             return props
 
-        def get_prop_name(prefix: str, key: str) -> str:
+        def get_prop_name(prefix: str, key: str, suffix: str = None) -> str:
             if prefix:
-                return f"{prefix}-{key}" if key else prefix
+                name = f"{prefix}-{key}" if key else prefix
+            elif not key:
+                raise ValueError("Either prefix or key must be specified")
             else:
-                return key
+                name = key
+            if suffix:
+                name += "-" + suffix
+            return name
 
         def to_rect(
             prefix: str = None,
             *,
             default: Dim = UNDEF,
-            single: Iterable[str | None] = None,
-            start: str = "left",
-            end: str = "right",
-            top: str = "top",
-            bottom: str = "bottom",
+            suffix: Iterable[str] = None,
+            start: Iterable[str] = ("left", "start"),
+            end: Iterable[str] = ("right", "end"),
+            top: Iterable[str] = ("top",),
+            bottom: Iterable[str] = ("bottom",),
         ) -> Rect:
-            if single:
-                for key in single:
-                    prop = get_prop_name(prefix, key)
+            if prefix:
+                for s in (None, suffix):
+                    prop = get_prop_name(prefix, None, s)
                     if prop in keys:
                         keys.remove(prop)
                         return Rect(props[prop])
 
             values = [default] * 4
             not_present = True
-            for i, key in enumerate((top, end, bottom, start)):
-                prop = get_prop_name(prefix, key)
-                if prop in keys:
-                    values[i] = props[prop]
-                    keys.remove(prop)
-                    not_present = False
+            for i, _keys in enumerate((top, end, bottom, start)):
+                for key in _keys:
+                    for s in (None, suffix):
+                        prop = get_prop_name(prefix, key, s)
+                        if prop in keys:
+                            values[i] = props[prop]
+                            keys.remove(prop)
+                            not_present = False
             if not_present:
                 return None
             return Rect(*values)
@@ -498,16 +508,14 @@ class Style:
 
         # Size entries: size, max_size, min_size
         for prefix in (None, "min", "max"):
-            v = to_size(prefix)
+            v = to_size(prefix, default=AUTO if not prefix else UNDEF)
             if v:
                 args[f"{prefix}_size" if prefix else "size"] = v
 
         # Rect entries: position, margin, border, padding
         for prop in ("position", "margin", "border", "padding"):
-            prefix, single = (
-                (None, (None,)) if prop == "position" else (prop, (None, "width"))
-            )
-            v = to_rect(prefix, single=single)
+            prefix, suffix = (None, None) if prop == "position" else (prop, "width")
+            v = to_rect(prefix, suffix=suffix)
             if v:
                 args[prop] = v
 
@@ -537,7 +545,7 @@ class Style:
         #   flex-basis, flex-grow, flex-shrink, aspect-ratio
         for prop in ("flex-basis", "flex-grow", "flex-shrink", "aspect-ratio"):
             v = to_float(prop)
-            if v:
+            if v is not None:
                 args[prop.replace("-", "_")] = v
 
         # Special handling for flex property
@@ -550,4 +558,5 @@ class Style:
             for key in keys:
                 warnings.warn(f"Style property {key} is not recognized/supported")
 
+        print(args)
         return Style(**args)

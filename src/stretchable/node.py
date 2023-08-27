@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 from attrs import define
 
 from .stretch import _bindings
-from .style import NAN, SCALING_FACTOR, Dimension, Rect, Size, Style
+from .style import NAN, SCALING_FACTOR, Dimension, Display, Rect, Size, Style
 
 
 class LayoutNotComputedError(Exception):
@@ -146,6 +146,13 @@ class Node:
     @property
     def measure(self) -> MeasureFunc:
         return self._measure
+
+    @property
+    def visible(self) -> bool:
+        if self._parent and not self._parent.visible:
+            return False
+        else:
+            return self.style.display != Display.NONE
 
     @staticmethod
     def _measure_callback(node: Self, width: float, height: float) -> dict[str, float]:

@@ -1,7 +1,9 @@
-from stretchable import Node, Size
+from stretchable import Node, Size, reset
 
 
 def test_dirty():
+    reset()
+
     node = Node()
     node.compute_layout()
     assert not node.dirty
@@ -10,6 +12,8 @@ def test_dirty():
 
 
 def test_layout_node():
+    reset()
+
     node = Node(size=Size(100, 100))
     box = node.compute_layout()
     assert box.width == 100.0
@@ -17,6 +21,8 @@ def test_layout_node():
 
 
 def test_layout_leaf():
+    reset()
+
     node = Node(measure=lambda w, h: (100, 100))
     layout = node.compute_layout()
     assert layout.width == 100.0
@@ -25,6 +31,8 @@ def test_layout_leaf():
 
 
 def test_node_with_children():
+    reset()
+
     child1 = Node(size=Size(100, 100))
     child2 = Node(size=Size(200, 200))
     node = Node(child1, child2)
@@ -43,6 +51,8 @@ def test_node_with_children():
 
 
 def test_replace_child_node():
+    reset()
+
     child1 = Node(size=Size(100, 100))
     child2 = Node(size=Size(200, 200))
     node = Node(child1)
