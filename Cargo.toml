@@ -3,7 +3,7 @@ name = "stretchable"
 version = "1.0.0-a1"
 edition = "2021"
 authors = ["Kenneth Trelborg Vestergaard"]
-description = "Python bindings for Stretch (high performance flexbox implementation)"
+description = "Target-agnostic cross-platform layout library based on Taffy"
 
 [lib]
 name = "stretchable"
@@ -12,4 +12,5 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.16.6", features = ["abi3-py37", "extension-module"] }
 dict_derive = "0.4.0"
-stretch = "0.3.2"
+taffy = ">=0.3.13, <1.0"
+

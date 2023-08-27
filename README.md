@@ -1,16 +1,23 @@
 # Introduction
 
-This package enables target-agnostic layout operations using the CSS flexbox algorithm. For instance, it can be used for page layouts in reporting tools, etc.
+This package enables target-agnostic layout operations using CSS Grid and Flexbox. For instance, it can be used for page layouts in reporting tools, etc.
 
-It implements Python bindings for [Stretch](https://vislyhq.github.io/stretch/), an implementation of Flexbox written in [Rust](https://www.rust-lang.org/). The project is based on the translation of the bindings from Swift to Python, from [stretched](https://github.com/nmichlo/stretched).
+It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Grid/Flexbox written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to Taffy.
 
 # Getting Started
 
-Helpful resources to getting started with CSS Flexbox include:
+Helpful resources to getting started with layouts using CSS Grid and Flexbox are listed below.
 
-- [A Complete Guide to Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
-- [Flexbox Froggy](https://flexboxfroggy.com/)
+### Flexbox
+
+- [Flexbox Froggy](https://flexboxfroggy.com/). This is an interactive tutorial/game that allows you to learn the essential parts of Flexbox in a fun engaging way.
+- [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different Flexbox properties and how they work.
 - [Yoga Playground](https://yogalayout.com/playground)
+
+### CSS Grid
+
+- [CSS Grid Garden](https://cssgridgarden.com/). This is an interactive tutorial/game that allows you to learn the essential parts of CSS Grid in a fun engaging way.
+- [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different CSS Grid properties and how they work.
 
 # Usage
 
