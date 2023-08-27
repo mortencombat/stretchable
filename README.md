@@ -16,9 +16,13 @@ Helpful resources to getting started with CSS Flexbox include:
 
 See [demos](https://github.com/mortencombat/stretchable/tree/main/demos) for examples of basic usage. Keep in mind that the current version of Stretchable is early stage and the API can be expected to change (eg. improve).
 
-# Contributing
+# Building
 
-Install Rust with [rustup](https://rustup.rs/) and use `maturin build [--release]` to build.
+Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for development and `maturin build [--release]` to build.
+
+# Testing
+
+Install test dependencies and invoke `pytest`. Note that there are approx. 250 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take a few minutes to complete. Use `pytest --lf` to only run the last-failed tests.
 
 # License
 

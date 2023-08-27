@@ -8,7 +8,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from stretchable import Node, reset
-from stretchable.style import Display
 
 driver = webdriver.Chrome()
 
