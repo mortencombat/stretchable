@@ -56,7 +56,8 @@ def _assert_node_positions(
 ) -> None:
     # Assert position of node
     for param in ("x", "y", "width", "height"):
-        v_act = getattr(node_actual, param)
+        rect_actual = node_actual.get_layout(relative=False)
+        v_act = getattr(rect_actual, param)
         v_exp = node_expected.rect[param]
         assert (
             abs(v_act - v_exp) < 0.5  # 0.015

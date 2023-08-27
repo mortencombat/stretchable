@@ -1,5 +1,4 @@
 import math
-import re
 from collections.abc import Iterable
 from enum import StrEnum, auto
 from typing import Callable, List, Self, SupportsIndex
@@ -8,27 +7,7 @@ from xml.etree import ElementTree
 from attrs import define
 
 from .stretch import _bindings
-from .style import (
-    AUTO,
-    NAN,
-    SCALING_FACTOR,
-    UNDEF,
-    AlignContent,
-    AlignItems,
-    AlignSelf,
-    Dimension,
-    Direction,
-    Display,
-    FlexDirection,
-    FlexWrap,
-    JustifyContent,
-    Overflow,
-    PositionType,
-    Rect,
-    Size,
-    Style,
-    pct,
-)
+from .style import NAN, SCALING_FACTOR, Dimension, Rect, Size, Style
 
 
 class LayoutNotComputedError(Exception):
@@ -138,87 +117,11 @@ class Node:
 
     @staticmethod
     def _from_xml(element: ElementTree.Element) -> Self:
-        # TODO: apply element attrs to Node(...)
-        args = dict()
-        if "style" in element.attrib:
-            style = element.attrib["style"]
-            # Parse style value
-            values = dict()
-            for entry in style.split(";"):
-                entry = entry.strip()
-                if not entry:
-                    continue
-                name, _, value = entry.partition(":")
-                if value.endswith("px"):
-                    value = float(value.rstrip("px"))
-                elif value.endswith("%"):
-                    value = float(value.rstrip("%")) * pct
-                elif value.lower() == "auto":
-                    value = AUTO
-                else:
-                    try:
-                        value = float(value)
-                    except ValueError:
-                        value = value.strip()
-                values[name.strip()] = value
-
-            args["size"] = Size(
-                values["width"] if "width" in values else AUTO,
-                values["height"] if "height" in values else AUTO,
-            )
-            args["position"] = Rect.from_css_attrs(values)
-            args["margin"] = Rect.from_css_attrs(
-                values, prefix="margin", common="width"
-            )
-            args["border"] = Rect.from_css_attrs(
-                values, prefix="border", common="width"
-            )
-            args["padding"] = Rect.from_css_attrs(
-                values, prefix="padding", common="width"
-            )
-
-            # Non-value attributes (text/enums)
-            for c in (
-                JustifyContent,
-                AlignItems,
-                AlignSelf,
-                AlignContent,
-                Direction,
-                Display,
-                FlexDirection,
-                Overflow,
-                PositionType,
-                FlexWrap,
-            ):
-                if c == PositionType:
-                    css_name = "position"
-                    attr_name = "position_type"
-                else:
-                    parts = re.findall("[A-Z][a-z]*", c.__name__)
-                    css_name = "-".join(parts).lower()
-                    attr_name = "_".join(parts).lower()
-                if css_name in values:
-                    args[attr_name] = c[values[css_name].upper().replace("-", "_")]
-                    del values[css_name]
-
-            # TODO: support max_height etc.
-            #       Look into rounding issues, currently tolerance is set to 0.5, but could this be reduced?
-            #       Is Chrome rounding, is stretch "too precise", or is stretch not calculating correctly?
-
-            # Remaining value-based attributes (all other than size and position?)
-            for name, value in values.items():
-                if (
-                    name in ("width", "height", "left", "right", "top", "bottom")
-                    or name.startswith("border")
-                    or name.startswith("margin")
-                    or name.startswith("padding")
-                ):
-                    continue
-                args[name.lower().replace("-", "_")] = value
-
-        print(args)
-        node = Node(**args)
-
+        node = (
+            Node(style=Style.from_html_style(element.attrib["style"]))
+            if "style" in element.attrib
+            else Node()
+        )
         for child in element:
             node.add(Node._from_xml(child))
         return node
