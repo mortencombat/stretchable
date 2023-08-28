@@ -3,8 +3,8 @@
 
 use std::f32;
 
-// extern crate dict_derive;
-// use dict_derive::{FromPyObject, IntoPyObject};
+extern crate dict_derive;
+use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
 use pyo3::prelude::*;
@@ -38,6 +38,52 @@ impl FromIndex<AlignItems> for AlignItems {
     }
 }
 
+// impl FromIndex<JustifySelf> for JustifySelf {
+//     fn from_index(index: i32) -> PyResult<JustifySelf> {
+//         match index {
+//             0 => Ok(JustifySelf::Start),
+//             1 => Ok(JustifySelf::End),
+//             2 => Ok(JustifySelf::FlexStart),
+//             3 => Ok(JustifySelf::FlexEnd),
+//             4 => Ok(JustifySelf::Center),
+//             5 => Ok(JustifySelf::Baseline),
+//             6 => Ok(JustifySelf::Stretch),
+//             n => Err(PyValueError::new_err(format!("enum JustifySelf - invalid index: {}", n))),
+//         }
+//     }
+// }
+
+
+// impl FromIndex<AlignSelf> for AlignSelf {
+//     fn from_index(index: i32) -> PyResult<AlignSelf> {
+//         match index {
+//             0 => Ok(AlignSelf::Start),
+//             1 => Ok(AlignSelf::End),
+//             2 => Ok(AlignSelf::FlexStart),
+//             3 => Ok(AlignSelf::FlexEnd),
+//             4 => Ok(AlignSelf::Center),
+//             5 => Ok(AlignSelf::Baseline),
+//             6 => Ok(AlignSelf::Stretch),
+//             n => Err(PyValueError::new_err(format!("enum AlignSelf - invalid index: {}", n))),
+//         }
+//     }
+// }
+
+
+// impl FromIndex<JustifySelf> for JustifySelf {
+//     fn from_index(index: i32) -> PyResult<JustifyItems> {
+//         match index {
+//             0 => Ok(JustifyItems::Start),
+//             1 => Ok(JustifyItems::End),
+//             2 => Ok(JustifyItems::FlexStart),
+//             3 => Ok(JustifyItems::FlexEnd),
+//             4 => Ok(JustifyItems::Center),
+//             5 => Ok(JustifyItems::Baseline),
+//             6 => Ok(JustifyItems::Stretch),
+//             n => Err(PyValueError::new_err(format!("enum JustifyItems - invalid index: {}", n))),
+//         }
+//     }
+// }
 
 // endregion
 
@@ -60,8 +106,9 @@ unsafe fn taffy_style_create(
     aspect_ratio: f32,
 ) -> PyResult<i64> {
     let ptr = Box::into_raw(Box::new(Style {
-        align_items:     AlignItems::from_index(align_items)?,
-        aspect_ratio: if f32::is_nan(aspect_ratio) { Number::Undefined } else { Number::Defined(aspect_ratio) },
+        align_items:        AlignItems::from_index(align_items)?,
+        // aspect_ratio: if f32::is_nan(aspect_ratio) { Number::Undefined } else { Number::Defined(aspect_ratio) },
+        ..Default::default()
     }));
     Ok(ptr as i64)
 }
@@ -78,7 +125,7 @@ unsafe fn taffy_node_create(taffy: i64, style: i64) -> i64 {
     let style = Box::from_raw(style as *mut Style);
     let node = taffy.new_leaf(*style).unwrap();
 
-    Box::leak(style);
+    // Box::leak(style);
     Box::leak(taffy);
 
     Box::into_raw(Box::new(node)) as i64

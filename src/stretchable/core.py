@@ -1,14 +1,14 @@
 import logging
 from typing import Iterable, Self, SupportsIndex
 
-from attrs import define, field
+from stretchable.style import Style
 
 from .taffy import _bindings
 
 # from attrs import define, field
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
-logger = logging.getLogger("stretchable")
+logger = logging.getLogger(__name__)
 
 
 class Children(list):
@@ -57,20 +57,6 @@ The corresponding objects should be created as soon the objects are added to the
 This ensures that all objects added to a Taffy instance have corresponding objects in Taffy.
 
 """
-
-
-@define(frozen=True)
-class Style:
-    _ptr: int = field(init=False, default=None)
-
-    def __attrs_post_init__(self):
-        object.__setattr__(self, "_ptr", _bindings.taffy_style_create())
-        logger.debug("taffy_style_create -> %s", self._ptr)
-
-    def __del__(self):
-        if self._ptr:
-            _bindings.taffy_style_drop(self._ptr)
-            logger.debug("taffy_style_drop(%s)", self._ptr)
 
 
 class Node:
@@ -145,9 +131,25 @@ class Taffy(Node):
         self._ptr_taffy = _bindings.taffy_init()
         logger.debug("taffy_init -> %s", self._ptr_taffy)
 
+        self._rounding_enabled = True
+
     def __del__(self) -> None:
         _bindings.taffy_free(self._ptr_taffy)
         logger.debug("taffy_free(%s)", self._ptr_taffy)
+
+    @property
+    def rounding_enabled(self) -> bool:
+        return self._rounding_enabled
+
+    @rounding_enabled.setter
+    def rounding_enabled(self, value: bool) -> None:
+        if value == self._rounding_enabled:
+            return
+        if value:
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+        self._rounding_enabled = value
 
     @property
     def taffy(self) -> Self:

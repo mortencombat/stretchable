@@ -1,6 +1,7 @@
 import logging
 
-from stretchable.core import Node, Style, Taffy
+from stretchable.core import Node, Taffy
+from stretchable.style import Style
 
 logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)
