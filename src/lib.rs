@@ -20,7 +20,7 @@ use taffy::prelude::*;
 // use taffy::style::JustifyItems;
 // use taffy::style::*;
 
-// MAIN (TAFFY)
+// MAIN
 
 #[pyfunction]
 unsafe fn taffy_init() -> i64 {
@@ -143,6 +143,26 @@ impl From<PyLength> for Dimension {
     }
 }
 
+impl From<PyLength> for LengthPercentageAuto {
+    fn from(length: PyLength) -> LengthPercentageAuto {
+        match length.dim {
+            1 => LengthPercentageAuto::Points(length.value),
+            2 => LengthPercentageAuto::Percent(length.value),
+            _ => LengthPercentageAuto::Auto,
+        }
+    }
+}
+
+impl From<PyLength> for LengthPercentage {
+    fn from(length: PyLength) -> LengthPercentage {
+        match length.dim {
+            1 => LengthPercentage::Points(length.value),
+            2 => LengthPercentage::Percent(length.value),
+            _ => panic!("Length should be points or percent, not auto"),
+        }
+    }
+}
+
 #[derive(FromPyObject, IntoPyObject)]
 pub struct PySize {
     width: PyLength,
@@ -151,36 +171,60 @@ pub struct PySize {
 
 impl From<PySize> for Size<Dimension> {
     fn from(size: PySize) -> Size<Dimension> {
-        // Size::Size::new(
-        //     Dimension::from_python(size.width),
-        //     Dimension::from_python(size.height),
-        // )
+        Size {
+            height: Dimension::from(size.height),
+            width: Dimension::from(size.width),
+        }
+    }
+}
+
+impl From<PySize> for Size<LengthPercentage> {
+    fn from(size: PySize) -> Size<LengthPercentage> {
+        Size {
+            height: LengthPercentage::from(size.height),
+            width: LengthPercentage::from(size.width),
+        }
     }
 }
 
 #[derive(FromPyObject, IntoPyObject)]
 pub struct PyRect {
-    start: PyLength,
-    end: PyLength,
+    left: PyLength,
+    right: PyLength,
     top: PyLength,
     bottom: PyLength,
 }
 
+impl From<PyRect> for Rect<LengthPercentage> {
+    fn from(rect: PyRect) -> Rect<LengthPercentage> {
+        Rect {
+            left: LengthPercentage::from(rect.left),
+            right: LengthPercentage::from(rect.right),
+            top: LengthPercentage::from(rect.top),
+            bottom: LengthPercentage::from(rect.bottom),
+        }
+    }
+}
+
 impl From<PyRect> for Rect<LengthPercentageAuto> {
     fn from(rect: PyRect) -> Rect<LengthPercentageAuto> {
-        // Size::Size::new(
-        //     Dimension::from_python(size.width),
-        //     Dimension::from_python(size.height),
-        // )
+        Rect {
+            left: LengthPercentageAuto::from(rect.left),
+            right: LengthPercentageAuto::from(rect.right),
+            top: LengthPercentageAuto::from(rect.top),
+            bottom: LengthPercentageAuto::from(rect.bottom),
+        }
     }
 }
 
 impl From<PyRect> for Rect<Dimension> {
     fn from(rect: PyRect) -> Rect<Dimension> {
-        // Size::Size::new(
-        //     Dimension::from_python(size.width),
-        //     Dimension::from_python(size.height),
-        // )
+        Rect {
+            left: Dimension::from(rect.left),
+            right: Dimension::from(rect.right),
+            top: Dimension::from(rect.top),
+            bottom: Dimension::from(rect.bottom),
+        }
     }
 }
 
@@ -198,17 +242,22 @@ unsafe fn taffy_style_create(
     justify_self: Option<i32>,
     align_content: Option<i32>,
     justify_content: Option<i32>,
+    gap: PySize,
+    // Spacing
+    margin: PyRect,
+    border: PyRect,
+    padding: PyRect,
+    // Size
+    size: PySize,
+    min_size: PySize,
+    max_size: PySize,
+    aspect_ratio: Option<f32>,
     // Flex
     flex_wrap: i32,
     flex_direction: i32,
     flex_grow: f32,
     flex_shrink: f32,
     flex_basis: PyLength,
-    // Size
-    size: PySize,
-    min_size: PySize,
-    max_size: PySize,
-    aspect_ratio: Option<f32>,
 ) -> PyResult<i64> {
     let ptr = Box::into_raw(Box::new(Style {
         // Layout mode/strategy
@@ -223,18 +272,22 @@ unsafe fn taffy_style_create(
         justify_self: JustifySelf::from_index(justify_self),
         align_content: AlignContent::from_index(align_content),
         justify_content: JustifyContent::from_index(justify_content),
+        gap: Size::from(gap),
+        // Spacing
+        margin: Rect::from(margin),
+        border: Rect::from(border),
+        padding: Rect::from(padding),
+        // Size
+        size: Size::from(size),
+        min_size: Size::from(min_size),
+        max_size: Size::from(max_size),
+        aspect_ratio: aspect_ratio,
         // Flex
         flex_wrap: FlexWrap::from_index(flex_wrap),
         flex_direction: FlexDirection::from_index(flex_direction),
         flex_grow: flex_grow,
         flex_shrink: flex_shrink,
         flex_basis: Dimension::from(flex_basis),
-        // Size
-        size: Size::from(size),
-        min_size: Size::from(min_size),
-        max_size: Size::from(max_size),
-        aspect_ratio: aspect_ratio,
-
         ..Default::default()
     }));
     Ok(ptr as i64)
@@ -269,7 +322,7 @@ unsafe fn taffy_node_drop(taffy: i64, node: i64) {
 }
 
 #[pyfunction]
-unsafe fn taffy_nodes_clear(taffy: i64) {
+unsafe fn taffy_node_drop_all(taffy: i64) {
     // Drops all nodes in the tree
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
 
@@ -285,10 +338,12 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(taffy_free))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_drop))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_nodes_clear))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_drop_all))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_drop))?;
 
+    // enable_rounding
+    // disable_rounding
     // m.add_wrapped(wrap_pyfunction!(stretch_node_set_measure))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_set_style))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_dirty))?;

@@ -94,27 +94,38 @@ class Size:
     def __str__(self) -> str:
         return f"Size(width={str(self.width)}, height={str(self.height)})"
 
+    @staticmethod
+    def from_value(value: object = None) -> Self:
+        if value is None:
+            return Size()
+        elif isinstance(value, Size):
+            return value
+        elif isinstance(value, (int, float, Length)):
+            return Size(value, value)
+        else:
+            raise TypeError("Unsupported value type")
+
 
 @define(frozen=True)
 class Rect:
     top: Length = field(default=AUTO, converter=Length.from_value)
-    end: Length = field(default=AUTO, converter=Length.from_value)
+    right: Length = field(default=AUTO, converter=Length.from_value)
     bottom: Length = field(default=AUTO, converter=Length.from_value)
-    start: Length = field(default=AUTO, converter=Length.from_value)
+    left: Length = field(default=AUTO, converter=Length.from_value)
 
     def __init__(
         self,
         *values: Dim,
         top: Dim = None,
-        end: Dim = None,
+        right: Dim = None,
         bottom: Dim = None,
-        start: Dim = None,
+        left: Dim = None,
     ) -> None:
         n = len(values)
-        if top or end or bottom or start:
+        if top or right or bottom or left:
             if n > 0:
                 raise Exception("Use either positional or named values, not both")
-            self.__attrs_init__(top, end, bottom, start)
+            self.__attrs_init__(top, right, bottom, left)
         else:
             if n == 0:
                 self.__attrs_init__()
@@ -131,7 +142,7 @@ class Rect:
 
     @staticmethod
     def from_value(value: object = None) -> Self:
-        if not value:
+        if value is None:
             return Rect()
         elif isinstance(value, Rect):
             return value
@@ -146,8 +157,8 @@ class Rect:
         *,
         prefix: str = None,
         common: str = None,
-        start: str = "left",
-        end: str = "right",
+        left: str = "left",
+        right: str = "right",
         top: str = "top",
         bottom: str = "bottom",
         default: Length = AUTO,
@@ -164,7 +175,7 @@ class Rect:
 
         values = [default] * 4
         no_attrs = True
-        for i, key in enumerate((top, end, bottom, start)):
+        for i, key in enumerate((top, right, bottom, left)):
             name = _get_attr_name(prefix, key)
             if name in attributes:
                 values[i] = attributes[name]
@@ -175,11 +186,11 @@ class Rect:
 
     def to_taffy(self) -> dict[str, float]:
         return dict(
-            start=self.start.to_taffy(),
-            end=self.end.to_taffy(),
+            left=self.left.to_taffy(),
+            right=self.right.to_taffy(),
             top=self.top.to_taffy(),
             bottom=self.bottom.to_taffy(),
         )
 
     def __str__(self) -> str:
-        return f"Rect(start={self.start}, end={self.end}, top={self.top}, bottom={self.bottom})"
+        return f"Rect(left={self.left}, right={self.right}, top={self.top}, bottom={self.bottom})"

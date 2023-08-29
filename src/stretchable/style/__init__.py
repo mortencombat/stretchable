@@ -5,7 +5,7 @@ from attrs import define, field, validators
 
 from stretchable.taffy import _bindings
 
-from .dimension import AUTO, Dim, Length, Rect, Size
+from .dimension import AUTO, Length, Rect, Size
 from .enum import (
     AlignContent,
     AlignItems,
@@ -39,24 +39,14 @@ class Style:
         validator=[validators.instance_of(Display)],
     )
 
-    # NOTE: validator here should enforce fields supporting Length / Percentage / Auto
+    # TODO: validators here should enforce fields supporting only Length/Percentage or Length/Percentage/Auto
+
     # Position
     position: Position = field(
         default=Position.RELATIVE,
         validator=[validators.instance_of(Position)],
     )
-    # inset: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-
-    # Size
-    # size: Size = field(factory=Size)
-    # min_size: Size = field(factory=Size)
-    # max_size: Size = field(factory=Size)
-
-    # Spacing
-    # margin: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-    # padding: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-    # border: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-    aspect_ratio: float = field(default=None)
+    inset: Rect = field(factory=Rect, converter=Rect.from_value)
 
     # Alignment
     align_items: AlignItems = field(
@@ -83,6 +73,18 @@ class Style:
         default=None,
         validator=[validators.optional(validators.instance_of(JustifyContent))],
     )
+    gap: Size = field(default=0.0, converter=Size.from_value)
+
+    # Spacing
+    margin: Rect = field(default=0.0, converter=Rect.from_value)
+    padding: Rect = field(default=0.0, converter=Rect.from_value)
+    border: Rect = field(default=0.0, converter=Rect.from_value)
+
+    # Size
+    size: Size = field(factory=Size, converter=Size.from_value)
+    min_size: Size = field(factory=Size, converter=Size.from_value)
+    max_size: Size = field(factory=Size, converter=Size.from_value)
+    aspect_ratio: float = field(default=None)
 
     # Flex
     flex_wrap: FlexWrap = field(
@@ -97,7 +99,16 @@ class Style:
     flex_shrink: float = 1.0
     flex_basis: Length = field(default=AUTO, converter=Length.from_value)
 
-    # Grid
+    # TODO: Grid container
+    # grid_template_rows
+    # grid_template_columns
+    # grid_auto_rows
+    # grid_auto_columns
+    # grid_auto_flow
+
+    # TODO: Grid child
+    # grid_row
+    # grid_column
 
     _ptr: int = field(init=False, default=None)
 
@@ -106,15 +117,29 @@ class Style:
             self,
             "_ptr",
             _bindings.taffy_style_create(
+                # Layout mode
                 self.display,
+                # Position
                 self.position,
+                self.inset.to_taffy(),
+                # Alignment
                 self.align_items,
                 self.justify_items,
                 self.align_self,
                 self.justify_self,
                 self.align_content,
                 self.justify_content,
+                self.gap.to_taffy(),
+                # Spacing
+                self.margin.to_taffy(),
+                self.border.to_taffy(),
+                self.padding.to_taffy(),
+                # Size
+                self.size.to_taffy(),
+                self.min_size.to_taffy(),
+                self.max_size.to_taffy(),
                 self.aspect_ratio,
+                # Flex
                 self.flex_wrap,
                 self.flex_direction,
                 self.flex_grow,
