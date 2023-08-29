@@ -5,7 +5,6 @@ class Display(IntEnum):
     NONE = 0
     FLEX = 1
     GRID = 2
-    BLOCK = 3
 
 
 class Overflow(IntEnum):

@@ -8,10 +8,9 @@ SCALING_FACTOR: int = 1000
 
 
 class Dimension(IntEnum):
-    UNDEFINED: int = 0
-    AUTO: int = 1
-    POINTS: int = 2
-    PERCENT: int = 3
+    AUTO: int = 0
+    POINTS: int = 1
+    PERCENT: int = 2
 
 
 class ValueConversionError(Exception):
@@ -19,8 +18,8 @@ class ValueConversionError(Exception):
 
 
 @define(frozen=True)
-class DimensionValue:
-    unit: Dimension = Dimension.UNDEFINED
+class Length:
+    unit: Dimension = Dimension.AUTO
     value: float = float("nan")
 
     def to_taffy(self) -> dict:
@@ -32,19 +31,17 @@ class DimensionValue:
         )
 
     def __mul__(self, other):
-        if self.unit in (Dimension.AUTO, Dimension.UNDEFINED):
-            raise ValueError("Cannot apply a value to auto or undefined dimension")
+        if self.unit == Dimension.AUTO:
+            raise ValueError("Cannot apply a value to AUTO")
         if not isinstance(other, (int, float)):
-            raise ValueError("Cannot apply a non-numeric value to dimension")
-        return DimensionValue(self.unit, self.value * other)
+            raise ValueError("Cannot apply a non-numeric value to Length")
+        return Length(self.unit, self.value * other)
 
     __rmul__ = __mul__
 
     def __str__(self):
         if self.unit == Dimension.AUTO:
             return "<auto>"
-        elif self.unit == Dimension.UNDEFINED:
-            return "<undef>"
         elif self.unit == Dimension.POINTS:
             return f"{self.value:.2f} pts"
         elif self.unit == Dimension.PERCENT:
@@ -65,28 +62,28 @@ class DimensionValue:
     @staticmethod
     def from_value(value: object = None) -> Self:
         if value is None:
-            return UNDEF
+            return AUTO
         if isinstance(value, (int, float)):
-            return DimensionValue(Dimension.POINTS, value)
-        elif isinstance(value, DimensionValue):
+            return Length(Dimension.POINTS, value)
+        elif isinstance(value, Length):
             return value
         elif isnan(value):
-            return UNDEF
+            return AUTO
 
         raise ValueError(f"{value} not recognized as a supported value")
 
 
-pct = DimensionValue(Dimension.PERCENT, 0.01)
-AUTO = DimensionValue(Dimension.AUTO)
-UNDEF = DimensionValue()
+pct = Length(Dimension.PERCENT, 0.01)
+AUTO = Length(Dimension.AUTO)
+ZERO = Length(Dimension.POINTS, 0.0)
 NAN = float("nan")
-Dim = DimensionValue | float | None
+Dim = Length | float | None
 
 
 @define(frozen=True)
 class Size:
-    width: Dim = field(default=AUTO, converter=DimensionValue.from_value)
-    height: Dim = field(default=AUTO, converter=DimensionValue.from_value)
+    width: Length = field(default=AUTO, converter=Length.from_value)
+    height: Length = field(default=AUTO, converter=Length.from_value)
 
     def to_taffy(self) -> dict[str, float]:
         return dict(
@@ -100,10 +97,10 @@ class Size:
 
 @define(frozen=True)
 class Rect:
-    top: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
-    end: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
-    bottom: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
-    start: DimensionValue = field(default=UNDEF, converter=DimensionValue.from_value)
+    top: Length = field(default=AUTO, converter=Length.from_value)
+    end: Length = field(default=AUTO, converter=Length.from_value)
+    bottom: Length = field(default=AUTO, converter=Length.from_value)
+    start: Length = field(default=AUTO, converter=Length.from_value)
 
     def __init__(
         self,
@@ -138,7 +135,7 @@ class Rect:
             return Rect()
         elif isinstance(value, Rect):
             return value
-        elif isinstance(value, (int, float, DimensionValue)):
+        elif isinstance(value, (int, float, Length)):
             return Rect(value)
         else:
             raise TypeError("Unsupported value type")
@@ -153,7 +150,7 @@ class Rect:
         end: str = "right",
         top: str = "top",
         bottom: str = "bottom",
-        default: Dim = UNDEF,
+        default: Length = AUTO,
     ) -> Self:
         def _get_attr_name(prefix: str, name: str) -> str:
             return f"{prefix}-{name}" if prefix else name

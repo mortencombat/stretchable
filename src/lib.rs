@@ -3,8 +3,8 @@
 
 use std::f32;
 
-// extern crate dict_derive;
-// use dict_derive::{FromPyObject, IntoPyObject};
+extern crate dict_derive;
+use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
 // use std::error::Error;
@@ -36,11 +36,59 @@ unsafe fn taffy_free(taffy: i64) {
 // STYLE
 
 trait FromIndex<T> {
+    fn from_index(index: i32) -> T;
+}
+
+trait FromIndexOptional<T> {
     fn from_index(index: Option<i32>) -> Option<T>;
 }
 
+impl FromIndex<Display> for Display {
+    fn from_index(index: i32) -> Display {
+        match index {
+            0 => Display::None,
+            1 => Display::Flex,
+            2 => Display::Grid,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
+
+impl FromIndex<Position> for Position {
+    fn from_index(index: i32) -> Position {
+        match index {
+            0 => Position::Relative,
+            1 => Position::Absolute,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
+
+impl FromIndex<FlexWrap> for FlexWrap {
+    fn from_index(index: i32) -> FlexWrap {
+        match index {
+            0 => FlexWrap::NoWrap,
+            1 => FlexWrap::Wrap,
+            2 => FlexWrap::WrapReverse,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
+
+impl FromIndex<FlexDirection> for FlexDirection {
+    fn from_index(index: i32) -> FlexDirection {
+        match index {
+            0 => FlexDirection::Row,
+            1 => FlexDirection::Column,
+            2 => FlexDirection::RowReverse,
+            3 => FlexDirection::ColumnReverse,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
+
 // AlignItems, JustifyItems, AlignSelf, JustifySelf
-impl FromIndex<AlignItems> for AlignItems {
+impl FromIndexOptional<AlignItems> for AlignItems {
     fn from_index(index: Option<i32>) -> Option<AlignItems> {
         match index {
             None => None,
@@ -59,7 +107,7 @@ impl FromIndex<AlignItems> for AlignItems {
 }
 
 // AlignContent, JustifyContent
-impl FromIndex<AlignContent> for AlignContent {
+impl FromIndexOptional<AlignContent> for AlignContent {
     fn from_index(index: Option<i32>) -> Option<AlignContent> {
         match index {
             None => None,
@@ -79,23 +127,112 @@ impl FromIndex<AlignContent> for AlignContent {
     }
 }
 
+#[derive(FromPyObject, IntoPyObject)]
+struct PyLength {
+    dim: i32,
+    value: f32,
+}
+
+impl From<PyLength> for Dimension {
+    fn from(length: PyLength) -> Dimension {
+        match length.dim {
+            1 => Dimension::Points(length.value),
+            2 => Dimension::Percent(length.value),
+            _ => Dimension::Auto,
+        }
+    }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PySize {
+    width: PyLength,
+    height: PyLength,
+}
+
+impl From<PySize> for Size<Dimension> {
+    fn from(size: PySize) -> Size<Dimension> {
+        // Size::Size::new(
+        //     Dimension::from_python(size.width),
+        //     Dimension::from_python(size.height),
+        // )
+    }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyRect {
+    start: PyLength,
+    end: PyLength,
+    top: PyLength,
+    bottom: PyLength,
+}
+
+impl From<PyRect> for Rect<LengthPercentageAuto> {
+    fn from(rect: PyRect) -> Rect<LengthPercentageAuto> {
+        // Size::Size::new(
+        //     Dimension::from_python(size.width),
+        //     Dimension::from_python(size.height),
+        // )
+    }
+}
+
+impl From<PyRect> for Rect<Dimension> {
+    fn from(rect: PyRect) -> Rect<Dimension> {
+        // Size::Size::new(
+        //     Dimension::from_python(size.width),
+        //     Dimension::from_python(size.height),
+        // )
+    }
+}
+
 #[pyfunction]
 unsafe fn taffy_style_create(
+    // Layout mode/strategy
+    display: i32,
+    // Position
+    position: i32,
+    inset: PyRect,
+    // Alignment
     align_items: Option<i32>,
     justify_items: Option<i32>,
     align_self: Option<i32>,
     justify_self: Option<i32>,
     align_content: Option<i32>,
     justify_content: Option<i32>,
+    // Flex
+    flex_wrap: i32,
+    flex_direction: i32,
+    flex_grow: f32,
+    flex_shrink: f32,
+    flex_basis: PyLength,
+    // Size
+    size: PySize,
+    min_size: PySize,
+    max_size: PySize,
     aspect_ratio: Option<f32>,
 ) -> PyResult<i64> {
     let ptr = Box::into_raw(Box::new(Style {
+        // Layout mode/strategy
+        display: Display::from_index(display),
+        // Position
+        position: Position::from_index(position),
+        inset: Rect::from(inset),
+        // Alignment
         align_items: AlignItems::from_index(align_items),
         justify_items: JustifyItems::from_index(justify_items),
         align_self: AlignSelf::from_index(align_self),
         justify_self: JustifySelf::from_index(justify_self),
         align_content: AlignContent::from_index(align_content),
         justify_content: JustifyContent::from_index(justify_content),
+        // Flex
+        flex_wrap: FlexWrap::from_index(flex_wrap),
+        flex_direction: FlexDirection::from_index(flex_direction),
+        flex_grow: flex_grow,
+        flex_shrink: flex_shrink,
+        flex_basis: Dimension::from(flex_basis),
+        // Size
+        size: Size::from(size),
+        min_size: Size::from(min_size),
+        max_size: Size::from(max_size),
         aspect_ratio: aspect_ratio,
 
         ..Default::default()
