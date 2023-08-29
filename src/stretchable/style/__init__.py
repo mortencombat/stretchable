@@ -33,47 +33,47 @@ def to_css_prop_value(enum: IntEnum) -> str:
 
 @define(frozen=True)
 class Style:
-    display: Display = field(
-        default=Display.FLEX,
-        validator=[validators.instance_of(Display)],
-    )
-    position: Position = field(
-        default=Position.RELATIVE,
-        validator=[validators.instance_of(Position)],
-    )
-    inset: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-    margin: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-    padding: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-    border: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
-    size: Size = field(factory=Size)
-    min_size: Size = field(factory=Size)
-    max_size: Size = field(factory=Size)
+    # display: Display = field(
+    #     default=Display.FLEX,
+    #     validator=[validators.instance_of(Display)],
+    # )
+    # position: Position = field(
+    #     default=Position.RELATIVE,
+    #     validator=[validators.instance_of(Position)],
+    # )
+    # inset: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
+    # margin: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
+    # padding: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
+    # border: Rect | Dim = field(factory=Rect, converter=Rect.from_value)
+    # size: Size = field(factory=Size)
+    # min_size: Size = field(factory=Size)
+    # max_size: Size = field(factory=Size)
     aspect_ratio: float = field(default=None)
 
     # Alignment
     align_items: AlignItems = field(
         default=AlignItems.STRETCH,
-        validator=[validators.instance_of(AlignItems)],
+        validator=[validators.optional(validators.instance_of(AlignItems))],
     )
     justify_items: JustifyItems = field(
         default=JustifyItems.STRETCH,
-        validator=[validators.instance_of(JustifyItems)],
+        validator=[validators.optional(validators.instance_of((JustifyItems, None)))],
     )
     align_self: AlignSelf = field(
         default=None,
-        validator=[validators.instance_of(AlignSelf)],
+        validator=[validators.optional(validators.instance_of((AlignSelf, None)))],
     )
     justify_self: JustifySelf = field(
         default=None,
-        validator=[validators.instance_of(JustifySelf)],
+        validator=[validators.optional(validators.instance_of((JustifySelf, None)))],
     )
     align_content: AlignContent = field(
         default=None,
-        validator=[validators.instance_of(AlignContent)],
+        validator=[validators.optional(validators.instance_of((AlignContent, None)))],
     )
     justify_content: JustifyContent = field(
         default=None,
-        validator=[validators.instance_of(JustifyContent)],
+        validator=[validators.optional(validators.instance_of((JustifyContent, None)))],
     )
 
     # Flex
@@ -94,7 +94,19 @@ class Style:
     _ptr: int = field(init=False, default=None)
 
     def __attrs_post_init__(self):
-        object.__setattr__(self, "_ptr", _bindings.taffy_style_create())
+        object.__setattr__(
+            self,
+            "_ptr",
+            _bindings.taffy_style_create(
+                self.align_items,
+                self.justify_items,
+                self.align_self,
+                self.justify_self,
+                self.align_content,
+                self.justify_content,
+                self.aspect_ratio,
+            ),
+        )
         logger.debug("taffy_style_create -> %s", self._ptr)
 
     def __del__(self):

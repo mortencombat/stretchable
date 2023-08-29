@@ -3,90 +3,24 @@
 
 use std::f32;
 
-extern crate dict_derive;
-use dict_derive::{FromPyObject, IntoPyObject};
+// extern crate dict_derive;
+// use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
+// use std::error::Error;
+
+// use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::{wrap_pyfunction, wrap_pymodule};
-use pyo3::exceptions::PyValueError;
 
 extern crate taffy;
 use taffy::prelude::*;
 // use taffy::geometry::*;
 // use taffy::node::*;
+// use taffy::style::JustifyItems;
 // use taffy::style::*;
 
-// region Enums
-
-trait FromIndex<T> {
-    fn from_index(index: i32) -> PyResult<T>;
-}
-
-impl FromIndex<AlignItems> for AlignItems {
-    fn from_index(index: i32) -> PyResult<AlignItems> {
-        match index {
-            0 => Ok(AlignItems::Start),
-            1 => Ok(AlignItems::End),
-            2 => Ok(AlignItems::FlexStart),
-            3 => Ok(AlignItems::FlexEnd),
-            4 => Ok(AlignItems::Center),
-            5 => Ok(AlignItems::Baseline),
-            6 => Ok(AlignItems::Stretch),
-            n => Err(PyValueError::new_err(format!("enum AlignItems - invalid index: {}", n))),
-        }
-    }
-}
-
-// impl FromIndex<JustifySelf> for JustifySelf {
-//     fn from_index(index: i32) -> PyResult<JustifySelf> {
-//         match index {
-//             0 => Ok(JustifySelf::Start),
-//             1 => Ok(JustifySelf::End),
-//             2 => Ok(JustifySelf::FlexStart),
-//             3 => Ok(JustifySelf::FlexEnd),
-//             4 => Ok(JustifySelf::Center),
-//             5 => Ok(JustifySelf::Baseline),
-//             6 => Ok(JustifySelf::Stretch),
-//             n => Err(PyValueError::new_err(format!("enum JustifySelf - invalid index: {}", n))),
-//         }
-//     }
-// }
-
-
-// impl FromIndex<AlignSelf> for AlignSelf {
-//     fn from_index(index: i32) -> PyResult<AlignSelf> {
-//         match index {
-//             0 => Ok(AlignSelf::Start),
-//             1 => Ok(AlignSelf::End),
-//             2 => Ok(AlignSelf::FlexStart),
-//             3 => Ok(AlignSelf::FlexEnd),
-//             4 => Ok(AlignSelf::Center),
-//             5 => Ok(AlignSelf::Baseline),
-//             6 => Ok(AlignSelf::Stretch),
-//             n => Err(PyValueError::new_err(format!("enum AlignSelf - invalid index: {}", n))),
-//         }
-//     }
-// }
-
-
-// impl FromIndex<JustifySelf> for JustifySelf {
-//     fn from_index(index: i32) -> PyResult<JustifyItems> {
-//         match index {
-//             0 => Ok(JustifyItems::Start),
-//             1 => Ok(JustifyItems::End),
-//             2 => Ok(JustifyItems::FlexStart),
-//             3 => Ok(JustifyItems::FlexEnd),
-//             4 => Ok(JustifyItems::Center),
-//             5 => Ok(JustifyItems::Baseline),
-//             6 => Ok(JustifyItems::Stretch),
-//             n => Err(PyValueError::new_err(format!("enum JustifyItems - invalid index: {}", n))),
-//         }
-//     }
-// }
-
-// endregion
-
+// MAIN (TAFFY)
 
 #[pyfunction]
 unsafe fn taffy_init() -> i64 {
@@ -99,15 +33,71 @@ unsafe fn taffy_free(taffy: i64) {
     let _ = Box::from_raw(taffy as *mut Taffy);
 }
 
+// STYLE
+
+trait FromIndex<T> {
+    fn from_index(index: Option<i32>) -> Option<T>;
+}
+
+// AlignItems, JustifyItems, AlignSelf, JustifySelf
+impl FromIndex<AlignItems> for AlignItems {
+    fn from_index(index: Option<i32>) -> Option<AlignItems> {
+        match index {
+            None => None,
+            Some(n) => match n {
+                0 => Some(AlignItems::Start),
+                1 => Some(AlignItems::End),
+                2 => Some(AlignItems::FlexStart),
+                3 => Some(AlignItems::FlexEnd),
+                4 => Some(AlignItems::Center),
+                5 => Some(AlignItems::Baseline),
+                6 => Some(AlignItems::Stretch),
+                _ => panic!("invalid index {}", n),
+            },
+        }
+    }
+}
+
+// AlignContent, JustifyContent
+impl FromIndex<AlignContent> for AlignContent {
+    fn from_index(index: Option<i32>) -> Option<AlignContent> {
+        match index {
+            None => None,
+            Some(n) => match n {
+                0 => Some(AlignContent::Start),
+                1 => Some(AlignContent::End),
+                2 => Some(AlignContent::FlexStart),
+                3 => Some(AlignContent::FlexEnd),
+                4 => Some(AlignContent::Center),
+                5 => Some(AlignContent::Stretch),
+                6 => Some(AlignContent::SpaceBetween),
+                7 => Some(AlignContent::SpaceEvenly),
+                8 => Some(AlignContent::SpaceAround),
+                _ => panic!("invalid index {}", n),
+            },
+        }
+    }
+}
 
 #[pyfunction]
 unsafe fn taffy_style_create(
-    align_items: i32,
-    aspect_ratio: f32,
+    align_items: Option<i32>,
+    justify_items: Option<i32>,
+    align_self: Option<i32>,
+    justify_self: Option<i32>,
+    align_content: Option<i32>,
+    justify_content: Option<i32>,
+    aspect_ratio: Option<f32>,
 ) -> PyResult<i64> {
     let ptr = Box::into_raw(Box::new(Style {
-        align_items:        AlignItems::from_index(align_items)?,
-        // aspect_ratio: if f32::is_nan(aspect_ratio) { Number::Undefined } else { Number::Defined(aspect_ratio) },
+        align_items: AlignItems::from_index(align_items),
+        justify_items: JustifyItems::from_index(justify_items),
+        align_self: AlignSelf::from_index(align_self),
+        justify_self: JustifySelf::from_index(justify_self),
+        align_content: AlignContent::from_index(align_content),
+        justify_content: JustifyContent::from_index(justify_content),
+        aspect_ratio: aspect_ratio,
+
         ..Default::default()
     }));
     Ok(ptr as i64)
@@ -118,6 +108,7 @@ unsafe fn taffy_style_drop(style: i64) {
     let _style = Box::from_raw(style as *mut Style);
 }
 
+// NODES
 
 #[pyfunction]
 unsafe fn taffy_node_create(taffy: i64, style: i64) -> i64 {
@@ -125,7 +116,6 @@ unsafe fn taffy_node_create(taffy: i64, style: i64) -> i64 {
     let style = Box::from_raw(style as *mut Style);
     let node = taffy.new_leaf(*style).unwrap();
 
-    // Box::leak(style);
     Box::leak(taffy);
 
     Box::into_raw(Box::new(node)) as i64
@@ -137,11 +127,8 @@ unsafe fn taffy_node_drop(taffy: i64, node: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
 
-    taffy.remove(*node);
-
+    _ = taffy.remove(*node);
     Box::leak(taffy);
-
-    // Ok(node);
 }
 
 #[pyfunction]
@@ -150,16 +137,13 @@ unsafe fn taffy_nodes_clear(taffy: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
 
     taffy.clear();
-
     Box::leak(taffy);
 }
 
-
-// region Module
+// MODULE
 
 #[pymodule]
 pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
-    /* FUNC*/
     m.add_wrapped(wrap_pyfunction!(taffy_init))?;
     m.add_wrapped(wrap_pyfunction!(taffy_free))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_create))?;
@@ -168,11 +152,6 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(taffy_style_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_drop))?;
 
-
-    // m.add_wrapped(wrap_pyfunction!(stretch_style_create))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_style_free))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_create))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_free))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_set_measure))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_set_style))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_dirty))?;
@@ -182,7 +161,7 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     // m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child_at_index))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_compute_layout))?;
-    /* END */
+
     Ok(())
 }
 
@@ -192,5 +171,3 @@ fn taffy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pymodule!(_bindings))?;
     Ok(())
 }
-
-// endregion

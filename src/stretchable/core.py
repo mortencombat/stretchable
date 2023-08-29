@@ -19,6 +19,8 @@ class Children(list):
         # _bindings.stretch_node_add_child(
         #     Stretch.get_ptr(), self._parent._ptr, node._ptr
         # )
+        if not isinstance(node, Node):
+            raise TypeError("Only nodes can be added")
         node._parent = self._parent
         super().append(node)
 
@@ -124,7 +126,7 @@ class Node:
 
 
 class Taffy(Node):
-    __slots__ = ("_ptr_taffy",)
+    __slots__ = ("_ptr_taffy", "_rounding_enabled")
 
     def __init__(self) -> None:
         super().__init__()

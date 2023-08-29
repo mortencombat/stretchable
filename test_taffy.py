@@ -9,7 +9,7 @@ logger.setLevel(logging.DEBUG)
 taffy = Taffy()
 
 taffy.add(
-    Node(Style()).add(
-        Node(Style()),
+    Node(style=Style()).add(
+        Node(style=Style()),
     ),
 )
