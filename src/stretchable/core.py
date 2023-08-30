@@ -99,9 +99,18 @@ class Node:
 
     @parent.setter
     def parent(self, value: Self) -> None:
-        self._parent = value
+        if self._ptr:
+            # Node is already created
+            # Check that it is not being added to another root
+            if not value.root or value.root != self.root:
+                raise Exception(
+                    "Node is already associated with a tree, you cannot add it to another tree"
+                )
+            return
 
-        if not self._ptr and self.root:
+        self._parent = value
+        if self.root:
+            # Node was added to a tree, create node in Taffy
             self._ptr = _bindings.taffy_node_create(
                 self.root._ptr_taffy, self.style._ptr
             )
@@ -113,8 +122,8 @@ class Node:
         return self.parent.root if self.parent else None
 
     @property
-    def is_node(self) -> bool:
-        return True
+    def is_root(self) -> bool:
+        return False
 
     def __del__(self) -> None:
         if self._ptr:
@@ -125,6 +134,30 @@ class Node:
         if not self.root:
             raise Exception("Node must be added to a tree based on a Root instance")
         raise NotImplementedError
+
+
+"""
+HANDLING TAFFY/RUST OBJECTS
+
+All objects are created and referred via an i64 pointer.
+
+TAFFY/TREE (ROOT)
+
+
+
+
+NODE
+
+Node is associated with a specific Tree/Root.
+
+
+
+STYLE
+
+Style is not associated with a specific Tree/Root.
+
+
+"""
 
 
 class Root(Node):
@@ -140,7 +173,8 @@ class Root(Node):
     def __del__(self) -> None:
         if hasattr(self, "_ptr_taffy") and self._ptr_taffy:
             _bindings.taffy_free(self._ptr_taffy)
-            logger.debug("taffy_free(%s)", self._ptr_taffy)
+            logger.debug("taffy_free(%s) via __del__", self._ptr_taffy)
+            self._ptr_taffy = None
 
     @property
     def rounding_enabled(self) -> bool:
@@ -151,9 +185,11 @@ class Root(Node):
         if value == self._rounding_enabled:
             return
         if value:
-            raise NotImplementedError
+            _bindings.taffy_enable_rounding(self._ptr_taffy)
+            logger.debug("taffy_enable_rounding(%s)", self._ptr_taffy)
         else:
-            raise NotImplementedError
+            _bindings.taffy_disable_rounding(self._ptr_taffy)
+            logger.debug("taffy_disable_rounding(%s)", self._ptr_taffy)
         self._rounding_enabled = value
 
     @property
@@ -161,5 +197,14 @@ class Root(Node):
         return self
 
     @property
-    def is_node(self) -> bool:
-        return False
+    def is_root(self) -> bool:
+        return True
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> Self:
+        if hasattr(self, "_ptr_taffy") and self._ptr_taffy:
+            _bindings.taffy_free(self._ptr_taffy)
+            logger.debug("taffy_free(%s) via __exit__", self._ptr_taffy)
+            self._ptr_taffy = None

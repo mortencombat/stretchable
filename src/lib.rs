@@ -34,6 +34,20 @@ unsafe fn taffy_free(taffy: i64) {
     let _ = Box::from_raw(taffy as *mut Taffy);
 }
 
+#[pyfunction]
+unsafe fn taffy_enable_rounding(taffy: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    taffy.enable_rounding();
+    Box::leak(taffy);
+}
+
+#[pyfunction]
+unsafe fn taffy_disable_rounding(taffy: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    taffy.disable_rounding();
+    Box::leak(taffy);
+}
+
 // STYLE
 
 trait FromIndex<T> {
@@ -393,6 +407,8 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(taffy_node_drop_all))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_drop))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_enable_rounding))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_disable_rounding))?;
 
     // enable_rounding
     // disable_rounding

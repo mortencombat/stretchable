@@ -106,10 +106,20 @@ class Style:
         default=GridAutoFlow.ROW,
         validator=[validators.instance_of(GridAutoFlow)],
     )
-    # grid_template_rows
-    # grid_template_columns
-    # grid_auto_rows
-    # grid_auto_columns
+    # grid_template_rows (defines the width of the grid rows)
+    #   GridTrackVec<TrackSizingFunction>
+    #
+    #
+    # grid_template_columns (defines the heights of the grid columns)
+    #   GridTrackVec<TrackSizingFunction>
+    #
+    # grid_auto_rows (defines the size of implicitly created rows)
+    #   GridTrackVec<NonRepeatedTrackSizingFunction>
+    #
+    # grid_auto_columns (defines the size of implicitly created columns)
+    #   GridTrackVec<NonRepeatedTrackSizingFunction>
+    #
+    # GridTrackVec: A vector of grid tracks (defined in taffy::util::sys)
 
     # Grid child
     grid_row: GridPlacement = field(

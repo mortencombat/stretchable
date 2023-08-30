@@ -18,8 +18,19 @@ class GridIndex:
     # TODO: add validator
 
     @staticmethod
+    def auto() -> Self:
+        return GridIndex()
+
+    @staticmethod
+    def from_index(index: int) -> Self:
+        return GridIndex(index)
+
+    @staticmethod
+    def from_span(span: int) -> Self:
+        return GridIndex(span, True)
+
+    @staticmethod
     def from_value(value: object) -> Self:
-        # TODO: support more types of values
         if value is None:
             return GridIndex()
         elif isinstance(value, GridIndex):
@@ -41,7 +52,7 @@ class GridIndex:
     def to_taffy(self) -> dict[str, int]:
         return dict(
             kind=self.type.value,
-            value=self.value,
+            value=self.value if self.value is not None else 0,
         )
 
 
@@ -60,7 +71,7 @@ class GridPlacement:
 
     @staticmethod
     def from_value(value: object) -> Self:
-        # TODO: support more types of values
+        # TODO: support more types of values?
         if value is None:
             return GridPlacement()
         elif isinstance(value, GridPlacement):
@@ -69,10 +80,6 @@ class GridPlacement:
             raise TypeError("Unsupported value type")
 
     def to_taffy(self) -> dict[str, int]:
-        print(self.start)
-        print(self.start.to_taffy())
-        print(self.end)
-        print(self.end.to_taffy())
         return dict(
             start=self.start.to_taffy(),
             end=self.end.to_taffy(),
