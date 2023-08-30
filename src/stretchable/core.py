@@ -101,16 +101,16 @@ class Node:
     def parent(self, value: Self) -> None:
         self._parent = value
 
-        if not self._ptr and self.taffy:
+        if not self._ptr and self.root:
             self._ptr = _bindings.taffy_node_create(
-                self.taffy._ptr_taffy, self.style._ptr
+                self.root._ptr_taffy, self.style._ptr
             )
             logger.debug("taffy_node_create -> %s", self._ptr)
 
     @property
-    def taffy(self) -> "Taffy":
-        """Returns the associated Taffy class instance, if this node has been added to the corresponding tree"""
-        return self.parent.taffy if self.parent else None
+    def root(self) -> "Root":
+        """Returns the associated Root class instance, if this node has been added to the corresponding tree"""
+        return self.parent.root if self.parent else None
 
     @property
     def is_node(self) -> bool:
@@ -122,10 +122,12 @@ class Node:
             logger.debug("taffy_node_drop(%s)", self._ptr)
 
     def compute_layout(self):
+        if not self.root:
+            raise Exception("Node must be added to a tree based on a Root instance")
         raise NotImplementedError
 
 
-class Taffy(Node):
+class Root(Node):
     __slots__ = ("_ptr_taffy", "_rounding_enabled")
 
     def __init__(self) -> None:
@@ -136,8 +138,9 @@ class Taffy(Node):
         self._rounding_enabled = True
 
     def __del__(self) -> None:
-        _bindings.taffy_free(self._ptr_taffy)
-        logger.debug("taffy_free(%s)", self._ptr_taffy)
+        if hasattr(self, "_ptr_taffy") and self._ptr_taffy:
+            _bindings.taffy_free(self._ptr_taffy)
+            logger.debug("taffy_free(%s)", self._ptr_taffy)
 
     @property
     def rounding_enabled(self) -> bool:
@@ -154,7 +157,7 @@ class Taffy(Node):
         self._rounding_enabled = value
 
     @property
-    def taffy(self) -> Self:
+    def root(self) -> Self:
         return self
 
     @property

@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.16.6", features = ["abi3-py37", "extension-module"] }
 dict_derive = "0.4.0"
-taffy = ">=0.3.13, <1.0"
+taffy = ">=0.3.13, <0.4"
 

@@ -15,6 +15,7 @@ use pyo3::{wrap_pyfunction, wrap_pymodule};
 
 extern crate taffy;
 use taffy::prelude::*;
+
 // use taffy::geometry::*;
 // use taffy::node::*;
 // use taffy::style::JustifyItems;
@@ -127,6 +128,18 @@ impl FromIndexOptional<AlignContent> for AlignContent {
     }
 }
 
+impl FromIndex<GridAutoFlow> for GridAutoFlow {
+    fn from_index(index: i32) -> GridAutoFlow {
+        match index {
+            0 => GridAutoFlow::Row,
+            1 => GridAutoFlow::Column,
+            2 => GridAutoFlow::RowDense,
+            3 => GridAutoFlow::ColumnDense,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
+
 #[derive(FromPyObject, IntoPyObject)]
 struct PyLength {
     dim: i32,
@@ -228,6 +241,37 @@ impl From<PyRect> for Rect<Dimension> {
     }
 }
 
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyGridIndex {
+    kind: i8,
+    value: i16,
+}
+
+impl From<PyGridIndex> for GridPlacement {
+    fn from(grid_index: PyGridIndex) -> Self {
+        match grid_index.kind {
+            1 => Self::from_line_index(grid_index.value),
+            2 => Self::from_span(grid_index.value as u16),
+            _ => Self::Auto,
+        }
+    }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyGridPlacement {
+    start: PyGridIndex,
+    end: PyGridIndex,
+}
+
+impl From<PyGridPlacement> for Line<GridPlacement> {
+    fn from(grid_placement: PyGridPlacement) -> Self {
+        Self {
+            start: GridPlacement::from(grid_placement.start),
+            end: GridPlacement::from(grid_placement.end),
+        }
+    }
+}
+
 #[pyfunction]
 unsafe fn taffy_style_create(
     // Layout mode/strategy
@@ -258,6 +302,10 @@ unsafe fn taffy_style_create(
     flex_grow: f32,
     flex_shrink: f32,
     flex_basis: PyLength,
+    // Grid
+    grid_auto_flow: i32,
+    grid_row: PyGridPlacement,
+    grid_column: PyGridPlacement,
 ) -> PyResult<i64> {
     let ptr = Box::into_raw(Box::new(Style {
         // Layout mode/strategy
@@ -288,6 +336,10 @@ unsafe fn taffy_style_create(
         flex_grow: flex_grow,
         flex_shrink: flex_shrink,
         flex_basis: Dimension::from(flex_basis),
+        // Grid
+        grid_auto_flow: GridAutoFlow::from_index(grid_auto_flow),
+        grid_row: Line::from(grid_row),
+        grid_column: Line::from(grid_column),
         ..Default::default()
     }));
     Ok(ptr as i64)

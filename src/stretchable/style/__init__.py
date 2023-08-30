@@ -13,11 +13,13 @@ from .enum import (
     Display,
     FlexDirection,
     FlexWrap,
+    GridAutoFlow,
     JustifyContent,
     JustifyItems,
     JustifySelf,
     Position,
 )
+from .grid import GridPlacement
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
@@ -100,15 +102,22 @@ class Style:
     flex_basis: Length = field(default=AUTO, converter=Length.from_value)
 
     # TODO: Grid container
+    grid_auto_flow: GridAutoFlow = field(
+        default=GridAutoFlow.ROW,
+        validator=[validators.instance_of(GridAutoFlow)],
+    )
     # grid_template_rows
     # grid_template_columns
     # grid_auto_rows
     # grid_auto_columns
-    # grid_auto_flow
 
-    # TODO: Grid child
-    # grid_row
-    # grid_column
+    # Grid child
+    grid_row: GridPlacement = field(
+        factory=GridPlacement, converter=GridPlacement.from_value
+    )
+    grid_column: GridPlacement = field(
+        factory=GridPlacement, converter=GridPlacement.from_value
+    )
 
     _ptr: int = field(init=False, default=None)
 
@@ -145,6 +154,15 @@ class Style:
                 self.flex_grow,
                 self.flex_shrink,
                 self.flex_basis.to_taffy(),
+                # Grid container
+                self.grid_auto_flow,
+                # grid_template_rows
+                # grid_template_columns
+                # grid_auto_rows
+                # grid_auto_columns
+                # Grid child
+                self.grid_row.to_taffy(),
+                self.grid_column.to_taffy(),
             ),
         )
         logger.debug("taffy_style_create -> %s", self._ptr)
