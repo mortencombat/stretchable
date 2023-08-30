@@ -378,6 +378,19 @@ unsafe fn taffy_node_create(taffy: i64, style: i64) -> i64 {
 }
 
 #[pyfunction]
+unsafe fn taffy_node_add_child(taffy: i64, node: i64, child: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+    let child = Box::from_raw(child as *mut Node);
+
+    taffy.add_child(*node, *child).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+    Box::leak(child);
+}
+
+#[pyfunction]
 unsafe fn taffy_node_drop(taffy: i64, node: i64) {
     // Remove a specific node from the tree and drop it
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
@@ -404,6 +417,7 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(taffy_free))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_drop))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_add_child))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_drop_all))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_drop))?;
@@ -416,7 +430,6 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     // m.add_wrapped(wrap_pyfunction!(stretch_node_set_style))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_dirty))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_mark_dirty))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_add_child))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_replace_child_at_index))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child_at_index))?;

@@ -21,7 +21,7 @@ class Children(list):
         # )
         if not isinstance(node, Node):
             raise TypeError("Only nodes can be added")
-        node._parent = self._parent
+        node.parent = self._parent
         super().append(node)
 
     def extend(self, __iterable: Iterable["Node"]) -> None:
@@ -84,10 +84,16 @@ class Node:
         # self.measure = measure
         self._layout = None
         self._parent = None
+        if self.is_root:
+            self._added_to_root()
 
     def add(self, *children) -> Self:
         self._children.extend(children)
         return self
+
+    @property
+    def style(self) -> Style:
+        return self._style
 
     @property
     def children(self) -> Children:
@@ -99,22 +105,35 @@ class Node:
 
     @parent.setter
     def parent(self, value: Self) -> None:
-        if self._ptr:
-            # Node is already created
-            # Check that it is not being added to another root
-            if not value.root or value.root != self.root:
-                raise Exception(
-                    "Node is already associated with a tree, you cannot add it to another tree"
-                )
-            return
-
+        added_to_root = not self.root and value.root
         self._parent = value
-        if self.root:
-            # Node was added to a tree, create node in Taffy
-            self._ptr = _bindings.taffy_node_create(
-                self.root._ptr_taffy, self.style._ptr
+        if added_to_root:
+            self._added_to_root()
+            for child in self.children:
+                child._added_to_root()
+
+    def _added_to_root(self) -> None:
+        if self._ptr:
+            # Node is already created, root cannot change
+            raise Exception(
+                "Node is already associated with a tree, you cannot add it to another tree"
             )
-            logger.debug("taffy_node_create -> %s", self._ptr)
+
+        # Create node
+        self._ptr = _bindings.taffy_node_create(self.root._ptr_taffy, self.style._ptr)
+        logger.debug("taffy_node_create() -> %s", self._ptr)
+
+        # Add as child node
+        if self.parent:
+            _bindings.taffy_node_add_child(
+                self.root._ptr_taffy, self.parent._ptr, self._ptr
+            )
+            logger.debug(
+                "taffy_node_add_child(%s, %s, %s)",
+                self.root._ptr_taffy,
+                self.parent._ptr,
+                self._ptr,
+            )
 
     @property
     def root(self) -> "Root":
@@ -126,9 +145,10 @@ class Node:
         return False
 
     def __del__(self) -> None:
-        if self._ptr:
-            _bindings.taffy_node_drop(self._ptr)
+        if self.root and self.root._ptr_taffy and self._ptr:
+            _bindings.taffy_node_drop(self.root._ptr_taffy, self._ptr)
             logger.debug("taffy_node_drop(%s)", self._ptr)
+            self._ptr = None
 
     def compute_layout(self):
         if not self.root:
@@ -149,7 +169,14 @@ TAFFY/TREE (ROOT)
 NODE
 
 Node is associated with a specific Tree/Root.
+When a Node is first instanced, it has no associated Tree.
+Possible actions:
+    - Add node to parent node, which is not associated with a Tree -> Nothing
+    - Parent Node is added to Tree -> Create both parent node and child nodes
+    - Add node to parent node, which is associated with a Tree -> Create node and add
 
+
+Use event propagation system?
 
 
 STYLE
@@ -164,11 +191,10 @@ class Root(Node):
     __slots__ = ("_ptr_taffy", "_rounding_enabled")
 
     def __init__(self) -> None:
-        super().__init__()
+        self._rounding_enabled = True
         self._ptr_taffy = _bindings.taffy_init()
         logger.debug("taffy_init -> %s", self._ptr_taffy)
-
-        self._rounding_enabled = True
+        super().__init__()
 
     def __del__(self) -> None:
         if hasattr(self, "_ptr_taffy") and self._ptr_taffy:

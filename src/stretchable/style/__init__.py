@@ -178,6 +178,7 @@ class Style:
         logger.debug("taffy_style_create -> %s", self._ptr)
 
     def __del__(self):
-        if self._ptr:
-            _bindings.taffy_style_drop(self._ptr)
-            logger.debug("taffy_style_drop(%s)", self._ptr)
+        pass
+        # if self._ptr:
+        #     _bindings.taffy_style_drop(self._ptr)
+        #     logger.debug("taffy_style_drop(%s)", self._ptr)
