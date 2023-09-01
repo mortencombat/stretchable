@@ -175,7 +175,7 @@ class Style:
                 self.grid_column.to_taffy(),
             ),
         )
-        logger.debug("taffy_style_create -> %s", self._ptr)
+        logger.debug("taffy_style_create() -> %s", self._ptr)
 
     def __del__(self):
         pass

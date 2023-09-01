@@ -1,15 +1,19 @@
 import logging
 
-from stretchable.core import Node, Root
+from stretchable.core import Node, Tree
 from stretchable.style import Style
 
 logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)
 
-with Root() as root:
-    root.rounding_enabled = False
+with Tree() as tree:
+    # tree.rounding_enabled = False
     node_1 = Node(style=Style())
+    tree.add(node_1)
     node_2 = Node(style=Style())
     node_1.add(node_2)
-    root.add(node_2)
-    # Now node_1 thinks node_2 is a child, but node_2 is actually a child of root
+    node_3 = Node(style=Style())
+    node_1.add(node_3)
+    node_1.children[1] = Node(style=Style())
+    for c in node_1.children:
+        print(c._ptr)

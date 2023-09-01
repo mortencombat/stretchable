@@ -409,6 +409,81 @@ unsafe fn taffy_node_drop_all(taffy: i64) {
     Box::leak(taffy);
 }
 
+#[pyfunction]
+unsafe fn taffy_node_replace_child_at_index(taffy: i64, node: i64, index: usize, child: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+    let child = Box::from_raw(child as *mut Node);
+
+    taffy.replace_child_at_index(*node, index, *child).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+    Box::leak(child);
+}
+
+#[pyfunction]
+unsafe fn taffy_node_remove_child(taffy: i64, node: i64, child: i64) -> PyResult<()> {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+    let child = Box::from_raw(child as *mut Node);
+
+    // TODO: this fails with an unknown error...
+    taffy.remove_child(*node, *child).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+    Box::leak(child);
+
+    Ok(())
+}
+
+#[pyfunction]
+unsafe fn taffy_node_remove_child_at_index(taffy: i64, node: i64, index: usize) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+
+    taffy.remove_child_at_index(*node, index).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+}
+
+#[pyfunction]
+unsafe fn taffy_node_dirty(taffy: i64, node: i64) -> bool {
+    let taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+    let dirty = taffy.dirty(*node).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+
+    dirty
+}
+#[pyfunction]
+unsafe fn taffy_node_mark_dirty(taffy: i64, node: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+
+    taffy.mark_dirty(*node).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+}
+
+#[pyfunction]
+unsafe fn taffy_node_set_style(taffy: i64, node: i64, style: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+    let style = Box::from_raw(style as *mut Style);
+
+    taffy.set_style(*node, *style).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+    // Box::leak(style);
+}
+
 // MODULE
 
 #[pymodule]
@@ -417,22 +492,20 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(taffy_free))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_drop))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_add_child))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_drop_all))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_add_child))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_replace_child_at_index))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_remove_child))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_remove_child_at_index))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_dirty))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_mark_dirty))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_set_style))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_drop))?;
     m.add_wrapped(wrap_pyfunction!(taffy_enable_rounding))?;
     m.add_wrapped(wrap_pyfunction!(taffy_disable_rounding))?;
 
-    // enable_rounding
-    // disable_rounding
     // m.add_wrapped(wrap_pyfunction!(stretch_node_set_measure))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_set_style))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_dirty))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_mark_dirty))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_replace_child_at_index))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child_at_index))?;
     // m.add_wrapped(wrap_pyfunction!(stretch_node_compute_layout))?;
 
     Ok(())
