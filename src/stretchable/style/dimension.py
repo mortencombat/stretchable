@@ -8,13 +8,23 @@ SCALING_FACTOR: int = 1000
 
 
 class Dimension(IntEnum):
-    AUTO: int = 0
-    POINTS: int = 1
-    PERCENT: int = 2
+    AUTO = 0
+    POINTS = 1
+    PERCENT = 2
+    MIN_CONTENT = 3
+    MAX_CONTENT = 4
 
 
 class ValueConversionError(Exception):
     pass
+
+
+# TODO: Move Length to generic, with these:
+#   LengthPercentageAuto    Points, Percent, Auto
+#   LengthPercentage        Points, Percent
+#   ?                       Points
+#   AvailableSpace          Points, MinContent, MaxContent
+# NOTE: Consider also that measure functions use MAX_CONTENT and MIN_CONTENT in some way
 
 
 @define(frozen=True)
@@ -78,6 +88,8 @@ AUTO = Length(Dimension.AUTO)
 ZERO = Length(Dimension.POINTS, 0.0)
 NAN = float("nan")
 Dim = Length | float | None
+MAX_CONTENT = Length(Dimension.MAX_CONTENT)
+MIN_CONTENT = Length(Dimension.MIN_CONTENT)
 
 
 @define(frozen=True)

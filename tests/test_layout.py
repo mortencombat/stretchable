@@ -2,7 +2,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from stretchable import Box, Node, Size, reset
-from stretchable.style import AlignItems, JustifyContent, pct
+from stretchable.style.core import AlignItems, JustifyContent, pct
 
 
 def assert_attrs(

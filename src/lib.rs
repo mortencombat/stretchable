@@ -163,9 +163,21 @@ struct PyLength {
 impl From<PyLength> for Dimension {
     fn from(length: PyLength) -> Dimension {
         match length.dim {
+            0 => Dimension::Auto,
             1 => Dimension::Points(length.value),
             2 => Dimension::Percent(length.value),
-            _ => Dimension::Auto,
+            _ => panic!("unsupported dimension {}", length.dim),
+        }
+    }
+}
+
+impl From<PyLength> for AvailableSpace {
+    fn from(length: PyLength) -> Self {
+        match length.dim {
+            1 => AvailableSpace::Definite(length.value),
+            3 => AvailableSpace::MinContent,
+            4 => AvailableSpace::MaxContent,
+            _ => panic!("unsupported dimension {}", length.dim),
         }
     }
 }
@@ -173,9 +185,10 @@ impl From<PyLength> for Dimension {
 impl From<PyLength> for LengthPercentageAuto {
     fn from(length: PyLength) -> LengthPercentageAuto {
         match length.dim {
+            0 => LengthPercentageAuto::Auto,
             1 => LengthPercentageAuto::Points(length.value),
             2 => LengthPercentageAuto::Percent(length.value),
-            _ => LengthPercentageAuto::Auto,
+            _ => panic!("unsupported dimension {}", length.dim),
         }
     }
 }
@@ -185,7 +198,7 @@ impl From<PyLength> for LengthPercentage {
         match length.dim {
             1 => LengthPercentage::Points(length.value),
             2 => LengthPercentage::Percent(length.value),
-            _ => panic!("Length should be points or percent, not auto"),
+            _ => panic!("unsupported dimension {}", length.dim),
         }
     }
 }
@@ -197,7 +210,7 @@ pub struct PySize {
 }
 
 impl From<PySize> for Size<Dimension> {
-    fn from(size: PySize) -> Size<Dimension> {
+    fn from(size: PySize) -> Self {
         Size {
             height: Dimension::from(size.height),
             width: Dimension::from(size.width),
@@ -206,10 +219,19 @@ impl From<PySize> for Size<Dimension> {
 }
 
 impl From<PySize> for Size<LengthPercentage> {
-    fn from(size: PySize) -> Size<LengthPercentage> {
+    fn from(size: PySize) -> Self {
         Size {
             height: LengthPercentage::from(size.height),
             width: LengthPercentage::from(size.width),
+        }
+    }
+}
+
+impl From<PySize> for Size<AvailableSpace> {
+    fn from(size: PySize) -> Self {
+        Size {
+            height: AvailableSpace::from(size.height),
+            width: AvailableSpace::from(size.width),
         }
     }
 }
@@ -320,7 +342,7 @@ unsafe fn taffy_style_create(
     grid_auto_flow: i32,
     grid_row: PyGridPlacement,
     grid_column: PyGridPlacement,
-) -> PyResult<i64> {
+) -> i64 {
     let ptr = Box::into_raw(Box::new(Style {
         // Layout mode/strategy
         display: Display::from_index(display),
@@ -356,7 +378,7 @@ unsafe fn taffy_style_create(
         grid_column: Line::from(grid_column),
         ..Default::default()
     }));
-    Ok(ptr as i64)
+    ptr as i64
 }
 
 #[pyfunction]
@@ -423,7 +445,7 @@ unsafe fn taffy_node_replace_child_at_index(taffy: i64, node: i64, index: usize,
 }
 
 #[pyfunction]
-unsafe fn taffy_node_remove_child(taffy: i64, node: i64, child: i64) -> PyResult<()> {
+unsafe fn taffy_node_remove_child(taffy: i64, node: i64, child: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
     let child = Box::from_raw(child as *mut Node);
@@ -434,8 +456,6 @@ unsafe fn taffy_node_remove_child(taffy: i64, node: i64, child: i64) -> PyResult
     Box::leak(taffy);
     Box::leak(node);
     Box::leak(child);
-
-    Ok(())
 }
 
 #[pyfunction]
@@ -484,6 +504,19 @@ unsafe fn taffy_node_set_style(taffy: i64, node: i64, style: i64) {
     // Box::leak(style);
 }
 
+#[pyfunction]
+unsafe fn taffy_node_compute_layout(taffy: i64, node: i64, available_space: PySize) -> bool {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+
+    let result = taffy.compute_layout(*node, Size::from(available_space));
+
+    Box::leak(taffy);
+    Box::leak(node);
+
+    result.is_ok()
+}
+
 // MODULE
 
 #[pymodule]
@@ -506,7 +539,7 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(taffy_disable_rounding))?;
 
     // m.add_wrapped(wrap_pyfunction!(stretch_node_set_measure))?;
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_compute_layout))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_compute_layout))?;
 
     Ok(())
 }

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 from stretchable import Box, Node, reset
-from stretchable.style import Rect, Size, pct
+from stretchable.style.core import Rect, Size, pct
 
 
 def print_layout(

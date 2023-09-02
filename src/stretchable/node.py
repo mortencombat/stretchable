@@ -1,14 +1,37 @@
 import logging
+import re
 from typing import Iterable, Self, SupportsIndex
 
-from attrs import define
-
-from stretchable.style import Style
+from stretchable.style.core import Size, Style
+from stretchable.style.dimension import MAX_CONTENT
 
 from .taffy import _bindings
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
+
+_valid_id = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]*$")
+
+"""
+TODO:
+
+ 1) Implement __str__ for classes
+ 2) Use __str__ from 1) in logger
+ 3) Refactor (?) Length/Size in style.dimension to enforce different types of
+    lengths: Some places only points are supported, other places points,
+    percentages and maybe auto is supported. In layouting (compute_layout and
+    measure functions) "min content" and "max content" concepts are supported.
+ 4) Measure function support
+ 5) Support grid_[template/auto]_[rows/columns] in Style
+"""
+
+
+class NodeLocatorError(Exception):
+    pass
+
+
+class NodeNotFound(Exception):
+    pass
 
 
 class Children(list):
@@ -16,11 +39,6 @@ class Children(list):
         self._parent = parent
 
     def append(self, node: "Node"):
-        # if self._parent.tree and node._ptr:
-        #     # NOTE: this might be redundant, since whenever a new node is added to the tree,
-        #     # _added_to_tree will fire first and will include _node_add_child
-        #     logger.debug("_node_add_child via Children.append()")
-        #     self._parent.tree._node_add_child(self._parent, node)
         if not isinstance(node, Node):
             raise TypeError("Only nodes can be added")
         elif node.parent:
@@ -66,34 +84,59 @@ class Node:
         "_parent",
     )
 
-    # TODO: Node should also handle style_create and style_drop, tracking ptr_style
-
     def __init__(self, *children, id: str = None, style: Style = None, **kwargs):
         self._ptr = None
+        self._layout = None
+        self._parent = None
+
+        # Node id requirements:
+        #   May consist of -_!:;()[] a-z A-Z 0-9
+        #   Must contain at least one alphabetical character
+        if id is not None and not _valid_id.match(id):
+            raise ValueError("The given `id` is not valid")
+        self._id = id
+
+        # Style
         if not style:
             style = Style(**kwargs)
         elif kwargs:
             raise ValueError("Provide only `style` or style attributes, not both")
         self._style = style
         self._ptr_style = None
+
+        # Children
         self._children = Children(self)
         self.add(*children)
-        self._layout = None
-        self._parent = None
-        # TODO: validate id, eg:
-        #   1) check that id is valid (valid chars) or None
-        #   2) check that there are no id collisions with nodes on the same level
-        #      (this should also be enforced when parent is set)
-        # Node id requirements:
-        #   May consist of -_!:;()[] a-z A-Z 0-9
-        #   Must contain at least one alphabetical character
-        self._id = id
+
         if self.is_tree:
             self._add_to_tree()
 
     def add(self, *children) -> Self:
         self._children.extend(children)
         return self
+
+    @property
+    def address(self) -> str:
+        """
+        The address of this node, relative to farthest parent node
+        or root if associated with a tree.
+        """
+        if self.is_tree:
+            return "/"
+        elif not self.parent:
+            return None
+
+        addr = self.parent.address
+        if addr is None:
+            addr = ""
+        if addr and not addr.endswith("/"):
+            addr += "/"
+        if self.id:
+            addr += self.id
+        else:
+            addr += str(self.parent.children.index(self))
+
+        return addr
 
     def find(self, address: str) -> Self:
         """
@@ -127,7 +170,48 @@ class Node:
 
 
         """
-        raise NotImplementedError
+
+        addr = address.strip()
+        if addr.startswith("./"):
+            addr = addr[2:]
+        if addr.startswith("../"):
+            if self.is_tree:
+                raise NodeLocatorError("Node is tree, cannot go to parent", addr)
+            if not self.parent:
+                raise NodeLocatorError(
+                    "Node has no parent, cannot locate address", addr
+                )
+            return self.parent.find(addr[3:])
+        if addr.startswith("/"):
+            if not self.tree:
+                raise NodeLocatorError(
+                    "Node is not associated with a tree, cannot locate address", addr
+                )
+            return self.tree.find(addr[1:])
+        if not addr:
+            return self
+        if len(self.children) == 0:
+            raise NodeNotFound("Node not found", addr)
+
+        pre, sep, post = addr.partition("/")
+        if _valid_id.match(pre):
+            # If pre is valid node id, look in children ids
+            for child in self.children:
+                if child.id and child.id == pre:
+                    return child.find(post) if post else child
+            raise NodeNotFound("Node not found", addr)
+        else:
+            # If pre is valid integer, look at children index
+            try:
+                index = int(pre)
+            except ValueError:
+                index = -1
+            if index < 0:
+                raise NodeLocatorError("Address is not valid", addr)
+            if index >= len(self.children):
+                raise NodeNotFound("Node not found", addr)
+            child = self.children[index]
+            return child.find(post) if post else child
 
     @property
     def style(self) -> Style:
@@ -141,6 +225,10 @@ class Node:
     def parent(self) -> Self:
         return self._parent
 
+    @property
+    def id(self) -> str:
+        return self._id
+
     @parent.setter
     def parent(self, value: Self) -> None:
         if value is None and self._ptr and self.tree and not self.is_tree:
@@ -149,6 +237,15 @@ class Node:
             self._drop()
             self._parent = None
             return
+
+        if value and self.id:
+            # Check that there are no id collisions with other children of parent
+            for child in value.children:
+                if child.id and child.id == self.id:
+                    raise Exception(
+                        "There is another child node with the same `id` on this parent node",
+                        self.id,
+                    )
 
         set_tree = not self.tree and value and value.tree
         self._parent = value
@@ -176,7 +273,7 @@ class Node:
         if not _tree:
             raise Exception("Cannot create node without a tree")
 
-        self._ptr = _tree._node_create(self.style)
+        _tree._node_create(self)
 
     def _drop(self, tree: "Tree" = None):
         # Ensure that any child nodes are also dropped
@@ -192,7 +289,6 @@ class Node:
 
         # Drop node
         _tree._node_drop(self)
-        self._ptr = None
 
     @property
     def tree(self) -> "Tree":
@@ -205,14 +301,15 @@ class Node:
 
     def __del__(self) -> None:
         if self.tree and self.tree._ptr_tree and self._ptr:
-            _bindings.taffy_node_drop(self.tree._ptr_tree, self._ptr)
-            logger.debug("taffy_node_drop(%s)", self._ptr)
-            self._ptr = None
+            self.tree._node_drop(self)
+            # _bindings.taffy_node_drop(self.tree._ptr_tree, self._ptr)
+            # logger.debug("taffy_node_drop(%s)", self._ptr)
+            # self._ptr = None
 
-    def compute_layout(self):
+    def compute_layout(self, available_space: Size = None):
         if not self.tree:
-            raise Exception("Node must be added to a tree based on a Root instance")
-        raise NotImplementedError
+            raise Exception("Node must be added to a tree before computing layout")
+        self.tree._node_compute_layout(self, available_space)
 
 
 class Tree(Node):
@@ -314,18 +411,40 @@ class Tree(Node):
         # Set parent of replaced child to None, which will cause it to be dropped from the tree
         replaced.parent = None
 
-    def _node_create(self, style: Style) -> int:
-        logger.debug("before taffy_node_create()")
-        # Issue with "double free" is related to Style.
-        # Even though style is not dropped when node is dropped, and style is not associated with a specific
-        # tree, when creating a node using the same style it fails.
-        # Maybe taffy is automatically dropping the style when the node with associated style is dropped?
-        # Then the _ptr is invalid because it was already dropped.
-        # Implement create and drop methods on style.
-        ptr = _bindings.taffy_node_create(self._ptr_tree, Style()._ptr)  # style._ptr)
-        logger.debug("taffy_node_create() -> %s", ptr)
-        return ptr
+    def _node_create(self, node: Node) -> None:
+        node._ptr_style = node.style._create()
+        node._ptr = _bindings.taffy_node_create(self._ptr_tree, node._ptr_style)
+        logger.debug(
+            "taffy_node_create(taffy: %s, style: %s) -> %s",
+            self._ptr_tree,
+            node._ptr_style,
+            node._ptr,
+        )
 
     def _node_drop(self, node: Node) -> None:
         _bindings.taffy_node_drop(self._ptr_tree, node._ptr)
+        logger.debug("[implicit] taffy_style_drop(style: %s)", node._ptr_style)
         logger.debug("taffy_node_drop(taffy: %s, node: %s)", self._ptr_tree, node._ptr)
+        node._ptr = None
+        node._ptr_style = None
+
+    def _node_compute_layout(self, node: Node, available_space: Size = None) -> bool:
+        if not available_space:
+            available_space = Size(MAX_CONTENT, MAX_CONTENT)
+        result = _bindings.taffy_node_compute_layout(
+            self._ptr_tree,
+            node._ptr,
+            available_space.to_taffy(),
+        )
+        logger.debug(
+            "taffy_node_compute_layout(taffy: %s, node: %s) -> success: %s",
+            self._ptr_tree,
+            node._ptr,
+            result,
+        )
+
+        # TODO:
+        #   Update node and all child nodes, retrieving computed layout from taffy/bindings,
+        #   and updating layout on the node instances
+
+        return result
