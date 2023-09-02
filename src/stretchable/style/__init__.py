@@ -129,56 +129,61 @@ class Style:
         factory=GridPlacement, converter=GridPlacement.from_value
     )
 
-    _ptr: int = field(init=False, default=None)
+    # _ptr: int = field(init=False, default=None)
 
-    def __attrs_post_init__(self):
-        object.__setattr__(
-            self,
-            "_ptr",
-            _bindings.taffy_style_create(
-                # Layout mode
-                self.display,
-                # Position
-                self.position,
-                self.inset.to_taffy(),
-                # Alignment
-                self.align_items,
-                self.justify_items,
-                self.align_self,
-                self.justify_self,
-                self.align_content,
-                self.justify_content,
-                self.gap.to_taffy(),
-                # Spacing
-                self.margin.to_taffy(),
-                self.border.to_taffy(),
-                self.padding.to_taffy(),
-                # Size
-                self.size.to_taffy(),
-                self.min_size.to_taffy(),
-                self.max_size.to_taffy(),
-                self.aspect_ratio,
-                # Flex
-                self.flex_wrap,
-                self.flex_direction,
-                self.flex_grow,
-                self.flex_shrink,
-                self.flex_basis.to_taffy(),
-                # Grid container
-                self.grid_auto_flow,
-                # grid_template_rows
-                # grid_template_columns
-                # grid_auto_rows
-                # grid_auto_columns
-                # Grid child
-                self.grid_row.to_taffy(),
-                self.grid_column.to_taffy(),
-            ),
+    # def __attrs_post_init__(self):
+    #     object.__setattr__(
+    #         self,
+    #         "_ptr",
+    #         self._create(),
+    #     )
+    #     logger.debug("taffy_style_create() -> %s", self._ptr)
+
+    # def __del__(self):
+    #     pass
+
+    def _create(self) -> int:
+        return _bindings.taffy_style_create(
+            # Layout mode
+            self.display,
+            # Position
+            self.position,
+            self.inset.to_taffy(),
+            # Alignment
+            self.align_items,
+            self.justify_items,
+            self.align_self,
+            self.justify_self,
+            self.align_content,
+            self.justify_content,
+            self.gap.to_taffy(),
+            # Spacing
+            self.margin.to_taffy(),
+            self.border.to_taffy(),
+            self.padding.to_taffy(),
+            # Size
+            self.size.to_taffy(),
+            self.min_size.to_taffy(),
+            self.max_size.to_taffy(),
+            self.aspect_ratio,
+            # Flex
+            self.flex_wrap,
+            self.flex_direction,
+            self.flex_grow,
+            self.flex_shrink,
+            self.flex_basis.to_taffy(),
+            # Grid container
+            self.grid_auto_flow,
+            # grid_template_rows
+            # grid_template_columns
+            # grid_auto_rows
+            # grid_auto_columns
+            # Grid child
+            self.grid_row.to_taffy(),
+            self.grid_column.to_taffy(),
         )
-        logger.debug("taffy_style_create() -> %s", self._ptr)
 
-    def __del__(self):
-        pass
-        # if self._ptr:
-        #     _bindings.taffy_style_drop(self._ptr)
-        #     logger.debug("taffy_style_drop(%s)", self._ptr)
+    @staticmethod
+    def _drop(self, ptr: int):
+        _bindings.taffy_style_drop(ptr)
+        logger.debug("taffy_style_drop(style: %s)", ptr)
