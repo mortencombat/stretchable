@@ -6,7 +6,7 @@ from attrs import define, field, validators
 from stretchable.taffy import _bindings
 
 from .dimension import AUTO, Length, Rect, Size
-from .enum import (
+from .props import (
     AlignContent,
     AlignItems,
     AlignSelf,

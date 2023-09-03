@@ -1,20 +1,21 @@
 import logging
 
 from stretchable.node import Node, Tree
-from stretchable.style import Style
+from stretchable.style.dimension import Size
 
 logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)
 
 with Tree() as tree:
-    # tree.rounding_enabled = False
-    node_1 = Node(id="main", style=Style())
+    tree.rounding_enabled = False
+
+    node_1 = Node(id="main")
     tree.add(node_1)
-    node_2 = Node(id="header", style=Style())
+    node_2 = Node(id="header")
     node_1.add(node_2)
-    node_3 = Node(id="body", style=Style())
+    node_3 = Node(id="body", size=Size(195.25, 200))
     node_1.add(node_3)
-    node_4 = Node(id="footer", style=Style())
+    node_4 = Node(id="footer")
     node_1.add(node_4)
 
     tree.compute_layout()

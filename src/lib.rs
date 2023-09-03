@@ -517,6 +517,38 @@ unsafe fn taffy_node_compute_layout(taffy: i64, node: i64, available_space: PySi
     result.is_ok()
 }
 
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyLayout {
+    order: i64,
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+}
+
+impl From<Layout> for PyLayout {
+    fn from(layout: Layout) -> Self {
+        PyLayout {
+            order: layout.order as i64,
+            left: layout.location.x,
+            top: layout.location.y,
+            width: layout.size.width,
+            height: layout.size.height,
+        }
+    }
+}
+
+#[pyfunction]
+unsafe fn taffy_node_get_layout(taffy: i64, node: i64) -> PyLayout {
+    let taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+    let layout = PyLayout::from(*taffy.layout(*node).unwrap());
+
+    Box::leak(taffy);
+    Box::leak(node);
+
+    layout
+}
 // MODULE
 
 #[pymodule]
@@ -533,6 +565,7 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(taffy_node_dirty))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_mark_dirty))?;
     m.add_wrapped(wrap_pyfunction!(taffy_node_set_style))?;
+    m.add_wrapped(wrap_pyfunction!(taffy_node_get_layout))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_create))?;
     m.add_wrapped(wrap_pyfunction!(taffy_style_drop))?;
     m.add_wrapped(wrap_pyfunction!(taffy_enable_rounding))?;

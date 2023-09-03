@@ -4,7 +4,7 @@ from typing import Self
 
 from attrs import define, field
 
-SCALING_FACTOR: int = 1000
+# SCALING_FACTOR: int = 1
 
 
 class Dimension(IntEnum):
@@ -33,12 +33,11 @@ class Length:
     value: float = float("nan")
 
     def to_taffy(self) -> dict:
-        return dict(
-            dim=self.unit.value,
-            value=(self.value * SCALING_FACTOR)
-            if self.unit == Dimension.POINTS
-            else self.value,
-        )
+        return dict(dim=self.unit.value, value=self.value)
+        # (self.value * SCALING_FACTOR)
+        #     if self.unit == Dimension.POINTS
+        #     else self.value,
+        # )
 
     def __mul__(self, other):
         if self.unit == Dimension.AUTO:

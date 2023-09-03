@@ -1,6 +1,9 @@
 import logging
 import re
-from typing import Iterable, Self, SupportsIndex
+from enum import StrEnum, auto
+from typing import Callable, Iterable, Self, SupportsIndex
+
+from attrs import define
 
 from stretchable.style.core import Size, Style
 from stretchable.style.dimension import MAX_CONTENT
@@ -32,6 +35,21 @@ class NodeLocatorError(Exception):
 
 class NodeNotFound(Exception):
     pass
+
+
+class Box(StrEnum):
+    CONTENT = auto()  # Innermost box, corresponding to inside of padding
+    PADDING = auto()  # Outside of padding / inside of border
+    BORDER = auto()  # Outside of border
+    MARGIN = auto()  # Outside of margin
+
+
+@define
+class Layout:
+    x: float
+    y: float
+    width: float
+    height: float
 
 
 class Children(list):
@@ -72,6 +90,13 @@ class Children(list):
         super().__setitem__(__index, node)
 
 
+"""
+
+measure_func
+
+"""
+
+
 class Node:
     __slots__ = (
         "_id",
@@ -81,13 +106,33 @@ class Node:
         "_ptr",
         "_ptr_style",
         "_layout",
+        "_zorder",
         "_parent",
     )
 
-    def __init__(self, *children, id: str = None, style: Style = None, **kwargs):
+    def __init__(
+        self,
+        *children,
+        id: str = None,
+        measure: Callable[[Size, Size], Size] = None,
+        style: Style = None,
+        **style_args,
+    ):
         self._ptr = None
         self._layout = None
+        self._zorder = None
         self._parent = None
+
+        """
+        _summary_
+
+        Arguments:
+            measure:    a callable that takes (available_space: Size[AvailableSpace], known_dimensions: Size[float]) and returns Size[float]
+
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+        """
 
         # Node id requirements:
         #   May consist of -_!:;()[] a-z A-Z 0-9
@@ -98,8 +143,8 @@ class Node:
 
         # Style
         if not style:
-            style = Style(**kwargs)
-        elif kwargs:
+            style = Style(**style_args)
+        elif style_args:
             raise ValueError("Provide only `style` or style attributes, not both")
         self._style = style
         self._ptr_style = None
@@ -228,6 +273,11 @@ class Node:
     @property
     def id(self) -> str:
         return self._id
+
+    @property
+    def is_dirty(self) -> bool:
+        if self.tree:
+            return self.tree._node_dirty(self)
 
     @parent.setter
     def parent(self, value: Self) -> None:
@@ -421,7 +471,21 @@ class Tree(Node):
             node._ptr,
         )
 
+    def _node_dirty(self, node: Node) -> bool:
+        if node.tree:
+            dirty = _bindings.taffy_node_dirty(self._ptr_tree, node._ptr)
+            logger.debug(
+                "taffy_node_dirty(taffy: %s, node: %s) -> %s",
+                self._ptr_tree,
+                node._ptr,
+                dirty,
+            )
+            return dirty
+
     def _node_drop(self, node: Node) -> None:
+        if not node.tree:
+            raise Exception("Node is not associated with a tree, cannot get layout")
+
         _bindings.taffy_node_drop(self._ptr_tree, node._ptr)
         logger.debug("[implicit] taffy_style_drop(style: %s)", node._ptr_style)
         logger.debug("taffy_node_drop(taffy: %s, node: %s)", self._ptr_tree, node._ptr)
@@ -429,6 +493,9 @@ class Tree(Node):
         node._ptr_style = None
 
     def _node_compute_layout(self, node: Node, available_space: Size = None) -> bool:
+        if not node.tree:
+            raise Exception("Node is not associated with a tree, cannot get layout")
+
         if not available_space:
             available_space = Size(MAX_CONTENT, MAX_CONTENT)
         result = _bindings.taffy_node_compute_layout(
@@ -443,8 +510,32 @@ class Tree(Node):
             result,
         )
 
-        # TODO:
-        #   Update node and all child nodes, retrieving computed layout from taffy/bindings,
-        #   and updating layout on the node instances
+        self._node_get_layout(node)
 
         return result
+
+    def _node_get_layout(self, node: Node) -> None:
+        if not node.tree:
+            raise Exception("Node is not associated with a tree, cannot get layout")
+        if node.is_dirty:
+            raise Exception("Node is dirty, layout needs to be computed")
+
+        _layout = _bindings.taffy_node_get_layout(self._ptr_tree, node._ptr)
+        node._layout = Layout(
+            _layout["left"], _layout["top"], _layout["width"], _layout["height"]
+        )
+        node._zorder = _layout["order"]
+        logger.debug(
+            "taffy_node_get_layout(taffy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
+            self._ptr_tree,
+            node._ptr,
+            node._zorder,
+            node._layout.x,
+            node._layout.y,
+            node._layout.width,
+            node._layout.height,
+        )
+
+        if node.children:
+            for child in node.children:
+                self._node_get_layout(child)
