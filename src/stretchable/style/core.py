@@ -5,7 +5,9 @@ from attrs import define, field, validators
 
 from stretchable.taffy import _bindings
 
-from .dimension import AUTO, Length, Rect, Size
+from .geometry.length import AUTO, LengthPointsPercentAuto
+from .geometry.rect import RectPointsPercent, RectPointsPercentAuto
+from .geometry.size import SizePointsPercent, SizePointsPercentAuto
 from .props import (
     AlignContent,
     AlignItems,
@@ -14,12 +16,12 @@ from .props import (
     FlexDirection,
     FlexWrap,
     GridAutoFlow,
+    GridPlacement,
     JustifyContent,
     JustifyItems,
     JustifySelf,
     Position,
 )
-from .grid import GridPlacement
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
@@ -41,14 +43,14 @@ class Style:
         validator=[validators.instance_of(Display)],
     )
 
-    # TODO: validators here should enforce fields supporting only Length/Percentage or Length/Percentage/Auto
-
     # Position
     position: Position = field(
         default=Position.RELATIVE,
         validator=[validators.instance_of(Position)],
     )
-    inset: Rect = field(factory=Rect, converter=Rect.from_value)
+    inset: RectPointsPercentAuto = field(
+        default=None, converter=RectPointsPercentAuto.from_any
+    )
 
     # Alignment
     align_items: AlignItems = field(
@@ -75,17 +77,27 @@ class Style:
         default=None,
         validator=[validators.optional(validators.instance_of(JustifyContent))],
     )
-    gap: Size = field(default=0.0, converter=Size.from_value)
+    gap: SizePointsPercent = field(default=0.0, converter=SizePointsPercent.from_any)
 
     # Spacing
-    margin: Rect = field(default=0.0, converter=Rect.from_value)
-    padding: Rect = field(default=0.0, converter=Rect.from_value)
-    border: Rect = field(default=0.0, converter=Rect.from_value)
+    margin: RectPointsPercentAuto = field(
+        default=0.0, converter=RectPointsPercentAuto.from_any
+    )
+    padding: RectPointsPercent = field(
+        default=0.0, converter=RectPointsPercent.from_any
+    )
+    border: RectPointsPercent = field(default=0.0, converter=RectPointsPercent.from_any)
 
     # Size
-    size: Size = field(factory=Size, converter=Size.from_value)
-    min_size: Size = field(factory=Size, converter=Size.from_value)
-    max_size: Size = field(factory=Size, converter=Size.from_value)
+    size: SizePointsPercentAuto = field(
+        default=AUTO, converter=SizePointsPercentAuto.from_any
+    )
+    min_size: SizePointsPercentAuto = field(
+        default=AUTO, converter=SizePointsPercentAuto.from_any
+    )
+    max_size: SizePointsPercentAuto = field(
+        default=AUTO, converter=SizePointsPercentAuto.from_any
+    )
     aspect_ratio: float = field(default=None)
 
     # Flex
@@ -99,7 +111,9 @@ class Style:
     )
     flex_grow: float = 0.0
     flex_shrink: float = 1.0
-    flex_basis: Length = field(default=AUTO, converter=Length.from_value)
+    flex_basis: LengthPointsPercentAuto = field(
+        default=AUTO, converter=LengthPointsPercentAuto.from_any
+    )
 
     # TODO: Grid container
     grid_auto_flow: GridAutoFlow = field(
@@ -108,47 +122,29 @@ class Style:
     )
     # grid_template_rows (defines the width of the grid rows)
     #   GridTrackVec<TrackSizingFunction>
-    #
-    #
     # grid_template_columns (defines the heights of the grid columns)
     #   GridTrackVec<TrackSizingFunction>
-    #
     # grid_auto_rows (defines the size of implicitly created rows)
     #   GridTrackVec<NonRepeatedTrackSizingFunction>
-    #
     # grid_auto_columns (defines the size of implicitly created columns)
     #   GridTrackVec<NonRepeatedTrackSizingFunction>
-    #
     # GridTrackVec: A vector of grid tracks (defined in taffy::util::sys)
 
     # Grid child
     grid_row: GridPlacement = field(
-        factory=GridPlacement, converter=GridPlacement.from_value
+        factory=GridPlacement, converter=GridPlacement.from_any
     )
     grid_column: GridPlacement = field(
-        factory=GridPlacement, converter=GridPlacement.from_value
+        factory=GridPlacement, converter=GridPlacement.from_any
     )
 
-    # _ptr: int = field(init=False, default=None)
-
-    # def __attrs_post_init__(self):
-    #     object.__setattr__(
-    #         self,
-    #         "_ptr",
-    #         self._create(),
-    #     )
-    #     logger.debug("taffy_style_create() -> %s", self._ptr)
-
-    # def __del__(self):
-    #     pass
-
     def _create(self) -> int:
-        ptr = _bindings.taffy_style_create(
+        ptr = _bindings.style_create(
             # Layout mode
             self.display,
             # Position
             self.position,
-            self.inset.to_taffy(),
+            self.inset.to_dict(),
             # Alignment
             self.align_items,
             self.justify_items,
@@ -156,22 +152,22 @@ class Style:
             self.justify_self,
             self.align_content,
             self.justify_content,
-            self.gap.to_taffy(),
+            self.gap.to_dict(),
             # Spacing
-            self.margin.to_taffy(),
-            self.border.to_taffy(),
-            self.padding.to_taffy(),
+            self.margin.to_dict(),
+            self.border.to_dict(),
+            self.padding.to_dict(),
             # Size
-            self.size.to_taffy(),
-            self.min_size.to_taffy(),
-            self.max_size.to_taffy(),
+            self.size.to_dict(),
+            self.min_size.to_dict(),
+            self.max_size.to_dict(),
             self.aspect_ratio,
             # Flex
             self.flex_wrap,
             self.flex_direction,
             self.flex_grow,
             self.flex_shrink,
-            self.flex_basis.to_taffy(),
+            self.flex_basis.to_dict(),
             # Grid container
             self.grid_auto_flow,
             # grid_template_rows
@@ -179,13 +175,13 @@ class Style:
             # grid_auto_rows
             # grid_auto_columns
             # Grid child
-            self.grid_row.to_taffy(),
-            self.grid_column.to_taffy(),
+            self.grid_row.to_dict(),
+            self.grid_column.to_dict(),
         )
-        logger.debug("taffy_style_create() -> %s", ptr)
+        logger.debug("style_create() -> %s", ptr)
         return ptr
 
     @staticmethod
     def _drop(self, ptr: int):
-        _bindings.taffy_style_drop(ptr)
-        logger.debug("taffy_style_drop(style: %s)", ptr)
+        _bindings.style_drop(ptr)
+        logger.debug("style_drop(style: %s)", ptr)

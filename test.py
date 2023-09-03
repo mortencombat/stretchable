@@ -19,12 +19,16 @@ from stretchable.style.geometry.length import (
     LengthPointsPercentAuto,
 )
 from stretchable.style.geometry.rect import Rect
-from stretchable.style.geometry.size import SizePointsPercent, SizePointsPercentAuto
+from stretchable.style.geometry.size import (
+    Size,
+    SizePointsPercent,
+    SizePointsPercentAuto,
+)
 
-size = SizePointsPercentAuto.from_any()
+size = Size(100, 50 * PCT)
 print(size)
 
-rect = Rect(5 * PCT)
+rect = Rect(left=5 * PCT)
 print(rect)
 
 # length = LengthPointsPercent.from_any(5 * PCT)

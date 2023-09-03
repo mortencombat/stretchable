@@ -1,6 +1,6 @@
 from typing import Any, Generic, Self, TypeVar, get_args
 
-from .length import Length
+from .length import Length, LengthPointsPercent, LengthPointsPercentAuto
 
 T = TypeVar("T")
 
@@ -20,26 +20,25 @@ class RectBase(Generic[T]):
         bottom: T = None,
         left: T = None,
     ) -> None:
-        # See current handling of this in dimension.py
-
         n = len(values)
-        if n == 0:
-            return cls()
-        if n > 4:
-            raise ValueError("A list or tuple with more than 4 values is not supported")
-
-        # Parse values into T (this will raise an exception if any of the values are not supported)
-        _values = [cls._type_T.from_any(v) for v in values]
-        # TODO: consider if this interpretation of n-values should be moved to __init__ (including above scenarios n==0 and n>4)
-        if n == 1:
-            return cls(*(_values[0] * 4))
+        if top or right or bottom or left:
+            if n > 0:
+                raise Exception("Use either positional or named values, not both")
+        elif n > 4:
+            raise ValueError("More than 4 values is not supported")
+        elif n == 0:
+            top = right = bottom = left = None
+        elif n == 1:
+            top = right = bottom = left = values[0]
         elif n == 2:
-            return cls(_values[0], _values[1], _values[0], _values[1])
+            top = bottom = values[0]
+            left = right = values[1]
         elif n == 3:
-            return cls(_values[0], _values[1], _values[2], _values[1])
+            top = values[0]
+            left = right = values[1]
+            bottom = values[2]
         else:
-            return cls(*_values)
-
+            top, right, bottom, left = values
         self.top = self._type_T.from_any(top)
         self.right = self._type_T.from_any(right)
         self.bottom = self._type_T.from_any(bottom)
@@ -63,16 +62,24 @@ class RectBase(Generic[T]):
             # Return a new instance of cls, to cast to correct cls and ensure that
             # values uses supported scales
             return cls(value.top, value.right, value.bottom, value.left)
-
-        # Check if value can be taken as 1-4 values defining the Rect attributes
-        values = (value,) if not isinstance(value, (list, tuple)) else value
-        return cls(*values)
+        elif isinstance(value, (list, tuple)):
+            return cls(*value)
+        else:
+            return cls(value)
 
     def __str__(self) -> str:
-        return f"Rect(left={self.left}, right={self.right}, top={self.top}, bottom={self.bottom})"
+        return f"Rect(top={self.top}, right={self.right}, bottom={self.bottom}, left={self.left})"
 
 
 class Rect(RectBase[Length]):
+    pass
+
+
+class RectPointsPercent(RectBase[LengthPointsPercent]):
+    pass
+
+
+class RectPointsPercentAuto(RectBase[LengthPointsPercentAuto]):
     pass
 
 

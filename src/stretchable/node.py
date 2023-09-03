@@ -5,8 +5,8 @@ from typing import Callable, Iterable, Self, SupportsIndex
 
 from attrs import define
 
-from stretchable.style.core import Size, Style
-from stretchable.style.dimension import MAX_CONTENT
+from stretchable.style import Style
+from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
 from .taffy import _bindings
 
@@ -114,7 +114,7 @@ class Node:
         self,
         *children,
         id: str = None,
-        measure: Callable[[Size, Size], Size] = None,
+        measure: Callable[[SizeAvailableSpace, SizePoints], SizePoints] = None,
         style: Style = None,
         **style_args,
     ):
@@ -352,11 +352,11 @@ class Node:
     def __del__(self) -> None:
         if self.tree and self.tree._ptr_tree and self._ptr:
             self.tree._node_drop(self)
-            # _bindings.taffy_node_drop(self.tree._ptr_tree, self._ptr)
-            # logger.debug("taffy_node_drop(%s)", self._ptr)
+            # _bindings.node_drop(self.tree._ptr_tree, self._ptr)
+            # logger.debug("node_drop(%s)", self._ptr)
             # self._ptr = None
 
-    def compute_layout(self, available_space: Size = None):
+    def compute_layout(self, available_space: SizeAvailableSpace = None):
         if not self.tree:
             raise Exception("Node must be added to a tree before computing layout")
         self.tree._node_compute_layout(self, available_space)
@@ -367,14 +367,14 @@ class Tree(Node):
 
     def __init__(self) -> None:
         self._rounding_enabled = True
-        self._ptr_tree = _bindings.taffy_init()
-        logger.debug("taffy_init() -> %s", self._ptr_tree)
+        self._ptr_tree = _bindings.init()
+        logger.debug("init() -> %s", self._ptr_tree)
         super().__init__()
 
     def __del__(self) -> None:
         if hasattr(self, "_ptr_taffy") and self._ptr_tree:
-            _bindings.taffy_free(self._ptr_tree)
-            logger.debug("taffy_free(taffy: %s) via __del__", self._ptr_tree)
+            _bindings.free(self._ptr_tree)
+            logger.debug("free(tree: %s) via __del__", self._ptr_tree)
             self._ptr_tree = None
 
     @property
@@ -404,33 +404,33 @@ class Tree(Node):
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> Self:
         if hasattr(self, "_ptr_tree") and self._ptr_tree:
-            _bindings.taffy_free(self._ptr_tree)
-            logger.debug("taffy_free(taffy: %s) via __exit__", self._ptr_tree)
+            _bindings.free(self._ptr_tree)
+            logger.debug("free(tree: %s) via __exit__", self._ptr_tree)
             self._ptr_tree = None
 
     # Bindings
 
     def _enable_rounding(self) -> None:
-        _bindings.taffy_enable_rounding(self._ptr_tree)
-        logger.debug("taffy_enable_rounding(taffy: %s)", self._ptr_tree)
+        _bindings.enable_rounding(self._ptr_tree)
+        logger.debug("enable_rounding(tree: %s)", self._ptr_tree)
 
     def _disable_rounding(self) -> None:
-        _bindings.taffy_disable_rounding(self._ptr_tree)
-        logger.debug("taffy_disable_rounding(taffy: %s)", self._ptr_tree)
+        _bindings.disable_rounding(self._ptr_tree)
+        logger.debug("disable_rounding(tree: %s)", self._ptr_tree)
 
     def _node_add_child(self, parent: Node, child: Node) -> None:
-        _bindings.taffy_node_add_child(self._ptr_tree, parent._ptr, child._ptr)
+        _bindings.node_add_child(self._ptr_tree, parent._ptr, child._ptr)
         logger.debug(
-            "taffy_node_add_child(taffy: %s, parent: %s, child: %s)",
+            "node_add_child(tree: %s, parent: %s, child: %s)",
             self._ptr_tree,
             parent._ptr,
             child._ptr,
         )
 
     def _node_remove_child(self, parent: Node, child: Node):
-        _bindings.taffy_node_remove_child(self._ptr_tree, parent._ptr, child._ptr)
+        _bindings.node_remove_child(self._ptr_tree, parent._ptr, child._ptr)
         logger.debug(
-            "taffy_node_remove_child(taffy: %s, parent: %s, child: %s)",
+            "node_remove_child(tree: %s, parent: %s, child: %s)",
             self._ptr_tree,
             parent._ptr,
             child._ptr,
@@ -447,11 +447,11 @@ class Tree(Node):
 
         # Create new child and replace it at index
         child._create(self)
-        _bindings.taffy_node_replace_child_at_index(
+        _bindings.node_replace_child_at_index(
             self._ptr_tree, parent._ptr, index, child._ptr
         )
         logger.debug(
-            "taffy_node_replace_child_at_index(taffy: %s, parent: %s, index: %s, child: %s)",
+            "node_replace_child_at_index(tree: %s, parent: %s, index: %s, child: %s)",
             self._ptr_tree,
             parent._ptr,
             index,
@@ -463,9 +463,9 @@ class Tree(Node):
 
     def _node_create(self, node: Node) -> None:
         node._ptr_style = node.style._create()
-        node._ptr = _bindings.taffy_node_create(self._ptr_tree, node._ptr_style)
+        node._ptr = _bindings.node_create(self._ptr_tree, node._ptr_style)
         logger.debug(
-            "taffy_node_create(taffy: %s, style: %s) -> %s",
+            "node_create(tree: %s, style: %s) -> %s",
             self._ptr_tree,
             node._ptr_style,
             node._ptr,
@@ -473,9 +473,9 @@ class Tree(Node):
 
     def _node_dirty(self, node: Node) -> bool:
         if node.tree:
-            dirty = _bindings.taffy_node_dirty(self._ptr_tree, node._ptr)
+            dirty = _bindings.node_dirty(self._ptr_tree, node._ptr)
             logger.debug(
-                "taffy_node_dirty(taffy: %s, node: %s) -> %s",
+                "node_dirty(tree: %s, node: %s) -> %s",
                 self._ptr_tree,
                 node._ptr,
                 dirty,
@@ -486,25 +486,27 @@ class Tree(Node):
         if not node.tree:
             raise Exception("Node is not associated with a tree, cannot get layout")
 
-        _bindings.taffy_node_drop(self._ptr_tree, node._ptr)
-        logger.debug("[implicit] taffy_style_drop(style: %s)", node._ptr_style)
-        logger.debug("taffy_node_drop(taffy: %s, node: %s)", self._ptr_tree, node._ptr)
+        _bindings.node_drop(self._ptr_tree, node._ptr)
+        logger.debug("[implicit] style_drop(style: %s)", node._ptr_style)
+        logger.debug("node_drop(tree: %s, node: %s)", self._ptr_tree, node._ptr)
         node._ptr = None
         node._ptr_style = None
 
-    def _node_compute_layout(self, node: Node, available_space: Size = None) -> bool:
+    def _node_compute_layout(
+        self, node: Node, available_space: SizeAvailableSpace = None
+    ) -> bool:
         if not node.tree:
             raise Exception("Node is not associated with a tree, cannot get layout")
 
         if not available_space:
-            available_space = Size(MAX_CONTENT, MAX_CONTENT)
-        result = _bindings.taffy_node_compute_layout(
+            available_space = SizeAvailableSpace.default()
+        result = _bindings.node_compute_layout(
             self._ptr_tree,
             node._ptr,
-            available_space.to_taffy(),
+            available_space.to_dict(),
         )
         logger.debug(
-            "taffy_node_compute_layout(taffy: %s, node: %s) -> success: %s",
+            "node_compute_layout(tree: %s, node: %s) -> success: %s",
             self._ptr_tree,
             node._ptr,
             result,
@@ -520,13 +522,13 @@ class Tree(Node):
         if node.is_dirty:
             raise Exception("Node is dirty, layout needs to be computed")
 
-        _layout = _bindings.taffy_node_get_layout(self._ptr_tree, node._ptr)
+        _layout = _bindings.node_get_layout(self._ptr_tree, node._ptr)
         node._layout = Layout(
             _layout["left"], _layout["top"], _layout["width"], _layout["height"]
         )
         node._zorder = _layout["order"]
         logger.debug(
-            "taffy_node_get_layout(taffy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
+            "node_get_layout(tree: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
             self._ptr_tree,
             node._ptr,
             node._zorder,

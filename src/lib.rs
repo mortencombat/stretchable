@@ -24,25 +24,25 @@ use taffy::prelude::*;
 // MAIN
 
 #[pyfunction]
-unsafe fn taffy_init() -> i64 {
+unsafe fn init() -> i64 {
     let taffy = Taffy::new();
     Box::into_raw(Box::new(taffy)) as i64
 }
 
 #[pyfunction]
-unsafe fn taffy_free(taffy: i64) {
+unsafe fn free(taffy: i64) {
     let _ = Box::from_raw(taffy as *mut Taffy);
 }
 
 #[pyfunction]
-unsafe fn taffy_enable_rounding(taffy: i64) {
+unsafe fn enable_rounding(taffy: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     taffy.enable_rounding();
     Box::leak(taffy);
 }
 
 #[pyfunction]
-unsafe fn taffy_disable_rounding(taffy: i64) {
+unsafe fn disable_rounding(taffy: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     taffy.disable_rounding();
     Box::leak(taffy);
@@ -309,7 +309,7 @@ impl From<PyGridPlacement> for Line<GridPlacement> {
 }
 
 #[pyfunction]
-unsafe fn taffy_style_create(
+unsafe fn style_create(
     // Layout mode/strategy
     display: i32,
     // Position
@@ -382,14 +382,14 @@ unsafe fn taffy_style_create(
 }
 
 #[pyfunction]
-unsafe fn taffy_style_drop(style: i64) {
+unsafe fn style_drop(style: i64) {
     let _style = Box::from_raw(style as *mut Style);
 }
 
 // NODES
 
 #[pyfunction]
-unsafe fn taffy_node_create(taffy: i64, style: i64) -> i64 {
+unsafe fn node_create(taffy: i64, style: i64) -> i64 {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let style = Box::from_raw(style as *mut Style);
     let node = taffy.new_leaf(*style).unwrap();
@@ -400,7 +400,7 @@ unsafe fn taffy_node_create(taffy: i64, style: i64) -> i64 {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_add_child(taffy: i64, node: i64, child: i64) {
+unsafe fn node_add_child(taffy: i64, node: i64, child: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
     let child = Box::from_raw(child as *mut Node);
@@ -413,7 +413,7 @@ unsafe fn taffy_node_add_child(taffy: i64, node: i64, child: i64) {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_drop(taffy: i64, node: i64) {
+unsafe fn node_drop(taffy: i64, node: i64) {
     // Remove a specific node from the tree and drop it
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
@@ -423,7 +423,7 @@ unsafe fn taffy_node_drop(taffy: i64, node: i64) {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_drop_all(taffy: i64) {
+unsafe fn node_drop_all(taffy: i64) {
     // Drops all nodes in the tree
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
 
@@ -432,7 +432,7 @@ unsafe fn taffy_node_drop_all(taffy: i64) {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_replace_child_at_index(taffy: i64, node: i64, index: usize, child: i64) {
+unsafe fn node_replace_child_at_index(taffy: i64, node: i64, index: usize, child: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
     let child = Box::from_raw(child as *mut Node);
@@ -445,7 +445,7 @@ unsafe fn taffy_node_replace_child_at_index(taffy: i64, node: i64, index: usize,
 }
 
 #[pyfunction]
-unsafe fn taffy_node_remove_child(taffy: i64, node: i64, child: i64) {
+unsafe fn node_remove_child(taffy: i64, node: i64, child: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
     let child = Box::from_raw(child as *mut Node);
@@ -459,7 +459,7 @@ unsafe fn taffy_node_remove_child(taffy: i64, node: i64, child: i64) {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_remove_child_at_index(taffy: i64, node: i64, index: usize) {
+unsafe fn node_remove_child_at_index(taffy: i64, node: i64, index: usize) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
 
@@ -470,7 +470,7 @@ unsafe fn taffy_node_remove_child_at_index(taffy: i64, node: i64, index: usize) 
 }
 
 #[pyfunction]
-unsafe fn taffy_node_dirty(taffy: i64, node: i64) -> bool {
+unsafe fn node_dirty(taffy: i64, node: i64) -> bool {
     let taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
     let dirty = taffy.dirty(*node).unwrap();
@@ -481,7 +481,7 @@ unsafe fn taffy_node_dirty(taffy: i64, node: i64) -> bool {
     dirty
 }
 #[pyfunction]
-unsafe fn taffy_node_mark_dirty(taffy: i64, node: i64) {
+unsafe fn node_mark_dirty(taffy: i64, node: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
 
@@ -492,7 +492,7 @@ unsafe fn taffy_node_mark_dirty(taffy: i64, node: i64) {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_set_style(taffy: i64, node: i64, style: i64) {
+unsafe fn node_set_style(taffy: i64, node: i64, style: i64) {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
     let style = Box::from_raw(style as *mut Style);
@@ -505,7 +505,7 @@ unsafe fn taffy_node_set_style(taffy: i64, node: i64, style: i64) {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_compute_layout(taffy: i64, node: i64, available_space: PySize) -> bool {
+unsafe fn node_compute_layout(taffy: i64, node: i64, available_space: PySize) -> bool {
     let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
 
@@ -539,7 +539,7 @@ impl From<Layout> for PyLayout {
 }
 
 #[pyfunction]
-unsafe fn taffy_node_get_layout(taffy: i64, node: i64) -> PyLayout {
+unsafe fn node_get_layout(taffy: i64, node: i64) -> PyLayout {
     let taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
     let layout = PyLayout::from(*taffy.layout(*node).unwrap());
@@ -549,30 +549,69 @@ unsafe fn taffy_node_get_layout(taffy: i64, node: i64) -> PyLayout {
 
     layout
 }
+
+// #[pyfunction]
+// unsafe fn node_set_measure(
+//     stretch: i64,
+//     node: i64,
+//     node_self: PyObject,
+//     measure: PyObject, // fn(i64, f32, f32) -> StretchSize
+// ) {
+//     let mut taffy = Box::from_raw(taffy as *mut Taffy);
+//     let node = Box::from_raw(node as *mut Node);
+
+//     taffy
+//         .set_measure(
+//             *node,
+//             Some(Box::new(move |constraint| {
+//                 // acquire lock
+//                 let gil = Python::acquire_gil();
+//                 let py = gil.python();
+//                 // call function
+//                 let args = (
+//                     &node_self,
+//                     constraint.width.or_else(f32::NAN),
+//                     constraint.height.or_else(f32::NAN),
+//                 );
+//                 let result = measure.call1(py, args).unwrap();
+//                 // cast
+//                 let size: StretchSize = result.extract(py).unwrap();
+//                 // return args
+//                 Ok(Size {
+//                     width: size.width,
+//                     height: size.height,
+//                 })
+//             })),
+//         )
+//         .unwrap();
+
+//     Box::leak(taffy);
+//     Box::leak(node);
+// }
+
 // MODULE
 
 #[pymodule]
 pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(taffy_init))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_free))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_create))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_drop))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_drop_all))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_add_child))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_replace_child_at_index))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_remove_child))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_remove_child_at_index))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_dirty))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_mark_dirty))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_set_style))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_get_layout))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_style_create))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_style_drop))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_enable_rounding))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_disable_rounding))?;
-
-    // m.add_wrapped(wrap_pyfunction!(stretch_node_set_measure))?;
-    m.add_wrapped(wrap_pyfunction!(taffy_node_compute_layout))?;
+    m.add_wrapped(wrap_pyfunction!(init))?;
+    m.add_wrapped(wrap_pyfunction!(free))?;
+    m.add_wrapped(wrap_pyfunction!(enable_rounding))?;
+    m.add_wrapped(wrap_pyfunction!(disable_rounding))?;
+    m.add_wrapped(wrap_pyfunction!(style_create))?;
+    m.add_wrapped(wrap_pyfunction!(style_drop))?;
+    m.add_wrapped(wrap_pyfunction!(node_create))?;
+    m.add_wrapped(wrap_pyfunction!(node_drop))?;
+    m.add_wrapped(wrap_pyfunction!(node_drop_all))?;
+    m.add_wrapped(wrap_pyfunction!(node_add_child))?;
+    m.add_wrapped(wrap_pyfunction!(node_replace_child_at_index))?;
+    m.add_wrapped(wrap_pyfunction!(node_remove_child))?;
+    m.add_wrapped(wrap_pyfunction!(node_remove_child_at_index))?;
+    m.add_wrapped(wrap_pyfunction!(node_dirty))?;
+    m.add_wrapped(wrap_pyfunction!(node_mark_dirty))?;
+    m.add_wrapped(wrap_pyfunction!(node_set_style))?;
+    m.add_wrapped(wrap_pyfunction!(node_get_layout))?;
+    // m.add_wrapped(wrap_pyfunction!(node_set_measure))?;
+    m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
 
     Ok(())
 }

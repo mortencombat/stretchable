@@ -1,7 +1,7 @@
 import logging
 
 from stretchable.node import Node, Tree
-from stretchable.style.dimension import Size
+from stretchable.style.geometry.size import Size
 
 logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)

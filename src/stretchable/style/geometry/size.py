@@ -1,8 +1,10 @@
 from typing import Any, Generic, Self, TypeVar, get_args
 
 from .length import (
+    MAX_CONTENT,
     Length,
     LengthAvailableSpace,
+    LengthPoints,
     LengthPointsPercent,
     LengthPointsPercentAuto,
 )
@@ -17,7 +19,19 @@ class SizeBase(Generic[T]):
     def __init_subclass__(cls) -> None:
         cls._type_T = get_args(cls.__orig_bases__[0])[0]
 
-    def __init__(self, width: T = None, height: T = None) -> None:
+    def __init__(self, *values: T, width: T = None, height: T = None) -> None:
+        n = len(values)
+        if width or height:
+            if n > 0:
+                raise Exception("Use either positional or named values, not both")
+        elif n > 2:
+            raise ValueError("More than 2 values is not supported")
+        elif n == 0:
+            width = height = None
+        elif n == 1:
+            width = height = values[0]
+        else:
+            width, height = values
         self.width = self._type_T.from_any(width)
         self.height = self._type_T.from_any(height)
 
@@ -37,24 +51,24 @@ class SizeBase(Generic[T]):
             # Return a new instance of cls, to cast to correct cls and ensure that
             # values uses supported scales
             return cls(value.width, value.height)
+        elif isinstance(value, (list, tuple)):
+            return cls(*value)
+        else:
+            return cls(value)
 
-        # Check if value can be taken as 1-2 values defining the Size attributes
-        values = (value,) if not isinstance(value, (list, tuple)) else value
-        n = len(values)
-        if n == 0:
-            return cls()
-        if n > 2:
-            raise ValueError("A list or tuple with more than 2 values is not supported")
-
-        # Parse values into T (this will raise an exception if any of the values are not supported)
-        _values = [cls._type_T.from_any(v) for v in values]
-        return cls(*_values) if n == 2 else cls(_values[0], _values[0])
+    @classmethod
+    def default(cls) -> Self:
+        raise NotImplementedError
 
     def __str__(self) -> str:
         return f"Size(width={str(self.width)}, height={str(self.height)})"
 
 
 class Size(SizeBase[Length]):
+    pass
+
+
+class SizePoints(SizeBase[LengthPoints]):
     pass
 
 
@@ -67,4 +81,6 @@ class SizePointsPercentAuto(SizeBase[LengthPointsPercentAuto]):
 
 
 class SizeAvailableSpace(SizeBase[LengthAvailableSpace]):
-    pass
+    @classmethod
+    def default(cls) -> Self:
+        return SizeAvailableSpace(MAX_CONTENT)

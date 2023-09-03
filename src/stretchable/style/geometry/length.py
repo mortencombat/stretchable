@@ -147,6 +147,15 @@ class LengthAvailableSpace(LengthBase[AvailableSpace]):
         return LengthAvailableSpace(AvailableSpace.MAX_CONTENT)
 
 
+class LengthPoints(LengthBase[Points]):
+    def __init__(self, value: float = NAN) -> None:
+        super().__init__(Scale.POINTS, value)
+
+    @staticmethod
+    def default() -> Self:
+        return LengthPoints()
+
+
 class LengthPointsPercent(LengthBase[PointsPercent]):
     @staticmethod
     def points(value: float | Length) -> Self:
