@@ -1,4 +1,5 @@
 from enum import IntEnum
+from math import isnan
 from typing import Any, Generic, Self, TypeVar, get_args
 
 T = TypeVar("T")
@@ -15,10 +16,6 @@ class Scale(IntEnum):
 
 class Points(IntEnum):
     POINTS = Scale.POINTS
-
-
-class Percent(IntEnum):
-    PERCENT = Scale.PERCENT
 
 
 class PointsPercent(IntEnum):
@@ -41,60 +38,100 @@ class AvailableSpace(IntEnum):
 # @define(frozen=True)
 class LengthBase(Generic[T]):
     _type_T: Any
-    __slots__ = ("_scale", "_value")
+    __slots__ = ("scale", "value")
+
+    @staticmethod
+    def _check_scale(T: type, scale: IntEnum) -> None:
+        if scale is None:
+            return
+        for m in dir(T):
+            if m.startswith("_") or not m[0].isupper():
+                continue
+            v = getattr(T, m)
+            if v == scale:
+                return
+
+        try:
+            _scale = scale._name_
+        except AttributeError:
+            _scale = scale
+        raise TypeError(f"Scale {_scale} is not supported in this context")
 
     def __init_subclass__(cls) -> None:
         cls._type_T = get_args(cls.__orig_bases__[0])[0]
 
-    def __init__(self, scale: T = None, value: float = None) -> None:
+    def __init__(self, scale: T = None, value: float = NAN) -> None:
         # Check if scale value corresponds to an allowed scale as defined by T.
         if scale:
-            scale_ok = False
-            for m in dir(self._type_T):
-                if m.startswith("_") or not m[0].isupper():
-                    continue
-                v = getattr(self._type_T, m)
-                if v == scale:
-                    scale_ok = True
-            if not scale_ok:
-                raise TypeError(f"Scale {scale} is not allowed in this context")
-
-        self._scale = scale
-        self._value = value
+            LengthBase._check_scale(self._type_T, scale)
+        self.scale = scale
+        self.value = value
 
     def __str__(self) -> str:
-        match self._scale:
+        match self.scale:
             case Scale.AUTO:
                 return "auto"
             case Scale.POINTS:
-                return f"{self._value:.2f} pt"
+                return f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
             case Scale.PERCENT:
-                return f"{self._value*100:.2f} %"
+                return f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
             case Scale.MIN_CONTENT:
                 return "min-content"
             case Scale.MAX_CONTENT:
                 return "max-content"
 
-    def from_any(value: Any) -> Self:
+    @staticmethod
+    def default() -> Self:
         raise NotImplementedError
+
+    @classmethod
+    def from_any(cls, value: Any = None) -> Self:
+        """
+        Scenarios:
+          - If value is None, get the default value for cls.
+          - If value is int/float, it is assumed to be Scale.POINTS (unless cls
+            does not support this scale, in which case an exception will be
+            raised)
+          - If value is already an instance of a subclass of LengthBase, check
+            that scale is supported for cls.
+        """
+
+        if value is None:
+            return cls.default()
+        if isinstance(value, (int, float)):
+            value *= PT
+        if not issubclass(type(value), LengthBase):
+            raise TypeError("Value is not supported/recognized: " + str(value))
+        LengthBase._check_scale(cls._type_T, value.scale)
+
+        return cls(value.scale, value.value)
 
     def to_dict(self) -> dict[str, int | float]:
         return dict(dim=self.scale.value, value=self.value)
 
 
 class Length(LengthBase[Scale]):
-    # This class supports all scales, as well as mul and rmul operations. It is
-    # used to define constants that can be used as shorthand (fx AUTO) or for
-    # multiplication (fx 5 * PCT) Other subclasses of Length should support
-    # receiving an instance of this class as a value, but verifying that it is
-    # of a supported scale.
-    pass
+    def __mul__(self, value):
+        if self.scale not in (Scale.POINTS, Scale.PERCENT):
+            raise TypeError("Cannot multiply Length of type: " + str(self))
+        elif not isinstance(value, (int, float)):
+            raise ValueError("Cannot multiply with non-numeric value: " + str(value))
+        return Length(self.scale, self.value * value)
+
+    __rmul__ = __mul__
+
+    @staticmethod
+    def default() -> Self:
+        return Length(Scale.AUTO)
 
 
 class LengthAvailableSpace(LengthBase[AvailableSpace]):
     @staticmethod
     def definite(value: float | Length) -> Self:
-        # TODO: If value type is Length, verify that it is a supported scale (POINTS)
+        if value is None:
+            raise TypeError("None value is not supported in this context")
+        if issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
+            raise ValueError(f"Only POINTS is supported in this context, not {value}")
         return LengthAvailableSpace(AvailableSpace.DEFINITE, value)
 
     @staticmethod
@@ -106,26 +143,60 @@ class LengthAvailableSpace(LengthBase[AvailableSpace]):
         return LengthAvailableSpace(AvailableSpace.MAX_CONTENT)
 
     @staticmethod
-    def from_any(value: Any) -> Self:
-        raise NotImplementedError
+    def default() -> Self:
+        return LengthAvailableSpace(AvailableSpace.MAX_CONTENT)
 
 
 class LengthPointsPercent(LengthBase[PointsPercent]):
+    @staticmethod
     def points(value: float | Length) -> Self:
-        # TODO: If value type is Length, verify that it is a supported scale (POINTS)
+        if value is None:
+            value = NAN
+        elif issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
+            raise ValueError(f"Only POINTS is supported in this context, not {value}")
         return LengthPointsPercent(PointsPercent.POINTS, value)
 
+    @staticmethod
     def percent(value: float | Length) -> Self:
-        # TODO: If value type is Length, verify that it is a supported scale (POINTS)
+        if value is None:
+            value = NAN
+        elif issubclass(type(value), LengthBase) and value.scale != Scale.PERCENT:
+            raise ValueError(f"Only PERCENT is supported in this context, not {value}")
         return LengthPointsPercent(PointsPercent.PERCENT, value)
 
     @staticmethod
-    def from_any(value: Any) -> Self:
-        raise NotImplementedError
+    def default() -> Self:
+        return LengthPointsPercent(PointsPercent.POINTS)
 
 
-t1 = LengthAvailableSpace.definite(100)
-print(t1)
+class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
+    @staticmethod
+    def points(value: float | Length) -> Self:
+        if value is None:
+            value = NAN
+        elif issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
+            raise ValueError(f"Only POINTS is supported in this context, not {value}")
+        return LengthPointsPercentAuto(PointsPercent.POINTS, value)
 
-t2 = LengthAvailableSpace.max_content()
-print(t2)
+    @staticmethod
+    def percent(value: float | Length) -> Self:
+        if value is None:
+            value = NAN
+        elif issubclass(type(value), LengthBase) and value.scale != Scale.PERCENT:
+            raise ValueError(f"Only PERCENT is supported in this context, not {value}")
+        return LengthPointsPercentAuto(PointsPercent.PERCENT, value)
+
+    @staticmethod
+    def auto() -> Self:
+        return LengthPointsPercentAuto(PointsPercent.AUTO)
+
+    @staticmethod
+    def default() -> Self:
+        return LengthPointsPercentAuto(PointsPercent.POINTS, NAN)
+
+
+AUTO = Length(Scale.AUTO)
+PCT = Length(Scale.PERCENT, 0.01)
+PT = Length(Scale.POINTS, 1)
+MIN_CONTENT = Length(Scale.MIN_CONTENT)
+MAX_CONTENT = Length(Scale.MAX_CONTENT)

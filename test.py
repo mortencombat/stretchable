@@ -10,3 +10,24 @@
 # node = Node.from_xml(xml)
 # node.compute_layout()
 # print_layout(node)
+
+from stretchable.style.geometry.length import (
+    AUTO,
+    PCT,
+    PT,
+    LengthPointsPercent,
+    LengthPointsPercentAuto,
+)
+from stretchable.style.geometry.rect import Rect
+from stretchable.style.geometry.size import SizePointsPercent, SizePointsPercentAuto
+
+size = SizePointsPercentAuto.from_any()
+print(size)
+
+rect = Rect(5 * PCT)
+print(rect)
+
+# length = LengthPointsPercent.from_any(5 * PCT)
+
+# size = SizePointsPercentAuto(AUTO, AUTO)
+# print(size)
