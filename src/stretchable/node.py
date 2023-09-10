@@ -6,6 +6,7 @@ from typing import Callable, Iterable, Self, SupportsIndex
 from attrs import define
 
 from stretchable.style import Style
+from stretchable.style.geometry.length import NAN, LengthAvailableSpace
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
 from .taffy import _bindings
@@ -27,6 +28,8 @@ TODO:
  4) Measure function support
  5) Support grid_[template/auto]_[rows/columns] in Style
 """
+
+MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 
 
 class NodeLocatorError(Exception):
@@ -114,25 +117,22 @@ class Node:
         self,
         *children,
         id: str = None,
-        measure: Callable[[SizeAvailableSpace, SizePoints], SizePoints] = None,
+        measure: MeasureFunc = None,
         style: Style = None,
         **style_args,
     ):
+        """
+        ...
+
+        Arguments:
+            measure:    a callable that takes (available_space: Size[AvailableSpace], known_dimensions: Size[float]) and returns Size[float]
+        """
+
         self._ptr = None
         self._layout = None
         self._zorder = None
         self._parent = None
-
-        """
-        _summary_
-
-        Arguments:
-            measure:    a callable that takes (available_space: Size[AvailableSpace], known_dimensions: Size[float]) and returns Size[float]
-
-        Raises:
-            ValueError: _description_
-            ValueError: _description_
-        """
+        self._measure = measure
 
         # Node id requirements:
         #   May consist of -_!:;()[] a-z A-Z 0-9
@@ -324,6 +324,8 @@ class Node:
             raise Exception("Cannot create node without a tree")
 
         _tree._node_create(self)
+        if self.measure:
+            _tree._node_set_measure(self)
 
     def _drop(self, tree: "Tree" = None):
         # Ensure that any child nodes are also dropped
@@ -348,6 +350,43 @@ class Node:
     @property
     def is_tree(self) -> bool:
         return False
+
+    @staticmethod
+    def _measure_callback(
+        node: Self,
+        known_width: float,
+        known_height: float,
+        available_width: dict[int, float],
+        available_height: dict[int, float],
+    ) -> tuple[float, float]:
+        """This function is a wrapper for the user-supplied measure function,
+        converting arguments into and results from the call by Taffy."""
+
+        known_dimensions = SizePoints(width=known_width, height=known_height)
+        available_space = SizeAvailableSpace(
+            LengthAvailableSpace.from_dict(available_width),
+            LengthAvailableSpace.from_dict(available_height),
+        )
+        result = node.measure(known_dimensions, available_space)
+        assert isinstance(result, SizePoints)
+        return (
+            result.width.value if result.width else NAN,
+            result.height.value if result.height else NAN,
+        )
+
+    @property
+    def measure(self) -> MeasureFunc:
+        return self._measure
+
+    @measure.setter
+    def measure(self, value: MeasureFunc) -> None:
+        assert value is None or callable(value)
+        self._measure = value
+        if self.tree and self._ptr:
+            if value is None:
+                self.tree._node_remove_measure()
+            else:
+                self.tree._node_set_measure()
 
     def __del__(self) -> None:
         if self.tree and self.tree._ptr_tree and self._ptr:
@@ -484,13 +523,33 @@ class Tree(Node):
 
     def _node_drop(self, node: Node) -> None:
         if not node.tree:
-            raise Exception("Node is not associated with a tree, cannot get layout")
+            raise Exception("Node is not associated with a tree, cannot drop it")
 
         _bindings.node_drop(self._ptr_tree, node._ptr)
         logger.debug("[implicit] style_drop(style: %s)", node._ptr_style)
         logger.debug("node_drop(tree: %s, node: %s)", self._ptr_tree, node._ptr)
         node._ptr = None
         node._ptr_style = None
+
+    def _node_set_measure(self, node: Node) -> None:
+        if not node.tree:
+            raise Exception(
+                "Node is not associated with a tree, cannot set measure function"
+            )
+        _bindings.node_set_measure(
+            self._ptr_tree, node._ptr, node, Node._measure_callback
+        )
+        logger.debug("node_set_measure(tree: %s, node: %s)", self._ptr_tree, node._ptr)
+
+    def _node_remove_measure(self, node: Node) -> None:
+        if not node.tree:
+            raise Exception(
+                "Node is not associated with a tree, cannot remove measure function"
+            )
+        _bindings.node_remove_measure(self._ptr_tree, node._ptr)
+        logger.debug(
+            "node_remove_measure(tree: %s, node: %s)", self._ptr_tree, node._ptr
+        )
 
     def _node_compute_layout(
         self, node: Node, available_space: SizeAvailableSpace = None

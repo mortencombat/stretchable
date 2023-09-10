@@ -1,10 +1,22 @@
 import logging
 
 from stretchable.node import Node, Tree
-from stretchable.style.geometry.size import Size
+from stretchable.style.geometry.size import Size, SizeAvailableSpace, SizePoints
 
 logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)
+
+
+def measure_test(
+    known_dims: SizePoints, available_space: SizeAvailableSpace
+) -> SizePoints:
+    print("measure_test invoked, with:")
+    print("  ", known_dims)
+    print("  ", available_space)
+    r = SizePoints(width=100, height=known_dims.height)
+    print("returning", r)
+    return r
+
 
 with Tree() as tree:
     tree.rounding_enabled = False
@@ -15,7 +27,7 @@ with Tree() as tree:
     node_1.add(node_2)
     node_3 = Node(id="body", size=Size(195.25, 200))
     node_1.add(node_3)
-    node_4 = Node(id="footer")
+    node_4 = Node(id="footer", measure=measure_test)
     node_1.add(node_4)
 
     tree.compute_layout()

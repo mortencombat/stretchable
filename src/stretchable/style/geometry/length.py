@@ -79,6 +79,8 @@ class LengthBase(Generic[T]):
                 return "min-content"
             case Scale.MAX_CONTENT:
                 return "max-content"
+            case _:
+                return "None"
 
     @staticmethod
     def default() -> Self:
@@ -146,10 +148,29 @@ class LengthAvailableSpace(LengthBase[AvailableSpace]):
     def default() -> Self:
         return LengthAvailableSpace(AvailableSpace.MAX_CONTENT)
 
+    @staticmethod
+    def from_dict(value: dict[int, float]) -> Self:
+        match value["dim"]:
+            case Scale.POINTS:
+                return LengthAvailableSpace.definite(value["value"])
+            case Scale.MIN_CONTENT:
+                return LengthAvailableSpace.min_content()
+            case Scale.MAX_CONTENT:
+                return LengthAvailableSpace.max_content()
+            case _:
+                raise ValueError(
+                    f"Scale {value['dim']} is not supported in this context"
+                )
+
 
 class LengthPoints(LengthBase[Points]):
-    def __init__(self, value: float = NAN) -> None:
-        super().__init__(Scale.POINTS, value)
+    @staticmethod
+    def points(value: float | Length = None) -> Self:
+        if value is None:
+            value = NAN
+        elif issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
+            raise ValueError(f"Only POINTS is supported in this context, not {value}")
+        return LengthPointsPercent(PointsPercent.POINTS, value)
 
     @staticmethod
     def default() -> Self:

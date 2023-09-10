@@ -14,12 +14,8 @@ use pyo3::prelude::*;
 use pyo3::{wrap_pyfunction, wrap_pymodule};
 
 extern crate taffy;
+use taffy::node::MeasureFunc;
 use taffy::prelude::*;
-
-// use taffy::geometry::*;
-// use taffy::node::*;
-// use taffy::style::JustifyItems;
-// use taffy::style::*;
 
 // MAIN
 
@@ -158,6 +154,19 @@ impl FromIndex<GridAutoFlow> for GridAutoFlow {
 struct PyLength {
     dim: i32,
     value: f32,
+}
+
+impl Into<PyLength> for AvailableSpace {
+    fn into(self: AvailableSpace) -> PyLength {
+        match self {
+            AvailableSpace::Definite(value) => PyLength {
+                dim: 1,
+                value: value,
+            },
+            AvailableSpace::MinContent => PyLength { dim: 3, value: 0. },
+            AvailableSpace::MaxContent => PyLength { dim: 4, value: 0. },
+        }
+    }
 }
 
 impl From<PyLength> for Dimension {
@@ -550,44 +559,70 @@ unsafe fn node_get_layout(taffy: i64, node: i64) -> PyLayout {
     layout
 }
 
-// #[pyfunction]
-// unsafe fn node_set_measure(
-//     stretch: i64,
-//     node: i64,
-//     node_self: PyObject,
-//     measure: PyObject, // fn(i64, f32, f32) -> StretchSize
-// ) {
-//     let mut taffy = Box::from_raw(taffy as *mut Taffy);
-//     let node = Box::from_raw(node as *mut Node);
+trait FromPyMeasure<T> {
+    fn from_py(node: PyObject, measure: PyObject) -> T;
+}
 
-//     taffy
-//         .set_measure(
-//             *node,
-//             Some(Box::new(move |constraint| {
-//                 // acquire lock
-//                 let gil = Python::acquire_gil();
-//                 let py = gil.python();
-//                 // call function
-//                 let args = (
-//                     &node_self,
-//                     constraint.width.or_else(f32::NAN),
-//                     constraint.height.or_else(f32::NAN),
-//                 );
-//                 let result = measure.call1(py, args).unwrap();
-//                 // cast
-//                 let size: StretchSize = result.extract(py).unwrap();
-//                 // return args
-//                 Ok(Size {
-//                     width: size.width,
-//                     height: size.height,
-//                 })
-//             })),
-//         )
-//         .unwrap();
+impl FromPyMeasure<MeasureFunc> for MeasureFunc {
+    fn from_py(node: PyObject, measure: PyObject) -> MeasureFunc {
+        MeasureFunc::Boxed(Box::new(
+            move |known_dimensions: Size<Option<f32>>,
+                  available_space: Size<AvailableSpace>|
+                  -> Size<f32> {
+                // acquire lock
+                let gil = Python::acquire_gil();
+                let py = gil.python();
+                // call function
+                let available_width: PyLength = available_space.width.into();
+                let available_height: PyLength = available_space.height.into();
+                let args = (
+                    &node,
+                    known_dimensions.width.unwrap_or(f32::NAN),
+                    known_dimensions.height.unwrap_or(f32::NAN),
+                    available_width,
+                    available_height,
+                );
+                let result = measure.call1(py, args).unwrap();
+                // cast
+                let size: Vec<f32> = result.extract(py).unwrap();
+                // return args
+                Size {
+                    width: size[0],
+                    height: size[1],
+                }
+            },
+        ))
+    }
+}
 
-//     Box::leak(taffy);
-//     Box::leak(node);
-// }
+#[pyfunction]
+unsafe fn node_set_measure(
+    taffy: i64,
+    node: i64,
+    node_self: PyObject,
+    measure: PyObject, // fn(i64, f32, f32) -> StretchSize
+) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+
+    taffy
+        .set_measure(*node, Some(MeasureFunc::from_py(node_self, measure)))
+        .unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+}
+
+#[pyfunction]
+unsafe fn node_remove_measure(taffy: i64, node: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+
+    taffy.set_measure(*node, None).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+}
 
 // MODULE
 
@@ -610,7 +645,8 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(node_mark_dirty))?;
     m.add_wrapped(wrap_pyfunction!(node_set_style))?;
     m.add_wrapped(wrap_pyfunction!(node_get_layout))?;
-    // m.add_wrapped(wrap_pyfunction!(node_set_measure))?;
+    m.add_wrapped(wrap_pyfunction!(node_set_measure))?;
+    m.add_wrapped(wrap_pyfunction!(node_remove_measure))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
 
     Ok(())
