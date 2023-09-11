@@ -17,6 +17,9 @@ logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
 _valid_id = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]*$")
+# _xml_parser = ElementTree.XMLParser()
+# _xml_parser.parser.UseForeignDTD(True)
+# _xml_parser.entity["&ZeroWidthSpace;"] = ""
 
 """
 TODO:
@@ -27,6 +30,7 @@ TODO:
  4) Add tests from Taffy
  5) Run tests
  6) Support grid_[template/auto]_[rows/columns] in Style
+ 7) Consider renaming Tree to Root (?)
  
 NOTE:
 
@@ -322,12 +326,10 @@ class Node:
                         self.id,
                     )
 
-        set_tree = not self.tree and value and value.tree
+        set_tree = self.tree is None and value is not None and value.tree is not None
         self._parent = value
         if set_tree:
             self._add_to_tree()
-            for child in self.children:
-                child._add_to_tree()
 
     def _add_to_tree(self) -> None:
         if self.tree and not self._ptr:
@@ -337,6 +339,8 @@ class Node:
             # Add as child node
             if self.parent and self.tree:
                 self.tree._node_add_child(self.parent, self)
+        for child in self.children:
+            child._add_to_tree()
 
     def _create(self, tree: "Tree" = None):
         if self._ptr:
@@ -502,20 +506,21 @@ class Node:
 
         return Layout(x, y, w, h)
 
-    @staticmethod
-    def from_xml(xml: str) -> Self:
-        root = ElementTree.fromstring(xml)
-        return Node._from_xml(root)
+    @classmethod
+    def from_xml(cls, xml: str) -> Self:
+        root = ElementTree.fromstring(xml)  # , parser=_xml_parser)
+        return cls._from_xml(root)
 
-    @staticmethod
-    def _from_xml(element: ElementTree.Element) -> Self:
+    @classmethod
+    def _from_xml(cls, element: ElementTree.Element) -> Self:
         args = dict()
         if "id" in element.attrib:
             args["id"] = element.attrib["id"]
         if "style" in element.attrib:
             args["style"] = Style.from_inline_css(element.attrib["style"])
-        node = Node(**args)
+        node = cls(**args)
         for child in element:
+            print("add child element", child)
             node.add(Node._from_xml(child))
         return node
 
@@ -523,11 +528,11 @@ class Node:
 class Tree(Node):
     __slots__ = ("_ptr_tree", "_rounding_enabled")
 
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         self._rounding_enabled = True
         self._ptr_tree = _bindings.init()
         logger.debug("init() -> %s", self._ptr_tree)
-        super().__init__(size=Size(100 * PCT))
+        super().__init__(*args, **kwargs)
 
     def __del__(self) -> None:
         if hasattr(self, "_ptr_taffy") and self._ptr_tree:
@@ -623,7 +628,7 @@ class Tree(Node):
         node._ptr_style = node.style._create()
         node._ptr = _bindings.node_create(self._ptr_tree, node._ptr_style)
         logger.debug(
-            "node_create(tree: %s, style: %s) -> %s",
+            "node_create(tree_ptr: %s, style_ptr: %s) -> %s",
             self._ptr_tree,
             node._ptr_style,
             node._ptr,
@@ -632,10 +637,12 @@ class Tree(Node):
     def _node_dirty(self, node: Node) -> bool:
         if not node.tree:
             raise Exception(
-                "Node is not associated with a tree, cannot get dirty state"
+                f"Node {node.address} is not associated with a tree, cannot get dirty state"
             )
         elif not node._ptr:
-            raise Exception("Node is not created in tree, cannot get dirty state")
+            raise Exception(
+                f"Node {node.address} is not created in tree, cannot get dirty state"
+            )
 
         dirty = _bindings.node_dirty(self._ptr_tree, node._ptr)
         logger.debug(
@@ -701,6 +708,7 @@ class Tree(Node):
         return result
 
     def _node_get_layout(self, node: Node) -> None:
+        print("_node_get_layout", node.address)
         if not node.tree:
             raise Exception("Node is not associated with a tree, cannot get layout")
         if node.is_dirty:

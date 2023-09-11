@@ -11,6 +11,8 @@ from stretchable.node import Node, Tree
 
 driver = webdriver.Chrome()
 
+unsupported_xml_entities = ("&ZeroWidthSpace;",)
+
 
 def _get_xml(filepath: Path) -> str:
     """From HTML with <body>...</body> containing only <div> elements, return
@@ -28,16 +30,15 @@ def _get_xml(filepath: Path) -> str:
                 xml += line
             if c == "<body>":
                 in_body = True
-        return xml.replace("<div", "<node").replace("</div>", "</node>")
+        xml = xml.replace("<div", "<node").replace("</div>", "</node>")
+    for entity in unsupported_xml_entities:
+        xml = xml.replace(entity, "")
+    return xml
 
 
 @pytest.mark.parametrize(
     "filepath",
-    sorted(
-        glob.glob(
-            os.getcwd() + "/tests/fixtures/absolute_aspect_ratio_fill_height.html"
-        )
-    ),
+    sorted(glob.glob(os.getcwd() + "/tests/fixtures/*.html")),
 )
 def test_html_fixtures(filepath: str):
     # Read html file, extract content between <body> and </body> and convert <div> to <node>

@@ -12,31 +12,23 @@ logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)
 
 filepath = "tests/fixtures/absolute_aspect_ratio_fill_height.html"
+# filepath = "tests/fixtures/align_baseline_nested_column.html"
+# filepath = "tests/fixtures/grid_min_content_flex_single_item.html"
 
-# xml = _get_xml(filepath)
-# with Tree() as tree:
-#     node = Node.from_xml(xml)
-#     tree.add(node)
-#     tree.compute_layout()
-#     print(tree.style.size)
-#     print(tree.children[0].style.size, node.id)
-#     print(tree.children[0].children[0].style.size)
-#     # print_layout(node)
 
-tree = Tree().add(
-    Node(size=Size(450 * PT, 350 * PT)).add(
-        Node(size=Size(400 * PT, 300 * PT)).add(
-            Node(
-                size=Size(width=50 * PCT),
-                inset=Rect(left=5 * PCT, top=5 * PCT),
-                aspect_ratio=3.0,
-                position=Position.ABSOLUTE,
-            )
-        )
+def list_nodes(node: Node, index: int = 0) -> None:
+    print(
+        "  " * index
+        + f"{node.address} (node: {node._ptr}, style: {node._ptr_style}, parent: {node.parent._ptr if node.parent else 'None'})"
     )
-)
+    for child in node.children:
+        list_nodes(child, index + 1)
 
-tree.compute_layout()
+
+with Tree.from_xml(_get_xml(filepath)) as tree:
+    list_nodes(tree)
+    tree.compute_layout()
+    print_layout(tree)
 
 # from stretchable.style.geometry.length import (
 #     AUTO,

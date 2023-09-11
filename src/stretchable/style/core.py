@@ -51,7 +51,7 @@ class Style:
         validator=[validators.instance_of(Position)],
     )
     inset: RectPointsPercentAuto = field(
-        default=None, converter=RectPointsPercentAuto.from_any
+        default=AUTO, converter=RectPointsPercentAuto.from_any
     )
 
     # Alignment
@@ -140,8 +140,8 @@ class Style:
         factory=GridPlacement, converter=GridPlacement.from_any
     )
 
-    def _create(self) -> int:
-        ptr = _bindings.style_create(
+    def to_args(self) -> tuple:
+        return (
             # Layout mode
             self.display,
             # Position
@@ -180,7 +180,10 @@ class Style:
             self.grid_row.to_dict(),
             self.grid_column.to_dict(),
         )
-        logger.debug("style_create(size=%s) -> %s", self.size, ptr)
+
+    def _create(self) -> int:
+        ptr = _bindings.style_create(*self.to_args())
+        logger.debug("style_create() -> %s", ptr)
         return ptr
 
     @staticmethod
@@ -379,7 +382,7 @@ class Style:
             "position",
         ):
             v = to_enum(prop)
-            if v:
+            if v is not None:
                 args[prop.replace("-", "_")] = v
 
         # float and Dim entries:

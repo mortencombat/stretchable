@@ -8,9 +8,7 @@ extern crate dict_derive;
 use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
-// use std::error::Error;
 
-// use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::{wrap_pyfunction, wrap_pymodule};
 
@@ -21,26 +19,26 @@ use taffy::prelude::*;
 // MAIN
 
 #[pyfunction]
-unsafe fn init() -> i64 {
+fn init() -> usize {
     let taffy = Taffy::new();
-    Box::into_raw(Box::new(taffy)) as i64
+    Box::into_raw(Box::new(taffy)) as usize
 }
 
 #[pyfunction]
-unsafe fn free(taffy: i64) {
-    let _ = Box::from_raw(taffy as *mut Taffy);
+fn free(taffy_ptr: usize) {
+    let _ = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
 }
 
 #[pyfunction]
-unsafe fn enable_rounding(taffy: i64) {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+fn enable_rounding(taffy_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
     taffy.enable_rounding();
     Box::leak(taffy);
 }
 
 #[pyfunction]
-unsafe fn disable_rounding(taffy: i64) {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+fn disable_rounding(taffy_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
     taffy.disable_rounding();
     Box::leak(taffy);
 }
@@ -319,7 +317,12 @@ impl From<PyGridPlacement> for Line<GridPlacement> {
 }
 
 #[pyfunction]
-unsafe fn style_create(
+fn style_drop(style_ptr: usize) {
+    let _style = unsafe { Box::from_raw(style_ptr as *mut Style) };
+}
+
+#[pyfunction]
+fn style_create(
     // Layout mode/strategy
     display: i32,
     // Position
@@ -352,15 +355,13 @@ unsafe fn style_create(
     grid_auto_flow: i32,
     grid_row: PyGridPlacement,
     grid_column: PyGridPlacement,
-) -> i64 {
-    let _size: Size<Dimension> = Size::from(size);
-    println!("width: {}; height: {} => ", _size.width, _size.height);
-    let ptr = Box::into_raw(Box::new(Style {
+) -> usize {
+    let style = Style {
         // Layout mode/strategy
         display: Display::from_index(display),
         // Position
         position: Position::from_index(position),
-        inset: Rect::from(inset),
+        inset: Rect::from(inset) as Rect<LengthPercentageAuto>,
         // Alignment
         align_items: AlignItems::from_index(align_items),
         justify_items: JustifyItems::from_index(justify_items),
@@ -374,7 +375,7 @@ unsafe fn style_create(
         border: Rect::from(border),
         padding: Rect::from(padding),
         // Size
-        size: _size, // Size::from(size),
+        size: Size::from(size),
         min_size: Size::from(min_size),
         max_size: Size::from(max_size),
         aspect_ratio: aspect_ratio,
@@ -389,35 +390,29 @@ unsafe fn style_create(
         grid_row: Line::from(grid_row),
         grid_column: Line::from(grid_column),
         ..Default::default()
-    }));
-    println!("=> ptr: {}", ptr as i64);
-
-    ptr as i64
-}
-
-#[pyfunction]
-unsafe fn style_drop(style: i64) {
-    let _style = Box::from_raw(style as *mut Style);
+    };
+    Box::into_raw(Box::new(style)) as usize
 }
 
 // NODES
 
 #[pyfunction]
-unsafe fn node_create(taffy: i64, style: i64) -> i64 {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let style = Box::from_raw(style as *mut Style);
-    let node = taffy.new_leaf(*style).unwrap();
+fn node_create(taffy_ptr: usize, style_ptr: usize) -> usize {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let style = unsafe { Box::from_raw(style_ptr as *mut Style) };
+    let node = taffy.new_leaf(*style.clone()).unwrap();
 
+    Box::leak(style);
     Box::leak(taffy);
 
-    Box::into_raw(Box::new(node)) as i64
+    Box::into_raw(Box::new(node)) as usize
 }
 
 #[pyfunction]
-unsafe fn node_add_child(taffy: i64, node: i64, child: i64) {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
-    let child = Box::from_raw(child as *mut Node);
+unsafe fn node_add_child(taffy_ptr: usize, node_ptr: usize, child_ptr: usize) {
+    let mut taffy = Box::from_raw(taffy_ptr as *mut Taffy);
+    let node = Box::from_raw(node_ptr as *mut Node);
+    let child = Box::from_raw(child_ptr as *mut Node);
 
     taffy.add_child(*node, *child).unwrap();
 
@@ -427,29 +422,29 @@ unsafe fn node_add_child(taffy: i64, node: i64, child: i64) {
 }
 
 #[pyfunction]
-unsafe fn node_drop(taffy: i64, node: i64) {
+fn node_drop(taffy_ptr: usize, node_ptr: usize) {
     // Remove a specific node from the tree and drop it
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
 
     _ = taffy.remove(*node);
     Box::leak(taffy);
 }
 
 #[pyfunction]
-unsafe fn node_drop_all(taffy: i64) {
+fn node_drop_all(taffy_ptr: usize) {
     // Drops all nodes in the tree
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
 
     taffy.clear();
     Box::leak(taffy);
 }
 
 #[pyfunction]
-unsafe fn node_replace_child_at_index(taffy: i64, node: i64, index: usize, child: i64) {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
-    let child = Box::from_raw(child as *mut Node);
+fn node_replace_child_at_index(taffy_ptr: usize, node_ptr: usize, index: usize, child_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+    let child = unsafe { Box::from_raw(child_ptr as *mut Node) };
 
     taffy.replace_child_at_index(*node, index, *child).unwrap();
 
@@ -459,10 +454,10 @@ unsafe fn node_replace_child_at_index(taffy: i64, node: i64, index: usize, child
 }
 
 #[pyfunction]
-unsafe fn node_remove_child(taffy: i64, node: i64, child: i64) {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
-    let child = Box::from_raw(child as *mut Node);
+fn node_remove_child(taffy_ptr: usize, node_ptr: usize, child_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+    let child = unsafe { Box::from_raw(child_ptr as *mut Node) };
 
     // TODO: this fails with an unknown error...
     taffy.remove_child(*node, *child).unwrap();
@@ -473,9 +468,9 @@ unsafe fn node_remove_child(taffy: i64, node: i64, child: i64) {
 }
 
 #[pyfunction]
-unsafe fn node_remove_child_at_index(taffy: i64, node: i64, index: usize) {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
+fn node_remove_child_at_index(taffy_ptr: usize, node_ptr: usize, index: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
 
     taffy.remove_child_at_index(*node, index).unwrap();
 
@@ -484,9 +479,9 @@ unsafe fn node_remove_child_at_index(taffy: i64, node: i64, index: usize) {
 }
 
 #[pyfunction]
-unsafe fn node_dirty(taffy: i64, node: i64) -> bool {
-    let taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
+fn node_dirty(taffy_ptr: usize, node_ptr: usize) -> bool {
+    let taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
     let dirty = taffy.dirty(*node).unwrap();
 
     Box::leak(taffy);
@@ -495,9 +490,9 @@ unsafe fn node_dirty(taffy: i64, node: i64) -> bool {
     dirty
 }
 #[pyfunction]
-unsafe fn node_mark_dirty(taffy: i64, node: i64) {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
+fn node_mark_dirty(taffy_ptr: usize, node_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
 
     taffy.mark_dirty(*node).unwrap();
 
@@ -519,9 +514,9 @@ unsafe fn node_set_style(taffy: i64, node: i64, style: i64) {
 }
 
 #[pyfunction]
-unsafe fn node_compute_layout(taffy: i64, node: i64, available_space: PySize) -> bool {
-    let mut taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
+fn node_compute_layout(taffy: usize, node: usize, available_space: PySize) -> bool {
+    let mut taffy = unsafe { Box::from_raw(taffy as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node as *mut Node) };
 
     let result = taffy.compute_layout(*node, Size::from(available_space));
 
@@ -553,14 +548,10 @@ impl From<Layout> for PyLayout {
 }
 
 #[pyfunction]
-unsafe fn node_get_layout(taffy: i64, node: i64) -> PyLayout {
-    let taffy = Box::from_raw(taffy as *mut Taffy);
-    let node = Box::from_raw(node as *mut Node);
-    let layout = taffy.layout(*node);
-    if layout.is_err() {
-        panic!("error occurred when retrieving node layout")
-    }
-    let layout = PyLayout::from(*layout.unwrap());
+fn node_get_layout(taffy_ptr: usize, node_ptr: usize) -> PyLayout {
+    let taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+    let layout = PyLayout::from(*taffy.layout(*node).unwrap());
 
     Box::leak(taffy);
     Box::leak(node);
