@@ -1,13 +1,14 @@
 import logging
 from enum import IntEnum
+from typing import Iterable, Self
 
 from attrs import define, field, validators
 
 from stretchable.taffy import _bindings
 
-from .geometry.length import AUTO, LengthPointsPercentAuto
-from .geometry.rect import RectPointsPercent, RectPointsPercentAuto
-from .geometry.size import SizePointsPercent, SizePointsPercentAuto
+from .geometry.length import AUTO, NAN, PCT, PT, Length, LengthPointsPercentAuto
+from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
+from .geometry.size import Size, SizePointsPercent, SizePointsPercentAuto
 from .props import (
     AlignContent,
     AlignItems,
@@ -20,6 +21,7 @@ from .props import (
     JustifyContent,
     JustifyItems,
     JustifySelf,
+    Overflow,
     Position,
 )
 
@@ -178,10 +180,229 @@ class Style:
             self.grid_row.to_dict(),
             self.grid_column.to_dict(),
         )
-        logger.debug("style_create() -> %s", ptr)
+        logger.debug("style_create(size=%s) -> %s", self.size, ptr)
         return ptr
 
     @staticmethod
     def _drop(self, ptr: int):
         _bindings.style_drop(ptr)
         logger.debug("style_drop(style: %s)", ptr)
+
+    @staticmethod
+    def from_inline_css(style: str) -> Self:
+        def parse_value(value: str) -> Length | float | str:
+            value = value.strip()
+            if value.endswith("px"):
+                value = float(value.rstrip("px")) * PT
+            elif value.endswith("%"):
+                value = float(value.rstrip("%")) * PCT
+            elif value.lower() == "auto":
+                value = AUTO
+            else:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass
+            return value
+
+        def parse_style(style: str) -> dict[str, Length | str]:
+            props = dict()
+            for entry in style.split(";"):
+                entry = entry.strip()
+                if not entry:
+                    continue
+                name, _, value = entry.partition(":")
+                props[name.strip()] = parse_value(value)
+            return props
+
+        def get_prop_name(prefix: str, key: str, suffix: str = None) -> str:
+            if prefix:
+                name = f"{prefix}-{key}" if key else prefix
+            elif not key:
+                raise ValueError("Either prefix or key must be specified")
+            else:
+                name = key
+            if suffix:
+                name += "-" + suffix
+            return name
+
+        def to_rect(
+            prefix: str = None,
+            *,
+            default: Length = NAN,
+            suffix: Iterable[str] = None,
+            start: Iterable[str] = ("left", "start"),
+            end: Iterable[str] = ("right", "end"),
+            top: Iterable[str] = ("top",),
+            bottom: Iterable[str] = ("bottom",),
+        ) -> Rect:
+            if prefix:
+                for s in (None, suffix) if suffix else (None,):
+                    prop = get_prop_name(prefix, None, s)
+                    if prop in keys:
+                        keys.remove(prop)
+                        return Rect(props[prop])
+
+            values = [default] * 4
+            not_present = True
+            for i, _keys in enumerate((top, end, bottom, start)):
+                for key in _keys:
+                    for s in (None, suffix) if suffix else (None,):
+                        prop = get_prop_name(prefix, key, s)
+                        if prop in keys:
+                            values[i] = props[prop]
+                            keys.remove(prop)
+                            not_present = False
+            if not_present:
+                return None
+            return Rect(*values)
+
+        def to_size(prefix: str = None, *, default: Length = AUTO) -> Size:
+            values = [default] * 2
+            not_present = True
+            for i, key in enumerate(("width", "height")):
+                prop = get_prop_name(prefix, key)
+                if prop in keys:
+                    values[i] = props[prop]
+                    keys.remove(prop)
+                    not_present = False
+            if not_present:
+                return None
+            return Size(*values)
+
+        def prop_to_enum(prop: str) -> IntEnum:
+            match prop:
+                case "display":
+                    return Display
+                case "justify-content":
+                    return JustifyContent
+                case "align-items":
+                    return AlignItems
+                case "align-self":
+                    return AlignSelf
+                case "align-content":
+                    return AlignContent
+                case "flex-direction":
+                    return FlexDirection
+                case "overflow":
+                    return Overflow
+                case "position":
+                    return Position
+                case "flex-wrap":
+                    return FlexWrap
+            raise ValueError(f"Unrecognized property '{prop}'")
+
+        def to_enum(prop: str) -> IntEnum:
+            if prop in keys:
+                keys.remove(prop)
+                enum = prop_to_enum(prop)
+                return enum[props[prop].upper().replace("-", "_")]
+
+        def to_float(prop: str) -> float:
+            if prop in keys:
+                keys.remove(prop)
+                return props[prop]
+
+        def to_flex() -> dict[str, Length | float]:
+            if "flex" not in keys:
+                return None
+
+            v = props["flex"]
+            if isinstance(v, str):
+                values = [parse_value(value) for value in v.split(" ")]
+            else:
+                values = [v]
+            n = len(values)
+            keys.remove("flex")
+            return dict(
+                flex_grow=values[0],
+                flex_shrink=values[1] if n >= 2 else 1,
+                flex_basis=values[2] if n >= 3 else 0,
+            )
+
+        """
+        Size entries:
+            width, height                       -> size = Size
+            max-width, max-height               -> max_size = Size
+            min-width, min-height               -> min_size = Size
+
+        Rect entries:
+            top, right, bottom, left            -> position = Rect
+            margin**, border**, padding**       -> margin = Rect, ...
+                                                (margin, margin-width -> single value)
+                                                (margin-left, etc. -> specific values)
+
+        Enum entries:
+            display, direction, flex-direction, flex-wrap, overflow,
+            align-items, align-self, align-content, justify-content
+                                                -> display = Display (etc.)
+            position                            -> position_type = PositionType
+
+        float entries:
+            flex-grow, flex-shrink, aspect-ratio
+                                                -> flex_grow (etc.)
+
+        Dim entries:
+            flex-basis                          -> flex_basis = Dim
+        """
+
+        args = dict()
+        props = parse_style(style)
+        keys = set(props.keys())
+
+        # Size entries: size, max_size, min_size
+        for prefix in (None, "min", "max"):
+            v = to_size(prefix, default=AUTO if not prefix else NAN)
+            if v:
+                args[f"{prefix}_size" if prefix else "size"] = v
+
+        # Rect entries: inset, margin, border, padding
+        for prop in ("inset", "margin", "border", "padding"):
+            prefix, suffix = (None, None) if prop == "inset" else (prop, "width")
+            v = to_rect(prefix, suffix=suffix)
+            if v:
+                args[prop] = v
+
+        # Enum entries:
+        #   display, flex-direction, flex-wrap, overflow,
+        #   align-items, align-self, align-content, justify-content
+        #   position (->position_type)
+        for prop in (
+            "display",
+            "flex-direction",
+            "flex-wrap",
+            "overflow",
+            "align-items",
+            "align-self",
+            "align-content",
+            "justify-content",
+            "position",
+        ):
+            v = to_enum(prop)
+            if v:
+                args[prop.replace("-", "_")] = v
+
+        # float and Dim entries:
+        #   flex-basis, flex-grow, flex-shrink, aspect-ratio
+        for prop in ("flex-basis", "flex-grow", "flex-shrink", "aspect-ratio"):
+            v = to_float(prop)
+            if v is not None:
+                args[prop.replace("-", "_")] = v
+
+        # Special handling for flex property
+        v = to_flex()
+        if v:
+            args.update(**v)
+
+        # If there are any keys left, these are unrecognized/unsupported
+        if len(keys) > 0:
+            for key in keys:
+                logger.warn(f"Style property {key} is not recognized/supported")
+
+        logger.debug(
+            "from_inline_css('%s') => "
+            + "; ".join([name + "=%s" for name in args.keys()]),
+            style,
+            *args.values(),
+        )
+        return Style(**args)

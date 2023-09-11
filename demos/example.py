@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from stretchable import Box, Node, reset
-from stretchable.style.core import Rect, Size, pct
+from stretchable.node import Box, Node
+from stretchable.style.core import PCT, Rect, Size
 
 
 def print_layout(
@@ -42,8 +42,6 @@ def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
 
 
 if __name__ == "__main__":
-    reset()
-
     linestyles = {
         Box.CONTENT: "dotted",
         Box.PADDING: "dashed",
@@ -56,7 +54,7 @@ if __name__ == "__main__":
 
     """
 
-    m, b, p = 30, 3, 10 * pct
+    m, b, p = 30, 3, 10 * PCT
 
     root = Node(
         border=Rect(b, b, b, b),
@@ -68,12 +66,12 @@ if __name__ == "__main__":
             padding=Rect(p, p, p, p),
         ).add(
             Node(
-                size=Size(100 * pct, 100 * pct),
+                size=Size(100 * PCT, 100 * PCT),
                 border=Rect(b, b, b, b),
                 padding=Rect(0.75 * p, 0.75 * p, 0.75 * p, 0.75 * p),
             ).add(
                 Node(
-                    size=Size(100 * pct, 100 * pct),
+                    size=Size(100 * PCT, 100 * PCT),
                     border=Rect(b, b, b, b),
                     padding=Rect(0.5 * p, 0.5 * p, 0.5 * p, 0.5 * p),
                 )

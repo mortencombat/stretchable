@@ -25,9 +25,9 @@ with Tree() as tree:
     tree.add(node_1)
     node_2 = Node(id="header")
     node_1.add(node_2)
-    node_3 = Node(id="body", size=Size(195.25, 200))
+    node_3 = Node(id="body", size=Size(150, 200))
     node_1.add(node_3)
-    node_4 = Node(id="footer", measure=measure_test)
+    node_4 = Node(id="footer")  # , measure=measure_test)
     node_1.add(node_4)
 
     tree.compute_layout()

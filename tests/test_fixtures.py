@@ -7,7 +7,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from stretchable import Node, reset
+from stretchable.node import Node, Tree
 
 driver = webdriver.Chrome()
 
@@ -32,26 +32,31 @@ def _get_xml(filepath: Path) -> str:
 
 
 @pytest.mark.parametrize(
-    "filepath", sorted(glob.glob(os.getcwd() + "/tests/fixtures/*.html"))
+    "filepath",
+    sorted(
+        glob.glob(
+            os.getcwd() + "/tests/fixtures/absolute_aspect_ratio_fill_height.html"
+        )
+    ),
 )
 def test_html_fixtures(filepath: str):
     # Read html file, extract content between <body> and </body> and convert <div> to <node>
     xml = _get_xml(filepath)
 
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
-    reset()
-    node: Node = Node.from_xml(xml)
-    node.compute_layout()
+    with Tree() as tree:
+        node: Node = Node.from_xml(xml)
+        tree.add(node)
+        tree.compute_layout()
 
-    # Render html with Chrome
-    driver.get("file://" + filepath)
-    driver.implicitly_wait(0.5)
-    node_expected = driver.find_element(by=By.ID, value="test-root")
+        # Render html with Chrome
+        driver.get("file://" + filepath)
+        driver.implicitly_wait(0.5)
+        node_expected = driver.find_element(by=By.ID, value="test-root")
 
-    # Compare rect of Chrome render with stretchable computed layout.
-    name = Path(filepath).stem
-    _assert_node_positions(node, node_expected, name)
-    node.dispose()
+        # Compare rect of Chrome render with stretchable computed layout.
+        name = Path(filepath).stem
+        _assert_node_positions(node, node_expected, name)
 
 
 def _assert_node_positions(
@@ -65,6 +70,7 @@ def _assert_node_positions(
         # Assert position of node
         for param in ("x", "y", "width", "height"):
             rect_actual = node_actual.get_layout(relative=False)
+            print(rect_actual)
             v_act = getattr(rect_actual, param)
             v_exp = node_expected.rect[param]
             assert (

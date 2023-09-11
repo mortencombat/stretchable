@@ -1,6 +1,7 @@
 // #![feature(in_band_lifetimes)]
 // #![feature(dec2flt)]
 
+use core::panic;
 use std::f32;
 
 extern crate dict_derive;
@@ -352,6 +353,8 @@ unsafe fn style_create(
     grid_row: PyGridPlacement,
     grid_column: PyGridPlacement,
 ) -> i64 {
+    let _size: Size<Dimension> = Size::from(size);
+    println!("width: {}; height: {} => ", _size.width, _size.height);
     let ptr = Box::into_raw(Box::new(Style {
         // Layout mode/strategy
         display: Display::from_index(display),
@@ -371,7 +374,7 @@ unsafe fn style_create(
         border: Rect::from(border),
         padding: Rect::from(padding),
         // Size
-        size: Size::from(size),
+        size: _size, // Size::from(size),
         min_size: Size::from(min_size),
         max_size: Size::from(max_size),
         aspect_ratio: aspect_ratio,
@@ -387,6 +390,8 @@ unsafe fn style_create(
         grid_column: Line::from(grid_column),
         ..Default::default()
     }));
+    println!("=> ptr: {}", ptr as i64);
+
     ptr as i64
 }
 
@@ -551,7 +556,11 @@ impl From<Layout> for PyLayout {
 unsafe fn node_get_layout(taffy: i64, node: i64) -> PyLayout {
     let taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
-    let layout = PyLayout::from(*taffy.layout(*node).unwrap());
+    let layout = taffy.layout(*node);
+    if layout.is_err() {
+        panic!("error occurred when retrieving node layout")
+    }
+    let layout = PyLayout::from(*layout.unwrap());
 
     Box::leak(taffy);
     Box::leak(node);

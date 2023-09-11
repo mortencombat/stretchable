@@ -2,12 +2,14 @@ import logging
 import re
 from enum import StrEnum, auto
 from typing import Callable, Iterable, Self, SupportsIndex
+from xml.etree import ElementTree
 
 from attrs import define
 
 from stretchable.style import Style
-from stretchable.style.geometry.length import NAN, LengthAvailableSpace
-from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
+from stretchable.style.geometry.length import NAN, PCT, LengthAvailableSpace
+from stretchable.style.geometry.size import Size, SizeAvailableSpace, SizePoints
+from stretchable.style.props import Display
 
 from .taffy import _bindings
 
@@ -19,14 +21,33 @@ _valid_id = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]
 """
 TODO:
 
- 1) Implement __str__ for classes
+ 1) Implement __str__ for classes (Node/Tree)
  2) Use __str__ from 1) in logger
- 3) Refactor (?) Length/Size in style.dimension to enforce different types of
-    lengths: Some places only points are supported, other places points,
-    percentages and maybe auto is supported. In layouting (compute_layout and
-    measure functions) "min content" and "max content" concepts are supported.
- 4) Measure function support
- 5) Support grid_[template/auto]_[rows/columns] in Style
+ 3) Re-implement from_xml()
+ 4) Add tests from Taffy
+ 5) Run tests
+ 6) Support grid_[template/auto]_[rows/columns] in Style
+ 
+NOTE:
+
+Instead of specific Tree, just have Node.
+The root Node would know it is a Root, and when needed, could create an instance
+of Taffy. However, if nodes are removed, replaced, etc. this would be really
+hard to track, creating new Taffy instances, etc.
+
+One approach would be to have node.compute_layout(taffy) or taffy.compute_layout(root_node) (this mirrors Taffy itself)
+
+You could also 
+
+A disadvantage would be that you have to supply a Taffy instance when instancing nodes, eg. Node(taffy, ...)
+
+
+The "stretched" approach with a shared Taffy instance is not considered very robust.
+
+
+
+
+
 """
 
 MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
@@ -37,6 +58,10 @@ class NodeLocatorError(Exception):
 
 
 class NodeNotFound(Exception):
+    pass
+
+
+class LayoutNotComputedError(Exception):
     pass
 
 
@@ -351,6 +376,13 @@ class Node:
     def is_tree(self) -> bool:
         return False
 
+    @property
+    def visible(self) -> bool:
+        if self._parent and not self._parent.visible:
+            return False
+        else:
+            return self.style.display != Display.NONE
+
     @staticmethod
     def _measure_callback(
         node: Self,
@@ -400,6 +432,93 @@ class Node:
             raise Exception("Node must be added to a tree before computing layout")
         self.tree._node_compute_layout(self, available_space)
 
+    def get_layout(
+        self,
+        box_type: Box = Box.BORDER,
+        *,
+        relative: bool = True,
+        flip_y: bool = False,
+    ) -> Layout:
+        # https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
+        if self.is_dirty:
+            raise LayoutNotComputedError
+
+        # self._layout => BORDER box (outside of box border)
+
+        if box_type == Box.PADDING and relative and not flip_y:
+            return self._layout
+
+        x, y, w, h = (
+            self._layout.x,
+            self._layout.y,
+            self._layout.width,
+            self._layout.height,
+        )
+
+        # NOTE: Consider if/how box_parent can be reused in some scenarios and refactor
+
+        if box_type != Box.BORDER:
+            # Expand or contract:
+            #   BoxType.CONTENT: -border -padding
+            #   BoxType.PADDING: -border
+            #   BoxType.BORDER: (none)
+            #   BoxType.MARGIN: +margin
+            # Padding, border and margin are defined in Style.
+            # Points can be used directly. Percentages need to converted based on container dimension.
+            # (which container dimension/box?)
+
+            if box_type == Box.CONTENT:
+                actions = (
+                    (self.style.border, -1),
+                    (self.style.padding, -1),
+                )
+            elif box_type == Box.PADDING:
+                actions = ((self.style.border, -1),)
+            elif box_type == Box.MARGIN:
+                actions = ((self.style.margin, 1),)
+
+            box_parent = self._parent.get_layout(Box.BORDER) if self._parent else None
+            # print("BoxType:", box_type)
+            for rect, factor in actions:
+                # print(f"  {factor=} {rect}")
+                # print(f"    {x=} {y=} {w=} {h=} ->")
+                x, y, w, h = Node._scale_box(
+                    x, y, w, h, rect, box_parent, factor=factor
+                )
+                # print(f"    -> {x=} {y=} {w=} {h=}")
+
+        if not relative and self._parent:
+            box_parent = self._parent.get_layout(Box.BORDER, relative=False)
+            x += box_parent.x
+            y += box_parent.y
+
+        if flip_y:
+            box_ref = (
+                self._parent.get_layout(Box.CONTENT)
+                if relative
+                else self._root.get_layout(Box.MARGIN)
+            )
+            y = box_ref.height - y - h
+
+        return Layout(x, y, w, h)
+
+    @staticmethod
+    def from_xml(xml: str) -> Self:
+        root = ElementTree.fromstring(xml)
+        return Node._from_xml(root)
+
+    @staticmethod
+    def _from_xml(element: ElementTree.Element) -> Self:
+        args = dict()
+        if "id" in element.attrib:
+            args["id"] = element.attrib["id"]
+        if "style" in element.attrib:
+            args["style"] = Style.from_inline_css(element.attrib["style"])
+        node = Node(**args)
+        for child in element:
+            node.add(Node._from_xml(child))
+        return node
+
 
 class Tree(Node):
     __slots__ = ("_ptr_tree", "_rounding_enabled")
@@ -408,7 +527,7 @@ class Tree(Node):
         self._rounding_enabled = True
         self._ptr_tree = _bindings.init()
         logger.debug("init() -> %s", self._ptr_tree)
-        super().__init__()
+        super().__init__(size=Size(100 * PCT))
 
     def __del__(self) -> None:
         if hasattr(self, "_ptr_taffy") and self._ptr_tree:
@@ -511,15 +630,21 @@ class Tree(Node):
         )
 
     def _node_dirty(self, node: Node) -> bool:
-        if node.tree:
-            dirty = _bindings.node_dirty(self._ptr_tree, node._ptr)
-            logger.debug(
-                "node_dirty(tree: %s, node: %s) -> %s",
-                self._ptr_tree,
-                node._ptr,
-                dirty,
+        if not node.tree:
+            raise Exception(
+                "Node is not associated with a tree, cannot get dirty state"
             )
-            return dirty
+        elif not node._ptr:
+            raise Exception("Node is not created in tree, cannot get dirty state")
+
+        dirty = _bindings.node_dirty(self._ptr_tree, node._ptr)
+        logger.debug(
+            "node_dirty(tree: %s, node: %s) -> %s",
+            self._ptr_tree,
+            node._ptr,
+            dirty,
+        )
+        return dirty
 
     def _node_drop(self, node: Node) -> None:
         if not node.tree:
@@ -582,6 +707,7 @@ class Tree(Node):
             raise Exception("Node is dirty, layout needs to be computed")
 
         _layout = _bindings.node_get_layout(self._ptr_tree, node._ptr)
+        print(node._ptr, _layout)
         node._layout = Layout(
             _layout["left"], _layout["top"], _layout["width"], _layout["height"]
         )
