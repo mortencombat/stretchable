@@ -385,7 +385,13 @@ class Node:
         if self._parent and not self._parent.visible:
             return False
         else:
-            return self.style.display != Display.NONE
+            if self.style.display == Display.NONE:
+                return False
+            if self.is_dirty:
+                raise LayoutNotComputedError(
+                    "Cannot determine if node is visible, layout is not computed"
+                )
+            return self._layout.width > 0 or self._layout.height > 0
 
     @staticmethod
     def _measure_callback(
@@ -517,7 +523,7 @@ class Node:
         if "id" in element.attrib:
             args["id"] = element.attrib["id"]
         if "style" in element.attrib:
-            args["style"] = Style.from_inline_css(element.attrib["style"])
+            args["style"] = Style.from_inline(element.attrib["style"])
         node = cls(**args)
         for child in element:
             print("add child element", child)

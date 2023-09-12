@@ -192,21 +192,28 @@ class Style:
         logger.debug("style_drop(style: %s)", ptr)
 
     @staticmethod
-    def from_inline_css(style: str) -> Self:
-        def parse_value(value: str) -> Length | float | str:
+    def from_inline(style: str) -> Self:
+        def parse_value(value: str) -> Length | float | str | tuple[Length]:
+            def parse_single(val: str) -> Length | float | str:
+                val = val.strip()
+                if val.endswith("px"):
+                    val = float(val.rstrip("px")) * PT
+                elif val.endswith("%"):
+                    val = float(val.rstrip("%")) * PCT
+                elif val.lower() == "auto":
+                    val = AUTO
+                else:
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        pass
+                return val
+
             value = value.strip()
-            if value.endswith("px"):
-                value = float(value.rstrip("px")) * PT
-            elif value.endswith("%"):
-                value = float(value.rstrip("%")) * PCT
-            elif value.lower() == "auto":
-                value = AUTO
+            if " " in value:
+                return tuple(parse_single(v) for v in value.split(" "))
             else:
-                try:
-                    value = float(value)
-                except ValueError:
-                    pass
-            return value
+                return parse_single(value)
 
         def parse_style(style: str) -> dict[str, Length | str]:
             props = dict()
@@ -362,7 +369,7 @@ class Style:
         # Rect entries: inset, margin, border, padding
         for prop in ("inset", "margin", "border", "padding"):
             prefix, suffix = (None, None) if prop == "inset" else (prop, "width")
-            v = to_rect(prefix, suffix=suffix)
+            v = to_rect(prefix, suffix=suffix, default=AUTO)
             if v:
                 args[prop] = v
 
@@ -403,8 +410,7 @@ class Style:
                 logger.warn(f"Style property {key} is not recognized/supported")
 
         logger.debug(
-            "from_inline_css('%s') => "
-            + "; ".join([name + "=%s" for name in args.keys()]),
+            "from_inline('%s') => " + "; ".join([name + "=%s" for name in args.keys()]),
             style,
             *args.values(),
         )

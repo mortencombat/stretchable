@@ -222,7 +222,7 @@ class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
 
     @staticmethod
     def default() -> Self:
-        return LengthPointsPercentAuto(PointsPercent.POINTS, NAN)
+        return LengthPointsPercentAuto(PointsPercentAuto.AUTO, NAN)
 
 
 AUTO = Length(Scale.AUTO)

@@ -66,7 +66,9 @@ def _assert_node_positions(
     fixture: str,
 ) -> None:
     visible = node_expected.is_displayed()
-    assert visible == node_actual.visible
+    assert (
+        visible == node_actual.visible
+    ), f"[{fixture}] Expected {visible=}, got {node_actual.visible}"
     if visible:
         # Assert position of node
         for param in ("x", "y", "width", "height"):

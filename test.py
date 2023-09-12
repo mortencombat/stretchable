@@ -11,7 +11,7 @@ from tests.test_fixtures import _get_xml
 logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)
 
-filepath = "tests/fixtures/absolute_aspect_ratio_fill_height.html"
+filepath = "tests/fixtures/absolute_layout_align_items_and_justify_content_center_and_bottom_position.html"
 # filepath = "tests/fixtures/align_baseline_nested_column.html"
 # filepath = "tests/fixtures/grid_min_content_flex_single_item.html"
 
