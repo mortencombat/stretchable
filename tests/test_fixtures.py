@@ -38,16 +38,15 @@ def _get_xml(filepath: Path) -> str:
 
 @pytest.mark.parametrize(
     "filepath",
-    sorted(glob.glob(os.getcwd() + "/tests/fixtures/*.html")),
+    sorted(glob.glob(os.getcwd() + "/tests/fixtures/stretch/*.html")),
 )
 def test_html_fixtures(filepath: str):
     # Read html file, extract content between <body> and </body> and convert <div> to <node>
     xml = _get_xml(filepath)
 
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
-    with Tree() as tree:
-        node: Node = Node.from_xml(xml)
-        tree.add(node)
+    with Tree.from_xml(xml) as tree:
+        tree.rounding_enabled = False
         tree.compute_layout()
 
         # Render html with Chrome
@@ -57,7 +56,7 @@ def test_html_fixtures(filepath: str):
 
         # Compare rect of Chrome render with stretchable computed layout.
         name = Path(filepath).stem
-        _assert_node_positions(node, node_expected, name)
+        _assert_node_positions(tree, node_expected, name)
 
 
 def _assert_node_positions(
@@ -73,7 +72,6 @@ def _assert_node_positions(
         # Assert position of node
         for param in ("x", "y", "width", "height"):
             rect_actual = node_actual.get_layout(relative=False)
-            print(rect_actual)
             v_act = getattr(rect_actual, param)
             v_exp = node_expected.rect[param]
             assert (

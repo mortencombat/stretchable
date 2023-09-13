@@ -1,19 +1,18 @@
 import logging
+import os
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 
 from demos.example import print_layout
 from stretchable.node import Node, Tree
-from stretchable.style.geometry.length import PCT, PT
-from stretchable.style.geometry.rect import Rect
-from stretchable.style.geometry.size import Size
-from stretchable.style.props import Display, Position
 from tests.test_fixtures import _get_xml
 
 logger = logging.getLogger("stretchable")
 logger.setLevel(logging.DEBUG)
 
-filepath = "tests/fixtures/absolute_layout_align_items_and_justify_content_center_and_bottom_position.html"
-# filepath = "tests/fixtures/align_baseline_nested_column.html"
-# filepath = "tests/fixtures/grid_min_content_flex_single_item.html"
+filepath = "tests/fixtures/stretch/display_none_with_child.html"
 
 
 def list_nodes(node: Node, index: int = 0) -> None:
@@ -25,32 +24,26 @@ def list_nodes(node: Node, index: int = 0) -> None:
         list_nodes(child, index + 1)
 
 
+def print_chrome_layout(node: WebElement, index: int = 0) -> None:
+    visible = node.is_displayed()
+    x = node.rect["x"]
+    y = node.rect["y"]
+    width = node.rect["width"]
+    height = node.rect["height"]
+    print("  " * index + f"{x=:.1f}, {y=:.1f}, {width=:.1f}, {height=:.1f}, {visible=}")
+
+    for child in node.find_elements(by=By.XPATH, value="*"):
+        print_chrome_layout(child, index + 1)
+
+
 with Tree.from_xml(_get_xml(filepath)) as tree:
     list_nodes(tree)
     tree.compute_layout()
     print_layout(tree)
 
-# from stretchable.style.geometry.length import (
-#     AUTO,
-#     PCT,
-#     PT,
-#     LengthPointsPercent,
-#     LengthPointsPercentAuto,
-# )
-# from stretchable.style.geometry.rect import Rect
-# from stretchable.style.geometry.size import (
-#     Size,
-#     SizePointsPercent,
-#     SizePointsPercentAuto,
-# )
 
-# size = Size(100, 50 * PCT)
-# print(size)
-
-# rect = Rect(left=5 * PCT)
-# print(rect)
-
-# # length = LengthPointsPercent.from_any(5 * PCT)
-
-# # size = SizePointsPercentAuto(AUTO, AUTO)
-# # print(size)
+driver = webdriver.Chrome()
+driver.get("file://" + os.getcwd() + "/" + filepath)
+driver.implicitly_wait(0.5)
+node_expected = driver.find_element(by=By.ID, value="test-root")
+print_chrome_layout(node_expected)

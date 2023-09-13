@@ -369,7 +369,7 @@ class Style:
         # Rect entries: inset, margin, border, padding
         for prop in ("inset", "margin", "border", "padding"):
             prefix, suffix = (None, None) if prop == "inset" else (prop, "width")
-            v = to_rect(prefix, suffix=suffix, default=AUTO)
+            v = to_rect(prefix, suffix=suffix, default=AUTO if prop == "inset" else 0)
             if v:
                 args[prop] = v
 
@@ -407,7 +407,7 @@ class Style:
         # If there are any keys left, these are unrecognized/unsupported
         if len(keys) > 0:
             for key in keys:
-                logger.warn(f"Style property {key} is not recognized/supported")
+                logger.warning(f"Style property {key} is not recognized/supported")
 
         logger.debug(
             "from_inline('%s') => " + "; ".join([name + "=%s" for name in args.keys()]),

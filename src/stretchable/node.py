@@ -24,14 +24,14 @@ _valid_id = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]
 """
 TODO:
 
- 1) Implement __str__ for classes (Node/Tree)
- 2) Use __str__ from 1) in logger
- 3) Re-implement from_xml()
+ 1) Consider renaming Tree to Root (?)
+ 2) Implement __str__ for classes (Node/Tree)
+ 3) Use __str__ from 1) in logger
  4) Add tests from Taffy
- 5) Run tests
+    4a) Implement measure_standard_text equivalent (from taffy tests/fixtures.rs) and implement this on nodes with inner-content
+ 5) Run/fix tests
  6) Support grid_[template/auto]_[rows/columns] in Style
- 7) Consider renaming Tree to Root (?)
- 
+
 NOTE:
 
 Instead of specific Tree, just have Node.
@@ -391,7 +391,22 @@ class Node:
                 raise LayoutNotComputedError(
                     "Cannot determine if node is visible, layout is not computed"
                 )
-            return self._layout.width > 0 or self._layout.height > 0
+            # TODO: consider margin?
+            if (
+                (self._layout.width <= 0 or self._layout.height <= 0)
+                and not self.children
+                and not self.is_tree
+            ):
+                # Box is zero-sized with no children
+                return False
+            if (
+                self._layout.y + self._layout.height < 0
+                or self._layout.x + self._layout.width < 0
+            ):
+                # Box is outside
+                return False
+
+            return True
 
     @staticmethod
     def _measure_callback(
@@ -526,7 +541,6 @@ class Node:
             args["style"] = Style.from_inline(element.attrib["style"])
         node = cls(**args)
         for child in element:
-            print("add child element", child)
             node.add(Node._from_xml(child))
         return node
 
@@ -651,6 +665,7 @@ class Tree(Node):
             )
 
         dirty = _bindings.node_dirty(self._ptr_tree, node._ptr)
+        print(f"_node_dirty({node._ptr}) = {dirty}")
         logger.debug(
             "node_dirty(tree: %s, node: %s) -> %s",
             self._ptr_tree,
@@ -714,14 +729,12 @@ class Tree(Node):
         return result
 
     def _node_get_layout(self, node: Node) -> None:
-        print("_node_get_layout", node.address)
         if not node.tree:
             raise Exception("Node is not associated with a tree, cannot get layout")
         if node.is_dirty:
             raise Exception("Node is dirty, layout needs to be computed")
 
         _layout = _bindings.node_get_layout(self._ptr_tree, node._ptr)
-        print(node._ptr, _layout)
         node._layout = Layout(
             _layout["left"], _layout["top"], _layout["width"], _layout["height"]
         )
@@ -737,6 +750,6 @@ class Tree(Node):
             node._layout.height,
         )
 
-        if node.children:
+        if node.visible and node.children:
             for child in node.children:
                 self._node_get_layout(child)
