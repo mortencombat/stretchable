@@ -7,8 +7,8 @@ from xml.etree import ElementTree
 from attrs import define
 
 from stretchable.style import Style
-from stretchable.style.geometry.length import NAN, PCT, LengthAvailableSpace
-from stretchable.style.geometry.size import Size, SizeAvailableSpace, SizePoints
+from stretchable.style.geometry.length import NAN, LengthAvailableSpace
+from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 from stretchable.style.props import Display
 
 from .taffy import _bindings
@@ -41,7 +41,7 @@ hard to track, creating new Taffy instances, etc.
 
 One approach would be to have node.compute_layout(taffy) or taffy.compute_layout(root_node) (this mirrors Taffy itself)
 
-You could also 
+You could also
 
 A disadvantage would be that you have to supply a Taffy instance when instancing nodes, eg. Node(taffy, ...)
 
