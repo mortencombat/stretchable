@@ -12,11 +12,15 @@ def print_layout(
     box_type: Box = Box.BORDER,
     relative: bool = True,
 ):
-    if not node.visible:
+    if not node.is_visible:
         return
     box = node.get_layout(box_type, relative=relative)
     print(
-        " " * level + box_type._name_ + ": " + str(box) + f" (visible: {node.visible})"
+        " " * level
+        + box_type._name_
+        + ": "
+        + str(box)
+        + f" (visible: {node.is_visible})"
     )
     # for t in Box:
     #     box = node.get_layout(t, relative=relative)

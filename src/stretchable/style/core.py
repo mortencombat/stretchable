@@ -362,7 +362,7 @@ class Style:
 
         # Size entries: size, max_size, min_size
         for prefix in (None, "min", "max"):
-            v = to_size(prefix, default=AUTO if not prefix else NAN)
+            v = to_size(prefix)
             if v:
                 args[f"{prefix}_size" if prefix else "size"] = v
 

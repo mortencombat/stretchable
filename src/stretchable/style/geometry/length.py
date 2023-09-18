@@ -111,6 +111,11 @@ class LengthBase(Generic[T]):
     def to_dict(self) -> dict[str, int | float]:
         return dict(dim=self.scale.value, value=self.value)
 
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, LengthBase):
+            return False
+        return self.scale == __value.scale and self.value == __value.value
+
 
 class Length(LengthBase[Scale]):
     def __mul__(self, value):

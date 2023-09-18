@@ -381,29 +381,38 @@ class Node:
         return False
 
     @property
-    def visible(self) -> bool:
-        if self._parent and not self._parent.visible:
+    def is_visible(self) -> bool:
+        if self._parent and not self._parent.is_visible:
             return False
         else:
             if self.style.display == Display.NONE:
+                # logger.debug("(%s) Display.NONE => not visible", self._ptr)
                 return False
             if self.is_dirty:
                 raise LayoutNotComputedError(
                     "Cannot determine if node is visible, layout is not computed"
                 )
-            # TODO: consider margin?
             if (
                 (self._layout.width <= 0 or self._layout.height <= 0)
                 and not self.children
                 and not self.is_tree
             ):
                 # Box is zero-sized with no children
+                # logger.debug(
+                #     "(%s) zero-sized with no children, width %s, height %s => not visible",
+                #     self._ptr,
+                #     self._layout.width,
+                #     self._layout.height,
+                # )
                 return False
             if (
                 self._layout.y + self._layout.height < 0
                 or self._layout.x + self._layout.width < 0
             ):
                 # Box is outside
+                # logger.debug(
+                #     "(%s) box is outside visible area => not visible", self._ptr
+                # )
                 return False
 
             return True
@@ -441,9 +450,9 @@ class Node:
         self._measure = value
         if self.tree and self._ptr:
             if value is None:
-                self.tree._node_remove_measure()
+                self.tree._node_remove_measure(self)
             else:
-                self.tree._node_set_measure()
+                self.tree._node_set_measure(self)
 
     def __del__(self) -> None:
         if self.tree and self.tree._ptr_tree and self._ptr:
@@ -528,20 +537,28 @@ class Node:
         return Layout(x, y, w, h)
 
     @classmethod
-    def from_xml(cls, xml: str) -> Self:
+    def from_xml(
+        cls, xml: str, customize: Callable[[Self, ElementTree.Element], Self] = None
+    ) -> Self:
         root = ElementTree.fromstring(xml)  # , parser=_xml_parser)
-        return cls._from_xml(root)
+        return cls._from_xml(root, customize)
 
     @classmethod
-    def _from_xml(cls, element: ElementTree.Element) -> Self:
+    def _from_xml(
+        cls,
+        element: ElementTree.Element,
+        customize: Callable[[Self, ElementTree.Element], Self] = None,
+    ) -> Self:
         args = dict()
         if "id" in element.attrib:
             args["id"] = element.attrib["id"]
         if "style" in element.attrib:
             args["style"] = Style.from_inline(element.attrib["style"])
         node = cls(**args)
+        if customize:
+            node = customize(node, element)
         for child in element:
-            node.add(Node._from_xml(child))
+            node.add(Node._from_xml(child, customize))
         return node
 
 
@@ -665,7 +682,6 @@ class Tree(Node):
             )
 
         dirty = _bindings.node_dirty(self._ptr_tree, node._ptr)
-        print(f"_node_dirty({node._ptr}) = {dirty}")
         logger.debug(
             "node_dirty(tree: %s, node: %s) -> %s",
             self._ptr_tree,
@@ -750,6 +766,6 @@ class Tree(Node):
             node._layout.height,
         )
 
-        if node.visible and node.children:
+        if node.is_visible and node.children:
             for child in node.children:
                 self._node_get_layout(child)
