@@ -22,7 +22,7 @@ dependencies = [
 
 [tool.maturin]
 python-source = "src"
-module-name = "stretchable.taffy"
+module-name = "stretchable.taffylib"
 
 [project.optional-dependencies]
 build = [

@@ -19,7 +19,7 @@ def measure_test(
 
 
 with Tree() as tree:
-    tree.rounding_enabled = False
+    tree.use_rounding = False
 
     node_1 = Node(id="main")
     tree.add(node_1)

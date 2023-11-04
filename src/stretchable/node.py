@@ -1,17 +1,16 @@
 import logging
 import re
 from enum import StrEnum, auto
-from typing import Callable, Iterable, Self, SupportsIndex
+from typing import Callable, Iterable, Optional, Self, SupportsIndex
 from xml.etree import ElementTree
 
 from attrs import define
 
+from stretchable import taffy, taffylib
 from stretchable.style import Style
 from stretchable.style.geometry.length import NAN, LengthAvailableSpace
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 from stretchable.style.props import Display
-
-from .taffy import _bindings
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
@@ -31,23 +30,6 @@ TODO:
     4a) Implement measure_standard_text equivalent (from taffy tests/fixtures.rs) and implement this on nodes with inner-content
  5) Run/fix tests
  6) Support grid_[template/auto]_[rows/columns] in Style
-
-NOTE:
-
-Instead of specific Tree, just have Node.
-The root Node would know it is a Root, and when needed, could create an instance
-of Taffy. However, if nodes are removed, replaced, etc. this would be really
-hard to track, creating new Taffy instances, etc.
-
-One approach would be to have node.compute_layout(taffy) or taffy.compute_layout(root_node) (this mirrors Taffy itself)
-
-You could also
-
-A disadvantage would be that you have to supply a Taffy instance when instancing nodes, eg. Node(taffy, ...)
-
-
-The "stretched" approach with a shared Taffy instance is not considered very robust.
-
 
 
 
@@ -84,62 +66,20 @@ class Layout:
     height: float
 
 
-class Children(list):
-    def __init__(self, parent: "Node"):
-        self._parent = parent
-
-    def append(self, node: "Node"):
-        if not isinstance(node, Node):
-            raise TypeError("Only nodes can be added")
-        elif node.parent:
-            raise Exception("Node is already associated with a parent node")
-        node.parent = self._parent
-        super().append(node)
-
-    def extend(self, __iterable: Iterable["Node"]) -> None:
-        for child in __iterable:
-            self.append(child)
-
-    def remove(self, node: "Node") -> None:
-        if self._parent.tree:
-            self._parent.tree._node_remove_child(self._parent, node)
-        return super().remove(node)
-
-    def __delitem__(self, __index: SupportsIndex | slice) -> None:
-        for index in reversed(
-            range(*__index.indices(len(self)))
-            if isinstance(__index, slice)
-            else [__index]
-        ):
-            if self._parent.tree:
-                self._parent.tree._node_remove_child(self._parent, self[index])
-            super().__delitem__(index)
-
-    def __setitem__(self, __index: int, node: "Node") -> None:
-        assert __index >= 0 and __index < len(self)
-        if self._parent.tree:
-            self._parent.tree._node_replace_child_at_index(self._parent, __index, node)
-        super().__setitem__(__index, node)
+# TODO:
+#   Add parent
 
 
-"""
-
-measure_func
-
-"""
-
-
-class Node:
+class Node(list["Node"]):
     __slots__ = (
         "_id",
         "_style",
         "_children",
         "_measure",
-        "_ptr",
-        "_ptr_style",
         "_layout",
         "_zorder",
         "_parent",
+        "__ptr",
     )
 
     def __init__(
@@ -157,11 +97,7 @@ class Node:
             measure:    a callable that takes (available_space: Size[AvailableSpace], known_dimensions: Size[float]) and returns Size[float]
         """
 
-        self._ptr = None
-        self._layout = None
-        self._zorder = None
-        self._parent = None
-        self._measure = measure
+        self.__ptr = None
 
         # Node id requirements:
         #   May consist of -_!:;()[] a-z A-Z 0-9
@@ -170,24 +106,115 @@ class Node:
             raise ValueError("The given `id` is not valid")
         self._id = id
 
+        self._layout = None
+        self._zorder = None
+        self._parent = None
+        self._measure = measure
+
         # Style
         if not style:
             style = Style(**style_args)
         elif style_args:
             raise ValueError("Provide only `style` or style attributes, not both")
         self._style = style
-        self._ptr_style = None
+
+        # Create node in taffy
+        self.__ptr = taffylib.node_create(taffy._ptr, style._ptr)
+        # taffy._nodes.add(self.__ptr)
+        logger.debug(
+            "node_create(taffy: %s, style: %s) -> %s",
+            taffy._ptr,
+            style._ptr,
+            self.__ptr,
+        )
 
         # Children
-        self._children = Children(self)
+        self._children = []
         self.add(*children)
 
-        if self.is_tree:
-            self._add_to_tree()
+    @property
+    def _ptr(self) -> int:
+        return self.__ptr
+
+    def __del__(self) -> None:
+        if self._ptr is None or taffy._ptr is None:
+            return
+        taffylib.node_drop(taffy._ptr, self._ptr)
+        # taffy._nodes.remove(self._ptr)
+        logger.debug("node_drop(taffy: %s, node: %s)", taffy._ptr, self._ptr)
+
+    def __hash__(self) -> int:
+        return id(self)
+
+    # region Children
+
+    @property
+    def parent(self) -> "Node":
+        return self._parent
+
+    @parent.setter
+    def parent(self, value: "Node") -> None:
+        self._parent = value
+
+    @property
+    def root(self) -> "Node":
+        return self if not self.parent else self.parent.root
 
     def add(self, *children) -> Self:
-        self._children.extend(children)
+        self.extend(children)
         return self
+
+    def append(self, node: "Node"):
+        if not isinstance(node, Node):
+            raise TypeError("Only nodes can be added")
+        elif node.parent:
+            raise Exception("Node is already associated with a parent node")
+        taffylib.node_add_child(taffy._ptr, self._ptr, node._ptr)
+        node.parent = self
+        logger.debug(
+            "node_add_child(taffy: %s, parent: %s, child: %s)",
+            taffy._ptr,
+            self._ptr,
+            node._ptr,
+        )
+        super().append(node)
+
+    def extend(self, __iterable: Iterable["Node"]) -> None:
+        for child in __iterable:
+            self.append(child)
+
+    def remove(self, node: "Node") -> None:
+        taffylib.node_remove_child(taffy._ptr, self._ptr, node._ptr)
+        node.parent = None
+        logger.debug(
+            "node_remove_child(taffy: %s, parent: %s, child: %s)",
+            taffy._ptr,
+            self._ptr,
+            node._ptr,
+        )
+        return super().remove(node)
+
+    def __delitem__(self, __index: SupportsIndex | slice) -> None:
+        for index in reversed(
+            range(*__index.indices(len(self)))
+            if isinstance(__index, slice)
+            else [__index]
+        ):
+            taffylib.node_remove_child_at_index(taffy._ptr, self._ptr, index)
+            self[index].parent = None
+            super().__delitem__(index)
+
+    def __setitem__(self, __index: int, node: "Node") -> None:
+        assert __index >= 0 and __index < len(self)
+
+        self[__index].parent = None
+        taffylib.node_replace_child_at_index(taffy._ptr, self._ptr, __index, node)
+        node.parent = self
+        super().__setitem__(__index, node)
+
+    # endregion
+
+    # region Id/locator
 
     @property
     def address(self) -> str:
@@ -195,10 +222,8 @@ class Node:
         The address of this node, relative to farthest parent node
         or root if associated with a tree.
         """
-        if self.is_tree:
+        if not self.parent:
             return "/"
-        elif not self.parent:
-            return None
 
         addr = self.parent.address
         if addr is None:
@@ -208,7 +233,7 @@ class Node:
         if self.id:
             addr += self.id
         else:
-            addr += str(self.parent.children.index(self))
+            addr += str(self.parent.index(self))
 
         return addr
 
@@ -249,28 +274,22 @@ class Node:
         if addr.startswith("./"):
             addr = addr[2:]
         if addr.startswith("../"):
-            if self.is_tree:
-                raise NodeLocatorError("Node is tree, cannot go to parent", addr)
             if not self.parent:
                 raise NodeLocatorError(
                     "Node has no parent, cannot locate address", addr
                 )
             return self.parent.find(addr[3:])
         if addr.startswith("/"):
-            if not self.tree:
-                raise NodeLocatorError(
-                    "Node is not associated with a tree, cannot locate address", addr
-                )
-            return self.tree.find(addr[1:])
+            return self.root.find(addr[1:])
         if not addr:
             return self
-        if len(self.children) == 0:
+        if len(self) == 0:
             raise NodeNotFound("Node not found", addr)
 
         pre, sep, post = addr.partition("/")
         if _valid_id.match(pre):
             # If pre is valid node id, look in children ids
-            for child in self.children:
+            for child in self:
                 if child.id and child.id == pre:
                     return child.find(post) if post else child
             raise NodeNotFound("Node not found", addr)
@@ -284,138 +303,56 @@ class Node:
                 raise NodeLocatorError("Address is not valid", addr)
             if index >= len(self.children):
                 raise NodeNotFound("Node not found", addr)
-            child = self.children[index]
+            child = self[index]
             return child.find(post) if post else child
+
+    @property
+    def id(self) -> str:
+        return self._id
+
+    # endregion
 
     @property
     def style(self) -> Style:
         return self._style
 
     @property
-    def children(self) -> Children:
-        return self._children
-
-    @property
-    def parent(self) -> Self:
-        return self._parent
-
-    @property
-    def id(self) -> str:
-        return self._id
-
-    @property
     def is_dirty(self) -> bool:
-        if self.tree:
-            return self.tree._node_dirty(self)
-
-    @parent.setter
-    def parent(self, value: Self) -> None:
-        if value is None and self._ptr and self.tree and not self.is_tree:
-            # Node is currently added to tree, but is being removed
-            # Drop it from the tree
-            self._drop()
-            self._parent = None
-            return
-
-        if value and self.id:
-            # Check that there are no id collisions with other children of parent
-            for child in value.children:
-                if child.id and child.id == self.id:
-                    raise Exception(
-                        "There is another child node with the same `id` on this parent node",
-                        self.id,
-                    )
-
-        set_tree = self.tree is None and value is not None and value.tree is not None
-        self._parent = value
-        if set_tree:
-            self._add_to_tree()
-
-    def _add_to_tree(self) -> None:
-        if self.tree and not self._ptr:
-            # Create node
-            self._create()
-
-            # Add as child node
-            if self.parent and self.tree:
-                self.tree._node_add_child(self.parent, self)
-        for child in self.children:
-            child._add_to_tree()
-
-    def _create(self, tree: "Tree" = None):
-        if self._ptr:
-            # Node is already created, tree cannot change
-            raise Exception(
-                "Node is already associated with a tree, cannot add it to another tree"
-            )
-        _tree = tree if tree else self.tree
-        if not _tree:
-            raise Exception("Cannot create node without a tree")
-
-        _tree._node_create(self)
-        if self.measure:
-            _tree._node_set_measure(self)
-
-    def _drop(self, tree: "Tree" = None):
-        # Ensure that any child nodes are also dropped
-        for child in self.children:
-            child._drop(tree)
-
-        # Ensure that node can be dropped
-        if not self._ptr:
-            raise Exception("Node is not associated with a tree, cannot drop it")
-        _tree = tree if tree else self.tree
-        if not _tree:
-            raise Exception("Cannot drop node without a tree")
-
-        # Drop node
-        _tree._node_drop(self)
-
-    @property
-    def tree(self) -> "Tree":
-        """Returns the associated Tree class instance, if this node has been added to the corresponding tree"""
-        return self.parent.tree if self.parent else None
-
-    @property
-    def is_tree(self) -> bool:
-        return False
+        taffylib.node_dirty(taffy._ptr, self._ptr)
 
     @property
     def is_visible(self) -> bool:
-        if self._parent and not self._parent.is_visible:
+        if self.parent and not self.parent.is_visible:
             return False
-        else:
-            if self.style.display == Display.NONE:
-                # logger.debug("(%s) Display.NONE => not visible", self._ptr)
-                return False
-            if self.is_dirty:
-                raise LayoutNotComputedError(
-                    "Cannot determine if node is visible, layout is not computed"
-                )
-            if (
-                (self._layout.width <= 0 or self._layout.height <= 0)
-                and not self.children
-                and not self.is_tree
-            ):
-                # Box is zero-sized with no children
-                # logger.debug(
-                #     "(%s) zero-sized with no children, width %s, height %s => not visible",
-                #     self._ptr,
-                #     self._layout.width,
-                #     self._layout.height,
-                # )
-                return False
-            if (
-                self._layout.y + self._layout.height < 0
-                or self._layout.x + self._layout.width < 0
-            ):
-                # Box is outside
-                # logger.debug(
-                #     "(%s) box is outside visible area => not visible", self._ptr
-                # )
-                return False
+        if self.style.display == Display.NONE:
+            # logger.debug("(%s) Display.NONE => not visible", self._ptr)
+            return False
+        if self.is_dirty:
+            raise LayoutNotComputedError(
+                "Cannot determine if node is visible, layout is not computed"
+            )
+        if (self._layout.width <= 0 or self._layout.height <= 0) and len(self) == 0:
+            # Box is zero-sized with no children
+            # logger.debug(
+            #     "(%s) zero-sized with no children, width %s, height %s => not visible",
+            #     self._ptr,
+            #     self._layout.width,
+            #     self._layout.height,
+            # )
+            return False
+        if (
+            self._layout.y + self._layout.height < 0
+            or self._layout.x + self._layout.width < 0
+        ):
+            # Box is outside
+            # logger.debug(
+            #     "(%s) box is outside visible area => not visible", self._ptr
+            # )
+            return False
 
-            return True
+        return True
+
+    # region Measuring and layout
 
     @staticmethod
     def _measure_callback(
@@ -448,23 +385,58 @@ class Node:
     def measure(self, value: MeasureFunc) -> None:
         assert value is None or callable(value)
         self._measure = value
-        if self.tree and self._ptr:
-            if value is None:
-                self.tree._node_remove_measure(self)
-            else:
-                self.tree._node_set_measure(self)
+        if value is None:
+            taffylib.node_remove_measure(taffy._ptr, self._ptr)
+            logger.debug(
+                "node_remove_measure(taffy: %s, node: %s)", taffy._ptr, self._ptr
+            )
+        else:
+            taffylib.node_set_measure(
+                taffy._ptr, self._ptr, self, Node._measure_callback
+            )
+            logger.debug("node_set_measure(taffy: %s, node: %s)", taffy._ptr, self._ptr)
 
-    def __del__(self) -> None:
-        if self.tree and self.tree._ptr_tree and self._ptr:
-            self.tree._node_drop(self)
-            # _bindings.node_drop(self.tree._ptr_tree, self._ptr)
-            # logger.debug("node_drop(%s)", self._ptr)
-            # self._ptr = None
+    def compute_layout(
+        self,
+        available_space: Optional[SizeAvailableSpace] = None,
+        *,
+        use_rounding: bool = True,
+    ) -> bool:
+        if not available_space:
+            available_space = SizeAvailableSpace.default()
 
-    def compute_layout(self, available_space: SizeAvailableSpace = None):
-        if not self.tree:
-            raise Exception("Node must be added to a tree before computing layout")
-        self.tree._node_compute_layout(self, available_space)
+        taffy.use_rounding = use_rounding
+        result = taffylib.node_compute_layout(
+            taffy._ptr, self._ptr, available_space.to_dict()
+        )
+        if result:
+            self._update_layout()
+
+        return result
+
+    def _update_layout(self) -> None:
+        if self.is_dirty:
+            raise LayoutNotComputedError
+
+        layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
+        self._layout = Layout(
+            layout["left"], layout["top"], layout["width"], layout["height"]
+        )
+        self._zorder = layout["order"]
+        logger.debug(
+            "node_get_layout(taffy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
+            taffy._ptr,
+            self._ptr,
+            self._zorder,
+            self._layout.x,
+            self._layout.y,
+            self._layout.width,
+            self._layout.height,
+        )
+
+        if self.is_visible:
+            for child in self:
+                child._update_layout()
 
     def get_layout(
         self,
@@ -536,6 +508,8 @@ class Node:
 
         return Layout(x, y, w, h)
 
+    # endregion
+
     @classmethod
     def from_xml(
         cls, xml: str, customize: Callable[[Self, ElementTree.Element], Self] = None
@@ -560,212 +534,3 @@ class Node:
         for child in element:
             node.add(Node._from_xml(child, customize))
         return node
-
-
-class Tree(Node):
-    __slots__ = ("_ptr_tree", "_rounding_enabled")
-
-    def __init__(self, *args, **kwargs) -> None:
-        self._rounding_enabled = True
-        self._ptr_tree = _bindings.init()
-        logger.debug("init() -> %s", self._ptr_tree)
-        super().__init__(*args, **kwargs)
-
-    def __del__(self) -> None:
-        if hasattr(self, "_ptr_taffy") and self._ptr_tree:
-            _bindings.free(self._ptr_tree)
-            logger.debug("free(tree: %s) via __del__", self._ptr_tree)
-            self._ptr_tree = None
-
-    @property
-    def rounding_enabled(self) -> bool:
-        return self._rounding_enabled
-
-    @rounding_enabled.setter
-    def rounding_enabled(self, value: bool) -> None:
-        if value == self._rounding_enabled:
-            return
-        if value:
-            self._enable_rounding()
-        else:
-            self._disable_rounding()
-        self._rounding_enabled = value
-
-    @property
-    def tree(self) -> Self:
-        return self
-
-    @property
-    def is_tree(self) -> bool:
-        return True
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> Self:
-        if hasattr(self, "_ptr_tree") and self._ptr_tree:
-            _bindings.free(self._ptr_tree)
-            logger.debug("free(tree: %s) via __exit__", self._ptr_tree)
-            self._ptr_tree = None
-
-    # Bindings
-
-    def _enable_rounding(self) -> None:
-        _bindings.enable_rounding(self._ptr_tree)
-        logger.debug("enable_rounding(tree: %s)", self._ptr_tree)
-
-    def _disable_rounding(self) -> None:
-        _bindings.disable_rounding(self._ptr_tree)
-        logger.debug("disable_rounding(tree: %s)", self._ptr_tree)
-
-    def _node_add_child(self, parent: Node, child: Node) -> None:
-        _bindings.node_add_child(self._ptr_tree, parent._ptr, child._ptr)
-        logger.debug(
-            "node_add_child(tree: %s, parent: %s, child: %s)",
-            self._ptr_tree,
-            parent._ptr,
-            child._ptr,
-        )
-
-    def _node_remove_child(self, parent: Node, child: Node):
-        _bindings.node_remove_child(self._ptr_tree, parent._ptr, child._ptr)
-        logger.debug(
-            "node_remove_child(tree: %s, parent: %s, child: %s)",
-            self._ptr_tree,
-            parent._ptr,
-            child._ptr,
-        )
-
-        # Set parent of removed child to None, which will cause it to be dropped from the tree
-        child.parent = None
-
-    def _node_replace_child_at_index(
-        self, parent: Node, index: int, child: Node
-    ) -> None:
-        # Get current child at index
-        replaced = parent.children[index]
-
-        # Create new child and replace it at index
-        child._create(self)
-        _bindings.node_replace_child_at_index(
-            self._ptr_tree, parent._ptr, index, child._ptr
-        )
-        logger.debug(
-            "node_replace_child_at_index(tree: %s, parent: %s, index: %s, child: %s)",
-            self._ptr_tree,
-            parent._ptr,
-            index,
-            child._ptr,
-        )
-
-        # Set parent of replaced child to None, which will cause it to be dropped from the tree
-        replaced.parent = None
-
-    def _node_create(self, node: Node) -> None:
-        node._ptr_style = node.style._create()
-        node._ptr = _bindings.node_create(self._ptr_tree, node._ptr_style)
-        logger.debug(
-            "node_create(tree_ptr: %s, style_ptr: %s) -> %s",
-            self._ptr_tree,
-            node._ptr_style,
-            node._ptr,
-        )
-
-    def _node_dirty(self, node: Node) -> bool:
-        if not node.tree:
-            raise Exception(
-                f"Node {node.address} is not associated with a tree, cannot get dirty state"
-            )
-        elif not node._ptr:
-            raise Exception(
-                f"Node {node.address} is not created in tree, cannot get dirty state"
-            )
-
-        dirty = _bindings.node_dirty(self._ptr_tree, node._ptr)
-        logger.debug(
-            "node_dirty(tree: %s, node: %s) -> %s",
-            self._ptr_tree,
-            node._ptr,
-            dirty,
-        )
-        return dirty
-
-    def _node_drop(self, node: Node) -> None:
-        if not node.tree:
-            raise Exception("Node is not associated with a tree, cannot drop it")
-
-        _bindings.node_drop(self._ptr_tree, node._ptr)
-        logger.debug("[implicit] style_drop(style: %s)", node._ptr_style)
-        logger.debug("node_drop(tree: %s, node: %s)", self._ptr_tree, node._ptr)
-        node._ptr = None
-        node._ptr_style = None
-
-    def _node_set_measure(self, node: Node) -> None:
-        if not node.tree:
-            raise Exception(
-                "Node is not associated with a tree, cannot set measure function"
-            )
-        _bindings.node_set_measure(
-            self._ptr_tree, node._ptr, node, Node._measure_callback
-        )
-        logger.debug("node_set_measure(tree: %s, node: %s)", self._ptr_tree, node._ptr)
-
-    def _node_remove_measure(self, node: Node) -> None:
-        if not node.tree:
-            raise Exception(
-                "Node is not associated with a tree, cannot remove measure function"
-            )
-        _bindings.node_remove_measure(self._ptr_tree, node._ptr)
-        logger.debug(
-            "node_remove_measure(tree: %s, node: %s)", self._ptr_tree, node._ptr
-        )
-
-    def _node_compute_layout(
-        self, node: Node, available_space: SizeAvailableSpace = None
-    ) -> bool:
-        if not node.tree:
-            raise Exception("Node is not associated with a tree, cannot get layout")
-
-        if not available_space:
-            available_space = SizeAvailableSpace.default()
-        result = _bindings.node_compute_layout(
-            self._ptr_tree,
-            node._ptr,
-            available_space.to_dict(),
-        )
-        logger.debug(
-            "node_compute_layout(tree: %s, node: %s) -> success: %s",
-            self._ptr_tree,
-            node._ptr,
-            result,
-        )
-
-        self._node_get_layout(node)
-
-        return result
-
-    def _node_get_layout(self, node: Node) -> None:
-        if not node.tree:
-            raise Exception("Node is not associated with a tree, cannot get layout")
-        if node.is_dirty:
-            raise Exception("Node is dirty, layout needs to be computed")
-
-        _layout = _bindings.node_get_layout(self._ptr_tree, node._ptr)
-        node._layout = Layout(
-            _layout["left"], _layout["top"], _layout["width"], _layout["height"]
-        )
-        node._zorder = _layout["order"]
-        logger.debug(
-            "node_get_layout(tree: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
-            self._ptr_tree,
-            node._ptr,
-            node._zorder,
-            node._layout.x,
-            node._layout.y,
-            node._layout.width,
-            node._layout.height,
-        )
-
-        if node.is_visible and node.children:
-            for child in node.children:
-                self._node_get_layout(child)

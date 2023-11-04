@@ -10,7 +10,7 @@ use dict_derive::{FromPyObject, IntoPyObject};
 extern crate pyo3;
 
 use pyo3::prelude::*;
-use pyo3::{wrap_pyfunction, wrap_pymodule};
+use pyo3::wrap_pyfunction;
 
 extern crate taffy;
 use taffy::node::MeasureFunc;
@@ -626,8 +626,9 @@ unsafe fn node_remove_measure(taffy: i64, node: i64) {
 
 // MODULE
 
+// for pyo3-pack, name must match module.
 #[pymodule]
-pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
+fn taffylib(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(init))?;
     m.add_wrapped(wrap_pyfunction!(free))?;
     m.add_wrapped(wrap_pyfunction!(enable_rounding))?;
@@ -649,12 +650,5 @@ pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(node_remove_measure))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
 
-    Ok(())
-}
-
-// for pyo3-pack, name must match module.
-#[pymodule]
-fn taffy(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_wrapped(wrap_pymodule!(_bindings))?;
     Ok(())
 }

@@ -4,7 +4,7 @@ from typing import Iterable, Self
 
 from attrs import define, field, validators
 
-from stretchable.taffy import _bindings
+from stretchable import taffy, taffylib
 
 from .geometry.length import AUTO, NAN, PCT, PT, Length, LengthPointsPercentAuto
 from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
@@ -140,6 +140,8 @@ class Style:
         factory=GridPlacement, converter=GridPlacement.from_any
     )
 
+    __ptr: int = field(init=False, default=None)
+
     def to_args(self) -> tuple:
         return (
             # Layout mode
@@ -181,15 +183,21 @@ class Style:
             self.grid_column.to_dict(),
         )
 
-    def _create(self) -> int:
-        ptr = _bindings.style_create(*self.to_args())
-        logger.debug("style_create() -> %s", ptr)
-        return ptr
+    def __attrs_post_init__(self) -> None:
+        object.__setattr__(self, "_Style__ptr", taffylib.style_create(*self.to_args()))
+        # taffy._styles.add(self.__ptr)
+        logger.debug("style_create() -> %s" % self.__ptr)
 
-    @staticmethod
-    def _drop(self, ptr: int):
-        _bindings.style_drop(ptr)
-        logger.debug("style_drop(style: %s)", ptr)
+    def __del__(self) -> None:
+        if self.__ptr is None:
+            return
+        taffylib.style_drop(self.__ptr)
+        # taffy._styles.remove(self.__ptr)
+        logger.debug("style_drop(ptr: %s)", self.__ptr)
+
+    @property
+    def _ptr(self) -> int:
+        return self.__ptr
 
     @staticmethod
     def from_inline(style: str) -> Self:
@@ -251,7 +259,11 @@ class Style:
                     prop = get_prop_name(prefix, None, s)
                     if prop in keys:
                         keys.remove(prop)
-                        return Rect(props[prop])
+                        values = props[prop]
+                        try:
+                            return Rect(*values)
+                        except TypeError:
+                            return Rect(values)
 
             values = [default] * 4
             not_present = True
