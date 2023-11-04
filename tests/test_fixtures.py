@@ -34,6 +34,19 @@ H_HEIGHT: float = 10.0
 ZERO_WIDTH_SPACE: str = "\u200b"
 XML_REPLACE = (("&ZeroWidthSpace;", ZERO_WIDTH_SPACE),)
 
+"""
+DEBUGGING NOTES:
+
+Date        Fixtures with measures      Panics          Failed      Passes      Remarks
+2023.11.04  Excluded                    None            ~40         ~400        Passed count includes excluded fixtures
+            Included                    None            75          372         Rounding disabled
+            Included                    None            93          354         Rounding enabled
+
+rounding_fractial_input_6:
+    Fails (differently) with both rounding disabled and enabled
+
+"""
+
 
 def get_fixtures(max_count: int = None) -> dict[str, list]:
     # TODO: implement indexing/count here
@@ -77,20 +90,18 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     xml = get_xml(filepath)
 
     # TODO: At the moment don't include fixtures that require measure
-    req_measure = requires_measure(ElementTree.fromstring(xml))
-    print(xml)
-    print("requires_measure:", req_measure)
-    if req_measure:
-        return
+    # req_measure = requires_measure(ElementTree.fromstring(xml))
+    # print(xml)
+    # print("requires_measure:", req_measure)
+    # if req_measure:
+    #     return
 
     # WTF does double free error occur when only a few fixtures are tested but not when more are tested???
 
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
     node = Node.from_xml(xml)
     # node = Node.from_xml(xml, apply_node_measure)
-    logger.debug("Invoking compute_layout...")
-    node.compute_layout(use_rounding=False)
-    logger.debug("compute_layout finished.")
+    node.compute_layout(use_rounding=True)
 
     # Render html with Chrome
     driver.get("file://" + str(filepath))
@@ -99,7 +110,6 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
 
     # Compare rect of Chrome render with stretchable computed layout.
     assert_node_layout(node, node_expected, filepath.stem)
-    logger.debug("assert_node_layout finished.")
 
 
 def get_xml(filepath: Path) -> str:
