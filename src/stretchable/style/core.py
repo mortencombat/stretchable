@@ -4,7 +4,7 @@ from typing import Iterable, Self
 
 from attrs import define, field, validators
 
-from stretchable import taffy, taffylib
+from stretchable import taffylib
 
 from .geometry.length import AUTO, NAN, PCT, PT, Length, LengthPointsPercentAuto
 from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto

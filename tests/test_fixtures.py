@@ -53,7 +53,7 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
             fixtures.append(filepath)
     for file in files:
         fixtures.append(Path(cwd + "/" + file))
-    if len(fixtures) > max_count:
+    if max_count and len(fixtures) > max_count:
         fixtures = fixtures[:max_count]
     fixtures = sorted(fixtures)
     return dict(argvalues=fixtures, ids=[Path(fixt).stem for fixt in fixtures])
@@ -61,12 +61,14 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
 
 @pytest.fixture(scope="module")
 def driver():
-    return webdriver.Chrome()
+    driver = webdriver.Chrome()
+    yield driver
+    driver.quit()
 
 
 @pytest.mark.parametrize(
     "filepath",
-    **get_fixtures(50),
+    **get_fixtures(),
 )
 def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     # Read html file, extract content between <body> and </body> and convert <div> to <node>
