@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from stretchable import Box, Node, reset
-from stretchable.style import Rect, Size, pct
+from stretchable import Box, Node
+from stretchable.style import PCT, Rect, Size
 
 
 def print_layout(
@@ -12,12 +12,17 @@ def print_layout(
     box_type: Box = Box.BORDER,
     relative: bool = True,
 ):
+    if not node.is_visible:
+        return
     box = node.get_layout(box_type, relative=relative)
-    print(" " * level + box_type._name_ + ": " + str(box))
-    # for t in Box:
-    #     box = node.get_layout(t, relative=relative)
-    #     print(" " * level + t._name_ + ": " + str(box))
-    for child in node.children:
+    print(
+        " " * level
+        + box_type._name_
+        + ": "
+        + str(box)
+        + f" (visible: {node.is_visible})"
+    )
+    for child in node:
         print_layout(child, level + 2, box_type=box_type, relative=relative)
 
 
@@ -37,13 +42,11 @@ def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
         if t == Box.BORDER:
             ax.annotate(f"Node {index}", (box.x, box.y), color=f"C{index}")
 
-    for child in node.children:
+    for child in node:
         plot_node(child, ax, index=index + 1, flip_y=flip_y)
 
 
 if __name__ == "__main__":
-    reset()
-
     linestyles = {
         Box.CONTENT: "dotted",
         Box.PADDING: "dashed",
@@ -51,12 +54,7 @@ if __name__ == "__main__":
         Box.MARGIN: "dashdot",
     }
 
-    """
-    NOTE:   There is an issue with rounding. For example, float borders and the calculated boxes will not line up.
-
-    """
-
-    m, b, p = 30, 3, 10 * pct
+    m, b, p = 30, 3, 10 * PCT
 
     root = Node(
         border=Rect(b, b, b, b),
@@ -68,12 +66,12 @@ if __name__ == "__main__":
             padding=Rect(p, p, p, p),
         ).add(
             Node(
-                size=Size(100 * pct, 100 * pct),
+                size=Size(100 * PCT, 100 * PCT),
                 border=Rect(b, b, b, b),
                 padding=Rect(0.75 * p, 0.75 * p, 0.75 * p, 0.75 * p),
             ).add(
                 Node(
-                    size=Size(100 * pct, 100 * pct),
+                    size=Size(100 * PCT, 100 * PCT),
                     border=Rect(b, b, b, b),
                     padding=Rect(0.5 * p, 0.5 * p, 0.5 * p, 0.5 * p),
                 )
@@ -81,16 +79,8 @@ if __name__ == "__main__":
         ),
     )
 
-    # Which of these supports percentages:
-    #   Border, margin, padding ?
-    #   Enforce requirement
-
-    # THERE IS AN ISSUE WITH PERCENTAGES
-    # HOW DOES CSS/STRETCH INTERPRET PERCENTAGES
-    # If using
-
     w, h = 500, 500
-    layout = root.compute_layout(Size(w, h))
+    root.compute_layout(Size(w, h))
 
     print_layout(root, box_type=Box.MARGIN, relative=False)
 
@@ -105,5 +95,3 @@ if __name__ == "__main__":
     ax.axis("equal")
 
     plt.savefig("demos/example.jpg")
-
-    # %%

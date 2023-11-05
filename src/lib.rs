@@ -1,541 +1,687 @@
 // #![feature(in_band_lifetimes)]
 // #![feature(dec2flt)]
 
+use core::panic;
+use log::{error, LevelFilter};
 use std::f32;
 
 extern crate dict_derive;
 use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
+// use pyo3::create_exception;
+// use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
-use pyo3::{wrap_pyfunction, wrap_pymodule};
-use pyo3::exceptions::PyValueError;
+use pyo3::wrap_pyfunction;
 
-extern crate stretch;
-use stretch::geometry::*;
-use stretch::node::*;
-use stretch::number::*;
-use stretch::style::*;
+extern crate pyo3_log;
+use pyo3_log::{Caching, Logger};
 
+extern crate taffy;
+use taffy::node::MeasureFunc;
+use taffy::prelude::*;
 
-/* ======================================================================== */
-/* UTIL                                                                     */
-/* ======================================================================== */
+// MAIN
 
+#[pyfunction]
+fn init() -> usize {
+    let taffy = Taffy::new();
+    Box::into_raw(Box::new(taffy)) as usize
+}
+
+#[pyfunction]
+fn free(taffy_ptr: usize) {
+    let _ = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+}
+
+#[pyfunction]
+fn enable_rounding(taffy_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    taffy.enable_rounding();
+    Box::leak(taffy);
+}
+
+#[pyfunction]
+fn disable_rounding(taffy_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    taffy.disable_rounding();
+    Box::leak(taffy);
+}
+
+// STYLE
 
 trait FromIndex<T> {
-    fn from_index(index: i32) -> PyResult<T>;
+    fn from_index(index: i32) -> T;
 }
 
-
-/* ======================================================================== */
-/* ENUM CONVERSION - based on style.rs                                      */
-/* ======================================================================== */
-
-
-impl FromIndex<AlignItems> for AlignItems {
-    fn from_index(index: i32) -> PyResult<AlignItems> {
-        match index {
-            0 => Ok(AlignItems::FlexStart),
-            1 => Ok(AlignItems::FlexEnd),
-            2 => Ok(AlignItems::Center),
-            3 => Ok(AlignItems::Baseline),
-            4 => Ok(AlignItems::Stretch),
-            n => Err(PyValueError::new_err(format!("enum AlignItems - invalid index: {}", n))),
-        }
-    }
-}
-
-impl FromIndex<AlignSelf> for AlignSelf {
-    fn from_index(index: i32) -> PyResult<AlignSelf> {
-        match index {
-            0 => Ok(AlignSelf::Auto),
-            1 => Ok(AlignSelf::FlexStart),
-            2 => Ok(AlignSelf::FlexEnd),
-            3 => Ok(AlignSelf::Center),
-            4 => Ok(AlignSelf::Baseline),
-            5 => Ok(AlignSelf::Stretch),
-            n => Err(PyValueError::new_err(format!("enum AlignSelf - invalid index: {}", n))),
-        }
-    }
-}
-
-impl FromIndex<AlignContent> for AlignContent {
-    fn from_index(index: i32) -> PyResult<AlignContent> {
-        match index {
-            0 => Ok(AlignContent::FlexStart),
-            1 => Ok(AlignContent::FlexEnd),
-            2 => Ok(AlignContent::Center),
-            3 => Ok(AlignContent::Stretch),
-            4 => Ok(AlignContent::SpaceBetween),
-            5 => Ok(AlignContent::SpaceAround),
-            n => Err(PyValueError::new_err(format!("enum AlignContent - invalid index: {}", n))),
-        }
-    }
-}
-
-impl FromIndex<Direction> for Direction {
-    fn from_index(index: i32) -> PyResult<Direction> {
-        match index {
-            0 => Ok(Direction::Inherit),
-            1 => Ok(Direction::LTR),
-            2 => Ok(Direction::RTL),
-            n => Err(PyValueError::new_err(format!("enum Direction - invalid index: {}", n))),
-        }
-    }
+trait FromIndexOptional<T> {
+    fn from_index(index: Option<i32>) -> Option<T>;
 }
 
 impl FromIndex<Display> for Display {
-    fn from_index(index: i32) -> PyResult<Display> {
+    fn from_index(index: i32) -> Display {
         match index {
-            0 => Ok(Display::Flex),
-            1 => Ok(Display::None),
-            n => Err(PyValueError::new_err(format!("enum Display - invalid index: {}", n))),
+            0 => Display::None,
+            1 => Display::Flex,
+            2 => Display::Grid,
+            _ => panic!("invalid index {}", index),
         }
     }
 }
 
-impl FromIndex<FlexDirection> for FlexDirection {
-    fn from_index(index: i32) -> PyResult<FlexDirection> {
+impl FromIndex<Position> for Position {
+    fn from_index(index: i32) -> Position {
         match index {
-            0 => Ok(FlexDirection::Row),
-            1 => Ok(FlexDirection::Column),
-            2 => Ok(FlexDirection::RowReverse),
-            3 => Ok(FlexDirection::ColumnReverse),
-            n => Err(PyValueError::new_err(format!("enum FlexDirection - invalid index: {}", n))),
-        }
-    }
-}
-
-impl FromIndex<JustifyContent> for JustifyContent {
-    fn from_index(index: i32) -> PyResult<JustifyContent> {
-        match index {
-            0 => Ok(JustifyContent::FlexStart),
-            1 => Ok(JustifyContent::FlexEnd),
-            2 => Ok(JustifyContent::Center),
-            3 => Ok(JustifyContent::SpaceBetween),
-            4 => Ok(JustifyContent::SpaceAround),
-            5 => Ok(JustifyContent::SpaceEvenly),
-            n => Err(PyValueError::new_err(format!("enum JustifyContent - invalid index: {}", n))),
-        }
-    }
-}
-
-impl FromIndex<Overflow> for Overflow {
-    fn from_index(index: i32) -> PyResult<Overflow> {
-        match index {
-            0 => Ok(Overflow::Visible),
-            1 => Ok(Overflow::Hidden),
-            2 => Ok(Overflow::Scroll),
-            n => Err(PyValueError::new_err(format!("enum Overflow - invalid index: {}", n))),
-        }
-    }
-}
-
-impl FromIndex<PositionType> for PositionType {
-    fn from_index(index: i32) -> PyResult<PositionType> {
-        match index {
-            0 => Ok(PositionType::Relative),
-            1 => Ok(PositionType::Absolute),
-            n => Err(PyValueError::new_err(format!("enum PositionType - invalid index: {}", n))),
+            0 => Position::Relative,
+            1 => Position::Absolute,
+            _ => panic!("invalid index {}", index),
         }
     }
 }
 
 impl FromIndex<FlexWrap> for FlexWrap {
-    fn from_index(index: i32) -> PyResult<FlexWrap> {
+    fn from_index(index: i32) -> FlexWrap {
         match index {
-            0 => Ok(FlexWrap::NoWrap),
-            1 => Ok(FlexWrap::Wrap),
-            2 => Ok(FlexWrap::WrapReverse),
-            n => Err(PyValueError::new_err(format!("enum FlexWrap - invalid index: {}", n))),
+            0 => FlexWrap::NoWrap,
+            1 => FlexWrap::Wrap,
+            2 => FlexWrap::WrapReverse,
+            _ => panic!("invalid index {}", index),
         }
     }
 }
 
+impl FromIndex<FlexDirection> for FlexDirection {
+    fn from_index(index: i32) -> FlexDirection {
+        match index {
+            0 => FlexDirection::Row,
+            1 => FlexDirection::Column,
+            2 => FlexDirection::RowReverse,
+            3 => FlexDirection::ColumnReverse,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
 
-/* ======================================================================== */
-/* HELPER STRUCTS                                                           */
-/* ======================================================================== */
+// AlignItems, JustifyItems, AlignSelf, JustifySelf
+impl FromIndexOptional<AlignItems> for AlignItems {
+    fn from_index(index: Option<i32>) -> Option<AlignItems> {
+        match index {
+            None => None,
+            Some(n) => match n {
+                0 => Some(AlignItems::Start),
+                1 => Some(AlignItems::End),
+                2 => Some(AlignItems::FlexStart),
+                3 => Some(AlignItems::FlexEnd),
+                4 => Some(AlignItems::Center),
+                5 => Some(AlignItems::Baseline),
+                6 => Some(AlignItems::Stretch),
+                _ => panic!("invalid index {}", n),
+            },
+        }
+    }
+}
 
+// AlignContent, JustifyContent
+impl FromIndexOptional<AlignContent> for AlignContent {
+    fn from_index(index: Option<i32>) -> Option<AlignContent> {
+        match index {
+            None => None,
+            Some(n) => match n {
+                0 => Some(AlignContent::Start),
+                1 => Some(AlignContent::End),
+                2 => Some(AlignContent::FlexStart),
+                3 => Some(AlignContent::FlexEnd),
+                4 => Some(AlignContent::Center),
+                5 => Some(AlignContent::Stretch),
+                6 => Some(AlignContent::SpaceBetween),
+                7 => Some(AlignContent::SpaceEvenly),
+                8 => Some(AlignContent::SpaceAround),
+                _ => panic!("invalid index {}", n),
+            },
+        }
+    }
+}
+
+impl FromIndex<GridAutoFlow> for GridAutoFlow {
+    fn from_index(index: i32) -> GridAutoFlow {
+        match index {
+            0 => GridAutoFlow::Row,
+            1 => GridAutoFlow::Column,
+            2 => GridAutoFlow::RowDense,
+            3 => GridAutoFlow::ColumnDense,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
 
 #[derive(FromPyObject, IntoPyObject)]
-struct StretchDimensionValue {
+struct PyLength {
     dim: i32,
     value: f32,
 }
 
-impl StretchDimensionValue {
-    fn into(self) -> PyResult<Dimension> {
-        match self.dim {
-            0 => Ok(Dimension::Undefined),
-            1 => Ok(Dimension::Auto),
-            2 => Ok(Dimension::Points(self.value)),
-            3 => Ok(Dimension::Percent(self.value)),
-            n => Err(PyValueError::new_err(format!("Invalid value: {}", n))),
+impl Into<PyLength> for AvailableSpace {
+    fn into(self: AvailableSpace) -> PyLength {
+        match self {
+            AvailableSpace::Definite(value) => PyLength {
+                dim: 1,
+                value: value,
+            },
+            AvailableSpace::MinContent => PyLength { dim: 3, value: 0. },
+            AvailableSpace::MaxContent => PyLength { dim: 4, value: 0. },
         }
     }
 }
 
-
-/* ======================================================================== */
-/* DUPLICATE STRUCTS - based on geometry.rs                                 */
-/* ======================================================================== */
-
-
-// TODO: expose class via [pyclass] alongside dict_derive
-#[derive(FromPyObject, IntoPyObject)]
-pub struct StretchStyleRect {
-    start: StretchDimensionValue,
-    end: StretchDimensionValue,
-    top: StretchDimensionValue,
-    bottom: StretchDimensionValue,
+impl From<PyLength> for Dimension {
+    fn from(length: PyLength) -> Dimension {
+        match length.dim {
+            0 => Dimension::Auto,
+            1 => Dimension::Points(length.value),
+            2 => Dimension::Percent(length.value),
+            _ => panic!("unsupported dimension {}", length.dim),
+        }
+    }
 }
 
-// TODO: expose class via [pyclass] alongside dict_derive
-#[derive(FromPyObject, IntoPyObject)]
-pub struct StretchSize {
-    width: f32,
-    height: f32,
+impl From<PyLength> for AvailableSpace {
+    fn from(length: PyLength) -> Self {
+        match length.dim {
+            1 => AvailableSpace::Definite(length.value),
+            3 => AvailableSpace::MinContent,
+            4 => AvailableSpace::MaxContent,
+            _ => panic!("unsupported dimension {}", length.dim),
+        }
+    }
 }
 
-// TODO: expose class via [pyclass] alongside dict_derive
-#[derive(FromPyObject, IntoPyObject)]
-pub struct StretchStyleSize {
-    width: StretchDimensionValue,
-    height: StretchDimensionValue,
+impl From<PyLength> for LengthPercentageAuto {
+    fn from(length: PyLength) -> LengthPercentageAuto {
+        match length.dim {
+            0 => LengthPercentageAuto::Auto,
+            1 => LengthPercentageAuto::Points(length.value),
+            2 => LengthPercentageAuto::Percent(length.value),
+            _ => panic!("unsupported dimension {}", length.dim),
+        }
+    }
 }
 
+impl From<PyLength> for LengthPercentage {
+    fn from(length: PyLength) -> LengthPercentage {
+        match length.dim {
+            1 => LengthPercentage::Points(length.value),
+            2 => LengthPercentage::Percent(length.value),
+            _ => panic!("unsupported dimension {}", length.dim),
+        }
+    }
+}
 
-/* ======================================================================== */
-/* FUNCS & CLASSES                                                          */
-/* TODO: c like interface could be replaced with structs with pyo3          */
-/* ======================================================================== */
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PySize {
+    width: PyLength,
+    height: PyLength,
+}
 
+impl From<PySize> for Size<Dimension> {
+    fn from(size: PySize) -> Self {
+        Size {
+            height: Dimension::from(size.height),
+            width: Dimension::from(size.width),
+        }
+    }
+}
 
-// TODO: make values optional, transfer functionality away from python
+impl From<PySize> for Size<LengthPercentage> {
+    fn from(size: PySize) -> Self {
+        Size {
+            height: LengthPercentage::from(size.height),
+            width: LengthPercentage::from(size.width),
+        }
+    }
+}
+
+impl From<PySize> for Size<AvailableSpace> {
+    fn from(size: PySize) -> Self {
+        Size {
+            height: AvailableSpace::from(size.height),
+            width: AvailableSpace::from(size.width),
+        }
+    }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyRect {
+    left: PyLength,
+    right: PyLength,
+    top: PyLength,
+    bottom: PyLength,
+}
+
+impl From<PyRect> for Rect<LengthPercentage> {
+    fn from(rect: PyRect) -> Rect<LengthPercentage> {
+        Rect {
+            left: LengthPercentage::from(rect.left),
+            right: LengthPercentage::from(rect.right),
+            top: LengthPercentage::from(rect.top),
+            bottom: LengthPercentage::from(rect.bottom),
+        }
+    }
+}
+
+impl From<PyRect> for Rect<LengthPercentageAuto> {
+    fn from(rect: PyRect) -> Rect<LengthPercentageAuto> {
+        Rect {
+            left: LengthPercentageAuto::from(rect.left),
+            right: LengthPercentageAuto::from(rect.right),
+            top: LengthPercentageAuto::from(rect.top),
+            bottom: LengthPercentageAuto::from(rect.bottom),
+        }
+    }
+}
+
+impl From<PyRect> for Rect<Dimension> {
+    fn from(rect: PyRect) -> Rect<Dimension> {
+        Rect {
+            left: Dimension::from(rect.left),
+            right: Dimension::from(rect.right),
+            top: Dimension::from(rect.top),
+            bottom: Dimension::from(rect.bottom),
+        }
+    }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyGridIndex {
+    kind: i8,
+    value: i16,
+}
+
+impl From<PyGridIndex> for GridPlacement {
+    fn from(grid_index: PyGridIndex) -> Self {
+        match grid_index.kind {
+            1 => Self::from_line_index(grid_index.value),
+            2 => Self::from_span(grid_index.value as u16),
+            _ => Self::Auto,
+        }
+    }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyGridPlacement {
+    start: PyGridIndex,
+    end: PyGridIndex,
+}
+
+impl From<PyGridPlacement> for Line<GridPlacement> {
+    fn from(grid_placement: PyGridPlacement) -> Self {
+        Self {
+            start: GridPlacement::from(grid_placement.start),
+            end: GridPlacement::from(grid_placement.end),
+        }
+    }
+}
+
 #[pyfunction]
-unsafe fn stretch_style_create(
+fn style_drop(style_ptr: usize) {
+    let _style = unsafe { Box::from_raw(style_ptr as *mut Style) };
+}
+
+#[pyfunction]
+fn style_create(
+    // Layout mode/strategy
     display: i32,
-    position_type: i32,
-    direction: i32,
-    flex_direction: i32,
+    // Position
+    position: i32,
+    inset: PyRect,
+    // Alignment
+    align_items: Option<i32>,
+    justify_items: Option<i32>,
+    align_self: Option<i32>,
+    justify_self: Option<i32>,
+    align_content: Option<i32>,
+    justify_content: Option<i32>,
+    gap: PySize,
+    // Spacing
+    margin: PyRect,
+    border: PyRect,
+    padding: PyRect,
+    // Size
+    size: PySize,
+    min_size: PySize,
+    max_size: PySize,
+    aspect_ratio: Option<f32>,
+    // Flex
     flex_wrap: i32,
-    overflow: i32,
-    align_items: i32,
-    align_self: i32,
-    align_content: i32,
-    justify_content: i32,
-
-    position: StretchStyleRect,
-    margin: StretchStyleRect,
-    padding: StretchStyleRect,
-    border: StretchStyleRect,
-
+    flex_direction: i32,
     flex_grow: f32,
     flex_shrink: f32,
-
-    flex_basis: StretchDimensionValue,
-
-    size: StretchStyleSize,
-    min_size: StretchStyleSize,
-    max_size: StretchStyleSize,
-
-    aspect_ratio: f32,
-) -> PyResult<i64> {
-    let ptr = Box::into_raw(Box::new(Style {
-        display:         Display::from_index(display)?,
-        position_type:   PositionType::from_index(position_type)?,
-        direction:       Direction::from_index(direction)?,
-        flex_direction:  FlexDirection::from_index(flex_direction)?,
-        flex_wrap:       FlexWrap::from_index(flex_wrap)?,
-        overflow:        Overflow::from_index(overflow)?,
-        align_items:     AlignItems::from_index(align_items)?,
-        align_self:      AlignSelf::from_index(align_self)?,
-        align_content:   AlignContent::from_index(align_content)?,
-        justify_content: JustifyContent::from_index(justify_content)?,
-
-        position: Rect {
-            start:  position.start.into()?,
-            end:    position.end.into()?,
-            top:    position.top.into()?,
-            bottom: position.bottom.into()?,
-        },
-
-        margin: Rect {
-            start:  margin.start.into()?,
-            end:    margin.end.into()?,
-            top:    margin.top.into()?,
-            bottom: margin.bottom.into()?,
-        },
-
-        padding: Rect {
-            start:  padding.start.into()?,
-            end:    padding.end.into()?,
-            top:    padding.top.into()?,
-            bottom: padding.bottom.into()?,
-        },
-
-        border: Rect {
-            start:  border.start.into()?,
-            end:    border.end.into()?,
-            top:    border.top.into()?,
-            bottom: border.bottom.into()?,
-        },
-
-        flex_grow,
-        flex_shrink,
-
-        flex_basis: flex_basis.into()?,
-
-        size:     Size { width: size.width.into()?, height: size.height.into()? },
-        min_size: Size { width: min_size.width.into()?, height: min_size.height.into()? },
-        max_size: Size { width: max_size.width.into()?, height: max_size.height.into()? },
-
-        aspect_ratio: if f32::is_nan(aspect_ratio) { Number::Undefined } else { Number::Defined(aspect_ratio) },
-    }));
-    Ok(ptr as i64)
+    flex_basis: PyLength,
+    // Grid
+    grid_auto_flow: i32,
+    grid_row: PyGridPlacement,
+    grid_column: PyGridPlacement,
+) -> usize {
+    let style = Style {
+        // Layout mode/strategy
+        display: Display::from_index(display),
+        // Position
+        position: Position::from_index(position),
+        inset: Rect::from(inset) as Rect<LengthPercentageAuto>,
+        // Alignment
+        align_items: AlignItems::from_index(align_items),
+        justify_items: JustifyItems::from_index(justify_items),
+        align_self: AlignSelf::from_index(align_self),
+        justify_self: JustifySelf::from_index(justify_self),
+        align_content: AlignContent::from_index(align_content),
+        justify_content: JustifyContent::from_index(justify_content),
+        gap: Size::from(gap),
+        // Spacing
+        margin: Rect::from(margin),
+        border: Rect::from(border),
+        padding: Rect::from(padding),
+        // Size
+        size: Size::from(size),
+        min_size: Size::from(min_size),
+        max_size: Size::from(max_size),
+        aspect_ratio: aspect_ratio,
+        // Flex
+        flex_wrap: FlexWrap::from_index(flex_wrap),
+        flex_direction: FlexDirection::from_index(flex_direction),
+        flex_grow: flex_grow,
+        flex_shrink: flex_shrink,
+        flex_basis: Dimension::from(flex_basis),
+        // Grid
+        grid_auto_flow: GridAutoFlow::from_index(grid_auto_flow),
+        grid_row: Line::from(grid_row),
+        grid_column: Line::from(grid_column),
+        ..Default::default()
+    };
+    Box::into_raw(Box::new(style)) as usize
 }
 
-#[pyfunction]
-unsafe fn stretch_style_free(style: i64) {
-    let _style = Box::from_raw(style as *mut Style);
-}
+// NODES
 
 #[pyfunction]
-unsafe fn stretch_init() -> i64 {
-    let stretch = stretch::node::Stretch::new();
-    Box::into_raw(Box::new(stretch)) as i64
-}
-
-#[pyfunction]
-unsafe fn stretch_free(stretch: i64) {
-    let _ = Box::from_raw(stretch as *mut Stretch);
-}
-
-#[pyfunction]
-unsafe fn stretch_node_create(stretch: i64, style: i64) -> i64 {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let style = Box::from_raw(style as *mut Style);
-    let node = stretch.new_node(*style, vec![]).unwrap();
+fn node_create(taffy_ptr: usize, style_ptr: usize) -> usize {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let style = unsafe { Box::from_raw(style_ptr as *mut Style) };
+    let node = taffy.new_leaf(*style.clone()).unwrap();
 
     Box::leak(style);
-    Box::leak(stretch);
+    Box::leak(taffy);
 
-    Box::into_raw(Box::new(node)) as i64
+    Box::into_raw(Box::new(node)) as usize
 }
 
 #[pyfunction]
-unsafe fn stretch_node_free(stretch: i64, node: i64) {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
+unsafe fn node_add_child(taffy_ptr: usize, node_ptr: usize, child_ptr: usize) {
+    let mut taffy = Box::from_raw(taffy_ptr as *mut Taffy);
+    let node = Box::from_raw(node_ptr as *mut Node);
+    let child = Box::from_raw(child_ptr as *mut Node);
 
-    stretch.remove(*node);
+    taffy.add_child(*node, *child).unwrap();
 
-    Box::leak(stretch);
+    Box::leak(taffy);
+    Box::leak(node);
+    Box::leak(child);
 }
 
 #[pyfunction]
-unsafe fn stretch_node_set_measure(
-    stretch: i64,
-    node: i64,
-    node_self: PyObject,
-    measure: PyObject // fn(i64, f32, f32) -> StretchSize
-) {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
+fn node_drop(taffy_ptr: usize, node_ptr: usize) {
+    // Remove a specific node from the tree and drop it
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
 
-    stretch
-        .set_measure(
-            *node,
-            Some(Box::new(move |constraint| {
-                // acquire lock
-                let gil = Python::acquire_gil();
-                let py = gil.python();
-                // call function
-                let args = (&node_self, constraint.width.or_else(f32::NAN), constraint.height.or_else(f32::NAN));
-                let result = measure.call1(py, args).unwrap();
-                // cast
-                let size: StretchSize = result.extract(py).unwrap();
-                // return args
-                Ok(Size { width: size.width, height: size.height })
-            })),
-        )
-        .unwrap();
+    _ = taffy.remove(*node);
+    Box::leak(taffy);
+}
 
-    Box::leak(stretch);
+#[pyfunction]
+fn node_drop_all(taffy_ptr: usize) {
+    // Drops all nodes in the tree
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+
+    taffy.clear();
+    Box::leak(taffy);
+}
+
+#[pyfunction]
+fn node_replace_child_at_index(taffy_ptr: usize, node_ptr: usize, index: usize, child_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+    let child = unsafe { Box::from_raw(child_ptr as *mut Node) };
+
+    taffy.replace_child_at_index(*node, index, *child).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+    Box::leak(child);
+}
+
+#[pyfunction]
+fn node_remove_child(taffy_ptr: usize, node_ptr: usize, child_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+    let child = unsafe { Box::from_raw(child_ptr as *mut Node) };
+
+    // TODO: this fails with an unknown error...
+    taffy.remove_child(*node, *child).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+    Box::leak(child);
+}
+
+#[pyfunction]
+fn node_remove_child_at_index(taffy_ptr: usize, node_ptr: usize, index: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+
+    taffy.remove_child_at_index(*node, index).unwrap();
+
+    Box::leak(taffy);
     Box::leak(node);
 }
 
 #[pyfunction]
-unsafe fn stretch_node_set_style(stretch: i64, node: i64, style: i64) {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
-    let style = Box::from_raw(style as *mut Style);
+fn node_dirty(taffy_ptr: usize, node_ptr: usize) -> bool {
+    let taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+    let dirty = taffy.dirty(*node).unwrap();
 
-    stretch.set_style(*node, *style).unwrap();
-
-    Box::leak(stretch);
-    Box::leak(node);
-    Box::leak(style);
-}
-
-#[pyfunction]
-unsafe fn stretch_node_dirty(stretch: i64, node: i64) -> bool {
-    let stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
-    let dirty = stretch.dirty(*node).unwrap();
-
-    Box::leak(stretch);
+    Box::leak(taffy);
     Box::leak(node);
 
     dirty
 }
-
 #[pyfunction]
-unsafe fn stretch_node_mark_dirty(stretch: i64, node: i64) {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
+fn node_mark_dirty(taffy_ptr: usize, node_ptr: usize) {
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
 
-    stretch.mark_dirty(*node).unwrap();
+    taffy.mark_dirty(*node).unwrap();
 
-    Box::leak(stretch);
+    Box::leak(taffy);
     Box::leak(node);
 }
 
 #[pyfunction]
-unsafe fn stretch_node_add_child(stretch: i64, node:i64, child: i64) {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
+unsafe fn node_set_style(taffy: i64, node: i64, style: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
     let node = Box::from_raw(node as *mut Node);
-    let child = Box::from_raw(child as *mut Node);
+    let style = Box::from_raw(style as *mut Style);
 
-    stretch.add_child(*node, *child).unwrap();
+    taffy.set_style(*node, *style).unwrap();
 
-    Box::leak(stretch);
+    Box::leak(taffy);
     Box::leak(node);
-    Box::leak(child);
+    // Box::leak(style);
 }
 
 #[pyfunction]
-unsafe fn stretch_node_replace_child_at_index(
-    stretch: i64,
-    node: i64,
-    index: usize,
-    child: i64,
-) {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
-    let child = Box::from_raw(child as *mut Node);
+fn node_compute_layout(taffy: usize, node: usize, available_space: PySize) -> bool {
+    let mut taffy = unsafe { Box::from_raw(taffy as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node as *mut Node) };
 
-    stretch.replace_child_at_index(*node, index, *child).unwrap();
+    let result = taffy.compute_layout(*node, Size::from(available_space));
 
-    Box::leak(stretch);
+    Box::leak(taffy);
     Box::leak(node);
-    Box::leak(child);
+
+    result.is_ok()
 }
 
-#[pyfunction]
-unsafe fn stretch_node_remove_child(stretch: i64, node: i64, child: i64) -> PyResult<()> {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
-    let child = Box::from_raw(child as *mut Node);
-
-    // TODO: this fails with an unknown error...
-    stretch.remove_child(*node, *child).unwrap();
-
-    Box::leak(stretch);
-    Box::leak(node);
-    Box::leak(child);
-
-    Ok(())
-}
-
-#[pyfunction]
-unsafe fn stretch_node_remove_child_at_index(stretch: i64, node: i64, index: usize) {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
-
-    stretch.remove_child_at_index(*node, index).unwrap();
-
-    Box::leak(stretch);
-    Box::leak(node);
-}
-
-#[pyfunction]
-unsafe fn stretch_node_compute_layout(
-    stretch: i64,
-    node: i64,
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyLayout {
+    order: i64,
+    left: f32,
+    top: f32,
     width: f32,
     height: f32,
-) -> Vec<f32> {
-    let mut stretch = Box::from_raw(stretch as *mut Stretch);
-    let node = Box::from_raw(node as *mut Node);
-
-    stretch
-        .compute_layout(
-            *node,
-            Size {
-                width: if f32::is_nan(width) { Number::Undefined } else { Number::Defined(width) },
-                height: if f32::is_nan(height) { Number::Undefined } else { Number::Defined(height) },
-            },
-        )
-        .unwrap();
-
-    let mut output = vec![];
-    copy_output(&stretch, *node, &mut output);
-
-    Box::leak(stretch);
-    Box::leak(node);
-
-    output
 }
 
-fn copy_output(stretch: &Stretch, node: Node, output: &mut Vec<f32>) {
-    let layout = stretch.layout(node).unwrap();
-    let children = stretch.children(node).unwrap();
-
-    output.push(layout.location.x);
-    output.push(layout.location.y);
-    output.push(layout.size.width);
-    output.push(layout.size.height);
-    output.push(children.len() as f32);
-
-    for child in &children {
-        copy_output(stretch, *child, output);
+impl From<Layout> for PyLayout {
+    fn from(layout: Layout) -> Self {
+        PyLayout {
+            order: layout.order as i64,
+            left: layout.location.x,
+            top: layout.location.y,
+            width: layout.size.width,
+            height: layout.size.height,
+        }
     }
 }
 
+#[pyfunction]
+fn node_get_layout(taffy_ptr: usize, node_ptr: usize) -> PyLayout {
+    let taffy = unsafe { Box::from_raw(taffy_ptr as *mut Taffy) };
+    let node = unsafe { Box::from_raw(node_ptr as *mut Node) };
+    let layout = PyLayout::from(*taffy.layout(*node).unwrap());
 
-/* ======================================================================== */
-/* MODULE                                                                   */
-/* ======================================================================== */
+    Box::leak(taffy);
+    Box::leak(node);
 
-
-#[pymodule]
-pub fn _bindings(_py: Python, m: &PyModule) -> PyResult<()> {
-    /* FUNC*/
-    m.add_wrapped(wrap_pyfunction!(stretch_style_create))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_style_free))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_init))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_free))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_create))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_free))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_set_measure))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_set_style))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_dirty))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_mark_dirty))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_add_child))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_replace_child_at_index))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_remove_child_at_index))?;
-    m.add_wrapped(wrap_pyfunction!(stretch_node_compute_layout))?;
-    /* END */
-    Ok(())
+    layout
 }
+
+// create_exception!(
+//     taffylib,
+//     NodeMeasureError,
+//     PyException,
+//     "Raised when the `measure` method assigned to a node failed."
+// );
+
+trait FromPyMeasure<T> {
+    fn from_py(node: PyObject, measure: PyObject) -> T;
+}
+
+impl FromPyMeasure<MeasureFunc> for MeasureFunc {
+    fn from_py(node: PyObject, measure: PyObject) -> MeasureFunc {
+        MeasureFunc::Boxed(Box::new(
+            move |known_dimensions: Size<Option<f32>>,
+                  available_space: Size<AvailableSpace>|
+                  -> Size<f32> {
+                // acquire lock
+                let gil = Python::acquire_gil();
+                let py = gil.python();
+                // call function
+                let available_width: PyLength = available_space.width.into();
+                let available_height: PyLength = available_space.height.into();
+                let args = (
+                    &node,
+                    known_dimensions.width.unwrap_or(f32::NAN),
+                    known_dimensions.height.unwrap_or(f32::NAN),
+                    available_width,
+                    available_height,
+                );
+                let result = measure.call1(py, args);
+
+                let size: Vec<f32> = match result {
+                    Ok(result) => result.extract(py).unwrap(),
+                    Err(err) => {
+                        let traceback = match err.traceback(py) {
+                            Some(value) => match value.format() {
+                                Ok(tb) => format!("{}\n", tb),
+                                Err(_) => String::new(),
+                            },
+                            None => String::new(),
+                        };
+                        error!(target: "stretchable.taffylib", "Error in node `measure` (used `NAN, NAN` in place):\n{}{}", traceback, err);
+                        vec![f32::NAN, f32::NAN]
+                    }
+                };
+
+                // return result
+                Size {
+                    width: size[0],
+                    height: size[1],
+                }
+            },
+        ))
+    }
+}
+
+#[pyfunction]
+unsafe fn node_set_measure(
+    taffy: i64,
+    node: i64,
+    node_self: PyObject,
+    measure: PyObject, // fn(i64, f32, f32) -> StretchSize
+) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+
+    taffy
+        .set_measure(*node, Some(MeasureFunc::from_py(node_self, measure)))
+        .unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+}
+
+#[pyfunction]
+unsafe fn node_remove_measure(taffy: i64, node: i64) {
+    let mut taffy = Box::from_raw(taffy as *mut Taffy);
+    let node = Box::from_raw(node as *mut Node);
+
+    taffy.set_measure(*node, None).unwrap();
+
+    Box::leak(taffy);
+    Box::leak(node);
+}
+
+// MODULE
 
 // for pyo3-pack, name must match module.
 #[pymodule]
-fn stretch(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_wrapped(wrap_pymodule!(_bindings))?;
+fn taffylib(py: Python, m: &PyModule) -> PyResult<()> {
+    Logger::new(py, Caching::LoggersAndLevels)?
+        .filter(LevelFilter::Warn)
+        // .filter_target("stretchable::taffylib".to_owned(), LevelFilter::Warn)
+        .install()
+        .unwrap();
+
+    m.add_wrapped(wrap_pyfunction!(init))?;
+    m.add_wrapped(wrap_pyfunction!(free))?;
+    m.add_wrapped(wrap_pyfunction!(enable_rounding))?;
+    m.add_wrapped(wrap_pyfunction!(disable_rounding))?;
+    m.add_wrapped(wrap_pyfunction!(style_create))?;
+    m.add_wrapped(wrap_pyfunction!(style_drop))?;
+    m.add_wrapped(wrap_pyfunction!(node_create))?;
+    m.add_wrapped(wrap_pyfunction!(node_drop))?;
+    m.add_wrapped(wrap_pyfunction!(node_drop_all))?;
+    m.add_wrapped(wrap_pyfunction!(node_add_child))?;
+    m.add_wrapped(wrap_pyfunction!(node_replace_child_at_index))?;
+    m.add_wrapped(wrap_pyfunction!(node_remove_child))?;
+    m.add_wrapped(wrap_pyfunction!(node_remove_child_at_index))?;
+    m.add_wrapped(wrap_pyfunction!(node_dirty))?;
+    m.add_wrapped(wrap_pyfunction!(node_mark_dirty))?;
+    m.add_wrapped(wrap_pyfunction!(node_set_style))?;
+    m.add_wrapped(wrap_pyfunction!(node_get_layout))?;
+    m.add_wrapped(wrap_pyfunction!(node_set_measure))?;
+    m.add_wrapped(wrap_pyfunction!(node_remove_measure))?;
+    m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
+    // m.add("NodeMeasureError", py.get_type::<NodeMeasureError>())?;
+
     Ok(())
 }

@@ -1,45 +1,30 @@
-import math
-from collections.abc import Iterable
+import logging
+import re
 from enum import StrEnum, auto
-from typing import Callable, List, Self, SupportsIndex
+from typing import Callable, Iterable, Optional, Self, SupportsIndex
 from xml.etree import ElementTree
 
 from attrs import define
 
-from .stretch import _bindings
-from .style import NAN, SCALING_FACTOR, Dimension, Display, Rect, Size, Style
+from . import taffylib
+from .context import taffy
+from .exceptions import (
+    LayoutNotComputedError,
+    NodeLocatorError,
+    NodeNotFound,
+    TaffyUnavailableError,
+)
+from .style import Display, Rect, Style
+from .style.geometry.length import NAN, LengthAvailableSpace
+from .style.geometry.size import SizeAvailableSpace, SizePoints
+
+logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
+logger = logging.getLogger(__name__)
+
+_valid_key = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]*$")
 
 
-class LayoutNotComputedError(Exception):
-    pass
-
-
-MeasureFunc = Callable[[Size], Size]
-
-
-class Stretch:
-    _PRIVATE_PTR: int = None
-
-    def __init__(self):
-        raise Exception(
-            "You should not be accessing or attempting to create an instance of this class."
-        )
-
-    @staticmethod
-    def get_ptr():
-        if Stretch._PRIVATE_PTR is None:
-            Stretch._PRIVATE_PTR = _bindings.stretch_init()
-        return Stretch._PRIVATE_PTR
-
-    @staticmethod
-    def reset():
-        if Stretch._PRIVATE_PTR is not None:
-            _bindings.stretch_free(Stretch._PRIVATE_PTR)
-            Stretch._PRIVATE_PTR = None
-
-
-def reset():
-    Stretch.reset()
+MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 
 
 class Box(StrEnum):
@@ -57,156 +42,432 @@ class Layout:
     height: float
 
 
-class Children(list):
-    def __init__(self, parent: "Node"):
-        self._parent = parent
+# TODO:
+#   Add parent
+
+
+class Node(list["Node"]):
+    __slots__ = (
+        "_key",
+        "_style",
+        "_children",
+        "_measure",
+        "_layout",
+        "_zorder",
+        "_parent",
+        "__ptr",
+    )
+
+    def __init__(
+        self,
+        *children,
+        key: str = None,
+        measure: MeasureFunc = None,
+        style: Style = None,
+        **style_args,
+    ):
+        """
+        ...
+
+        Arguments:
+            measure:    a callable that takes (available_space: Size[AvailableSpace], known_dimensions: Size[float]) and returns Size[float]
+        """
+
+        self.__ptr = None
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+
+        # Node key requirements:
+        #   May consist of -_!:;()[] a-z A-Z 0-9
+        #   Must contain at least one alphabetical character
+        if key is not None and not _valid_key.match(key):
+            raise ValueError("The given `key` is not valid")
+        self._key = key
+
+        self._layout = None
+        self._zorder = None
+        self._parent = None
+        self._measure = measure
+
+        # Style
+        if not style:
+            style = Style(**style_args)
+        elif style_args:
+            raise ValueError("Provide only `style` or style attributes, not both")
+        self._style = style
+
+        # Create node in taffy
+        self.__ptr = taffylib.node_create(taffy._ptr, style._ptr)
+        # taffy._nodes.add(self.__ptr)
+        logger.debug(
+            "node_create(taffy: %s, style: %s) -> %s",
+            taffy._ptr,
+            style._ptr,
+            self.__ptr,
+        )
+
+        # Children
+        self._children = []
+        self.add(*children)
+
+    @property
+    def _ptr(self) -> int:
+        return self.__ptr
+
+    def __del__(self) -> None:
+        if self._ptr is None or not taffy._ptr:
+            return
+        taffylib.node_drop(taffy._ptr, self._ptr)
+        # taffy._nodes.remove(self._ptr)
+        logger.debug("node_drop(taffy: %s, node: %s)", taffy._ptr, self._ptr)
+
+    def __hash__(self) -> int:
+        return id(self)
+
+    # region Children
+
+    @property
+    def parent(self) -> "Node":
+        return self._parent
+
+    @parent.setter
+    def parent(self, value: "Node") -> None:
+        self._parent = value
+
+    @property
+    def root(self) -> "Node":
+        return self if not self.parent else self.parent.root
+
+    def add(self, *children) -> Self:
+        self.extend(children)
+        return self
 
     def append(self, node: "Node"):
-        _bindings.stretch_node_add_child(
-            Stretch.get_ptr(), self._parent._ptr, node._ptr
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        if not isinstance(node, Node):
+            raise TypeError("Only nodes can be added")
+        elif node.parent:
+            raise Exception("Node is already associated with a parent node")
+        taffylib.node_add_child(taffy._ptr, self._ptr, node._ptr)
+        logger.debug(
+            "node_add_child(taffy: %s, parent: %s, child: %s)",
+            taffy._ptr,
+            self._ptr,
+            node._ptr,
         )
-        node._parent = self._parent
+        node.parent = self
         super().append(node)
 
     def extend(self, __iterable: Iterable["Node"]) -> None:
         for child in __iterable:
             self.append(child)
 
+    def remove(self, node: "Node") -> None:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        taffylib.node_remove_child(taffy._ptr, self._ptr, node._ptr)
+        logger.debug(
+            "node_remove_child(taffy: %s, parent: %s, child: %s)",
+            taffy._ptr,
+            self._ptr,
+            node._ptr,
+        )
+        node.parent = None
+        return super().remove(node)
+
     def __delitem__(self, __index: SupportsIndex | slice) -> None:
-        for index in (
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        for index in reversed(
             range(*__index.indices(len(self)))
             if isinstance(__index, slice)
             else [__index]
         ):
-            _bindings.stretch_node_remove_child(
-                Stretch.get_ptr(), self._parent._ptr, self[index]._ptr
+            taffylib.node_remove_child_at_index(taffy._ptr, self._ptr, index)
+            logger.debug(
+                "node_remove_child_at_index(taffy: %s, parent: %s, index: %s)",
+                taffy._ptr,
+                self._ptr,
+                index,
             )
+            self[index].parent = None
             super().__delitem__(index)
 
-    def __setitem__(self, __index: int, node: "Node") -> None:
-        assert __index >= 0 and __index < len(self)
-        _bindings.stretch_node_replace_child_at_index(
-            Stretch.get_ptr(), self._parent._ptr, __index, node._ptr
-        )
-        super().__setitem__(__index, node)
+    def __setitem__(
+        self, __index: SupportsIndex | slice, value: "Node" | Iterable["Node"]
+    ) -> None:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
 
+        if isinstance(__index, slice):
+            items = zip(range(*__index.indices(len(self))), value)
+        else:
+            items = [(__index, value)]
 
-class Node:
-    __slots__ = ("_style", "_children", "_measure", "_ptr", "_layout", "_parent")
+        for index, node in items:
+            self[index].parent = None
+            taffylib.node_replace_child_at_index(
+                taffy._ptr, self._ptr, index, node._ptr
+            )
+            node.parent = self
+            super().__setitem__(index, node)
 
-    def __init__(
-        self, *children, style: Style = None, measure: MeasureFunc = None, **kwargs
-    ):
-        self._ptr = None
-        if not style:
-            style = Style(**kwargs)
-        elif kwargs:
-            raise ValueError("Provide only `style` or style attributes, not both")
-        self._style = style
-        self._ptr = _bindings.stretch_node_create(Stretch.get_ptr(), self.style._ptr)
-        self._children = Children(self)
-        self.add(*children)
-        self.measure = measure
-        self._layout = None
-        self._parent = None
+        # assert __index >= 0 and __index < len(self)
+        # if not taffy._ptr:
+        #     raise TaffyUnavailableError
 
-    @staticmethod
-    def from_xml(xml: str) -> Self:
-        root = ElementTree.fromstring(xml)
-        return Node._from_xml(root)
+        # self[__index].parent = None
+        # taffylib.node_replace_child_at_index(taffy._ptr, self._ptr, __index, node._ptr)
+        # node.parent = self
+        # super().__setitem__(__index, node)
 
-    @staticmethod
-    def _from_xml(element: ElementTree.Element) -> Self:
-        node = (
-            Node(style=Style.from_html_style(element.attrib["style"]))
-            if "style" in element.attrib
-            else Node()
-        )
-        for child in element:
-            node.add(Node._from_xml(child))
-        return node
+    # endregion
 
-    def add(self, *children) -> Self:
-        self._children.extend(children)
-        return self
+    # region Key/locator
 
     @property
-    def children(self) -> Children:
-        return self._children
+    def address(self) -> str:
+        """
+        The address of this node, relative to farthest parent node
+        or root if associated with a tree.
+        """
+        if not self.parent:
+            return "/"
+
+        addr = self.parent.address
+        if addr is None:
+            addr = ""
+        if addr and not addr.endswith("/"):
+            addr += "/"
+        if self.key:
+            addr += self.key
+        else:
+            index = None
+            for i, child in enumerate(self.parent):
+                if child is not self:
+                    continue
+                index = i
+            if index is None:
+                raise NodeLocatorError(
+                    "Node is not registered as a child of the parent node"
+                )
+            addr += str(index)
+
+        return addr
+
+    def find(self, address: str) -> Self:
+        """
+        Returns the node at the specified address.
+
+        Nodes can be identified either by the node id (str) if it is defined,
+        or the 0-based node index.
+
+        Example tree:
+            tree
+            - 'header'
+            - 'body'
+              - 'left'
+              - 'center'
+                - 'title'
+                - 'content'
+              - 'right'
+            - 'footer'
+
+        Absolute address examples (start with a leading /, nodes must be
+        associated with a tree, which is the root):
+            /body/center/title -> 'title' node
+            /1/1/0 -> 'title' node
+            /2 -> 'footer' node
+
+        Relative address examples, using find() on the 'body' node:
+            center/title -> 'title' node
+            ./center/title -> 'title' node
+            1/1 -> 'content' node
+            ../footer -> 'footer' node
+
+
+        """
+
+        addr = address.strip()
+        if addr.startswith("./"):
+            addr = addr[2:]
+        if addr.startswith("../"):
+            if not self.parent:
+                raise NodeLocatorError(
+                    "Node has no parent, cannot locate address", addr
+                )
+            return self.parent.find(addr[3:])
+        if addr.startswith("/"):
+            return self.root.find(addr[1:])
+        if not addr:
+            return self
+        if len(self) == 0:
+            raise NodeNotFound("Node not found", addr)
+
+        pre, sep, post = addr.partition("/")
+        if _valid_key.match(pre):
+            # If pre is valid node id, look in children ids
+            for child in self:
+                if child.key and child.key == pre:
+                    return child.find(post) if post else child
+            raise NodeNotFound("Node not found", addr)
+        else:
+            # If pre is valid integer, look at children index
+            try:
+                index = int(pre)
+            except ValueError:
+                index = -1
+            if index < 0:
+                raise NodeLocatorError("Address is not valid", addr)
+            if index >= len(self):
+                raise NodeNotFound("Node not found", addr)
+            child = self[index]
+            return child.find(post) if post else child
+
+    @property
+    def key(self) -> str:
+        return self._key
+
+    # endregion
 
     @property
     def style(self) -> Style:
         return self._style
 
-    @style.setter
-    def style(self, value: Style) -> None:
-        _bindings.stretch_node_set_style(Stretch.get_ptr(), self._ptr, value._ptr)
-        self._style = value
+    @property
+    def is_dirty(self) -> bool:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        return taffylib.node_dirty(taffy._ptr, self._ptr)
+
+    def mark_dirty(self) -> None:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        taffylib.node_mark_dirty(taffy._ptr, self._ptr)
+
+    @property
+    def is_visible(self) -> bool:
+        if self.parent and not self.parent.is_visible:
+            return False
+        if self.style.display == Display.NONE:
+            # logger.debug("(%s) Display.NONE => not visible", self._ptr)
+            return False
+        if self.is_dirty:
+            raise LayoutNotComputedError(
+                "Cannot determine if node is visible, layout is not computed"
+            )
+        if (self._layout.width <= 0 or self._layout.height <= 0) and len(self) == 0:
+            # Box is zero-sized with no children
+            # logger.debug(
+            #     "(%s) zero-sized with no children, width %s, height %s => not visible",
+            #     self._ptr,
+            #     self._layout.width,
+            #     self._layout.height,
+            # )
+            return False
+        if (
+            self._layout.y + self._layout.height < 0
+            or self._layout.x + self._layout.width < 0
+        ):
+            # Box is outside
+            # logger.debug(
+            #     "(%s) box is outside visible area => not visible", self._ptr
+            # )
+            return False
+
+        return True
+
+    # region Measuring and layout
+
+    @staticmethod
+    def _measure_callback(
+        node: Self,
+        known_width: float,
+        known_height: float,
+        available_width: dict[int, float],
+        available_height: dict[int, float],
+    ) -> tuple[float, float]:
+        """This function is a wrapper for the user-supplied measure function,
+        converting arguments into and results from the call by Taffy."""
+        known_dimensions = SizePoints(width=known_width, height=known_height)
+        available_space = SizeAvailableSpace(
+            LengthAvailableSpace.from_dict(available_width),
+            LengthAvailableSpace.from_dict(available_height),
+        )
+        result = node.measure(known_dimensions, available_space)
+        assert isinstance(result, SizePoints)
+        print(result)
+        return (
+            result.width.value if result.width else NAN,
+            result.height.value if result.height else NAN,
+        )
 
     @property
     def measure(self) -> MeasureFunc:
         return self._measure
 
-    @property
-    def visible(self) -> bool:
-        if self._parent and not self._parent.visible:
-            return False
-        else:
-            return self.style.display != Display.NONE
-
-    @staticmethod
-    def _measure_callback(node: Self, width: float, height: float) -> dict[str, float]:
-        if not node:
-            return dict(width=None, height=None)
-        w, h = node.measure(
-            None if math.isnan(width) else width / SCALING_FACTOR,
-            None if math.isnan(height) else height / SCALING_FACTOR,
-        )
-        return dict(
-            width=w * SCALING_FACTOR if w else None,
-            height=h * SCALING_FACTOR if h else None,
-        )
-
     @measure.setter
     def measure(self, value: MeasureFunc) -> None:
-        if callable(value):
-            self._measure = value
-            _bindings.stretch_node_set_measure(
-                Stretch.get_ptr(), self._ptr, self, Node._measure_callback
+        assert value is None or callable(value)
+        self._measure = value
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        if value is None:
+            taffylib.node_remove_measure(taffy._ptr, self._ptr)
+            logger.debug(
+                "node_remove_measure(taffy: %s, node: %s)", taffy._ptr, self._ptr
             )
         else:
-            self._measure = None
+            taffylib.node_set_measure(
+                taffy._ptr, self._ptr, self, Node._measure_callback
+            )
+            logger.debug("node_set_measure(taffy: %s, node: %s)", taffy._ptr, self._ptr)
 
-    def dispose(self) -> None:
-        """
-        This method disposes of references to the node.
-        Unless a measure function is defined, invoking this function is not necessary.
+    def compute_layout(
+        self,
+        available_space: Optional[SizeAvailableSpace] = None,
+        *,
+        use_rounding: bool = False,
+    ) -> bool:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
 
-        But if a measure function is set, the issue is that the required function call
-        (stretch_node_set_measure) includes a reference to the node instance itself.
+        if not available_space:
+            available_space = SizeAvailableSpace.default()
 
-        This means that the node is never garbage collected (__del__ is not invoked)
-        and therefore 'stretch_node_free' is not invoked and the node is never deleted/
-        removed from stretch.
-        """
+        taffy.use_rounding = use_rounding
+        result = taffylib.node_compute_layout(
+            taffy._ptr, self._ptr, available_space.to_dict()
+        )
+        if result:
+            self._update_layout()
 
-        _bindings.stretch_node_set_measure(
-            Stretch.get_ptr(), self._ptr, None, Node._measure_callback
+        return result
+
+    def _update_layout(self) -> None:
+        if self.is_dirty:
+            raise LayoutNotComputedError
+
+        layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
+        self._layout = Layout(
+            layout["left"], layout["top"], layout["width"], layout["height"]
+        )
+        self._zorder = layout["order"]
+        logger.debug(
+            "node_get_layout(taffy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
+            taffy._ptr,
+            self._ptr,
+            self._zorder,
+            self._layout.x,
+            self._layout.y,
+            self._layout.width,
+            self._layout.height,
         )
 
-    def __del__(self):
-        if self._ptr:
-            _bindings.stretch_node_free(Stretch.get_ptr(), self._ptr)
-
-    @property
-    def dirty(self) -> bool:
-        return not self._layout or _bindings.stretch_node_dirty(
-            Stretch.get_ptr(), self._ptr
-        )
-
-    def mark_dirty(self):
-        self._layout = None
-        _bindings.stretch_node_mark_dirty(Stretch.get_ptr(), self._ptr)
+        if self.is_visible:
+            for child in self:
+                child._update_layout()
 
     @staticmethod
     def _scale_box(
@@ -226,42 +487,18 @@ class Node:
         A positive factor expands, negative factor contracts.
         """
 
-        _w = container.width if container else None
-        start = rect.start.to_float(_w)
-        end = rect.end.to_float(_w)
-        top = rect.top.to_float(_w)
-        bottom = rect.bottom.to_float(_w)
+        container = container.width if container else None
+        left = rect.left.to_pts(container)
+        right = rect.right.to_pts(container)
+        top = rect.top.to_pts(container)
+        bottom = rect.bottom.to_pts(container)
 
         return (
-            x - factor * start,
+            x - factor * left,
             y - factor * top,
-            width + factor * (start + end),
+            width + factor * (left + right),
             height + factor * (top + bottom),
         )
-
-    @property
-    def x(self) -> float:
-        if self.dirty:
-            raise LayoutNotComputedError
-        return self._layout.x
-
-    @property
-    def y(self) -> float:
-        if self.dirty:
-            raise LayoutNotComputedError
-        return self._layout.y
-
-    @property
-    def width(self) -> float:
-        if self.dirty:
-            raise LayoutNotComputedError
-        return self._layout.width
-
-    @property
-    def height(self) -> float:
-        if self.dirty:
-            raise LayoutNotComputedError
-        return self._layout.height
 
     def get_layout(
         self,
@@ -271,12 +508,10 @@ class Node:
         flip_y: bool = False,
     ) -> Layout:
         # https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
-        # TODO: Consider if this works property for RTL direction
-
-        # self._box : BORDER box (outside of box border)
-
-        if self.dirty:
+        if self.is_dirty:
             raise LayoutNotComputedError
+
+        # self._layout => BORDER box (outside of box border)
 
         if box_type == Box.PADDING and relative and not flip_y:
             return self._layout
@@ -335,56 +570,29 @@ class Node:
 
         return Layout(x, y, w, h)
 
-    def _set_layout(self, floats: List[float], offset: int = 0) -> int:
-        next_offset = offset + 5
-        x, y, width, height, child_count = floats[offset:next_offset]
-        self._layout = Layout(
-            x / SCALING_FACTOR,
-            y / SCALING_FACTOR,
-            width / SCALING_FACTOR,
-            height / SCALING_FACTOR,
-        )
+    # endregion
 
-        if child_count != len(self.children):
-            raise Exception(
-                f"Number of children in computed layout ({child_count}) does not match number of child nodes ({len(self.children)})"
-            )
-        for child in self.children:
-            next_offset = child._set_layout(floats, next_offset)
+    @classmethod
+    def from_xml(
+        cls, xml: str, customize: Callable[[Self, ElementTree.Element], Self] = None
+    ) -> Self:
+        root = ElementTree.fromstring(xml)  # , parser=_xml_parser)
+        return cls._from_xml(root, customize)
 
-        return next_offset
-
-    @property
-    def _root(self) -> Self:
-        """Returns the root node."""
-        return self._parent._root if self._parent else self
-
-    def compute_layout(self, size: Size = None) -> Layout:
-        """
-        Computes the layout of the node and any child nodes.
-        After invoking this, the position of nodes can be retrieved from the
-        x, y, width and height properties on each node. These values define
-        the border box relative to the parent node.
-        (the border box includes padding and border, but not margins)
-
-        To get the layout of other box types, position relative to the root node,
-        or with y values measured from the bottom edge, use get_layout().
-        """
-
-        layout = _bindings.stretch_node_compute_layout(
-            Stretch.get_ptr(),
-            self._ptr,
-            size.width.value * SCALING_FACTOR
-            if size and size.width.unit == Dimension.POINTS
-            else NAN,
-            size.height.value * SCALING_FACTOR
-            if size and size.height.unit == Dimension.POINTS
-            else NAN,
-        )
-        self._set_layout(layout)
-        return self.get_layout()
-
-    # def __str__(self):
-    #     return "(node: _ptr={}, measure={}, children={})".format(
-    #         self._ptr, self._children, self._measure
-    #     )
+    @classmethod
+    def _from_xml(
+        cls,
+        element: ElementTree.Element,
+        customize: Callable[[Self, ElementTree.Element], Self] = None,
+    ) -> Self:
+        args = dict()
+        if "key" in element.attrib:
+            args["key"] = element.attrib["key"]
+        if "style" in element.attrib:
+            args["style"] = Style.from_inline(element.attrib["style"])
+        node = cls(**args)
+        if customize:
+            node = customize(node, element)
+        for child in element:
+            node.add(Node._from_xml(child, customize))
+        return node

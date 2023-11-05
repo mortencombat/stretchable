@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "stretchable"
 requires-python = ">=3.7"
-keywords = ["flexbox", "stretch", "css", "layout"]
+keywords = ["flexbox", "grid", "block", "stretch", "css", "layout"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -22,7 +22,7 @@ dependencies = [
 
 [tool.maturin]
 python-source = "src"
-module-name = "stretchable.stretch"
+module-name = "stretchable.taffylib"
 
 [project.optional-dependencies]
 build = [
