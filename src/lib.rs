@@ -334,12 +334,6 @@ fn style_create(
     position: i32,
     inset: PyRect,
     // Alignment
-    align_items: Option<i32>,
-    justify_items: Option<i32>,
-    align_self: Option<i32>,
-    justify_self: Option<i32>,
-    align_content: Option<i32>,
-    justify_content: Option<i32>,
     gap: PySize,
     // Spacing
     margin: PyRect,
@@ -349,7 +343,6 @@ fn style_create(
     size: PySize,
     min_size: PySize,
     max_size: PySize,
-    aspect_ratio: Option<f32>,
     // Flex
     flex_wrap: i32,
     flex_direction: i32,
@@ -360,6 +353,15 @@ fn style_create(
     grid_auto_flow: i32,
     grid_row: PyGridPlacement,
     grid_column: PyGridPlacement,
+    // Size, optional
+    aspect_ratio: Option<f32>,
+    // Alignment, optional
+    align_items: Option<i32>,
+    justify_items: Option<i32>,
+    align_self: Option<i32>,
+    justify_self: Option<i32>,
+    align_content: Option<i32>,
+    justify_content: Option<i32>,
 ) -> usize {
     let style = Style {
         // Layout mode/strategy
@@ -582,34 +584,34 @@ impl FromPyMeasure<MeasureFunc> for MeasureFunc {
                   available_space: Size<AvailableSpace>|
                   -> Size<f32> {
                 // acquire lock
-                let gil = Python::acquire_gil();
-                let py = gil.python();
-                // call function
-                let available_width: PyLength = available_space.width.into();
-                let available_height: PyLength = available_space.height.into();
-                let args = (
-                    &node,
-                    known_dimensions.width.unwrap_or(f32::NAN),
-                    known_dimensions.height.unwrap_or(f32::NAN),
-                    available_width,
-                    available_height,
-                );
-                let result = measure.call1(py, args);
+                let size = Python::with_gil(|py| -> Vec<f32> {
+                    // call function
+                    let available_width: PyLength = available_space.width.into();
+                    let available_height: PyLength = available_space.height.into();
+                    let args = (
+                        &node,
+                        known_dimensions.width.unwrap_or(f32::NAN),
+                        known_dimensions.height.unwrap_or(f32::NAN),
+                        available_width,
+                        available_height,
+                    );
+                    let result = measure.call1(py, args);
 
-                let size: Vec<f32> = match result {
-                    Ok(result) => result.extract(py).unwrap(),
-                    Err(err) => {
-                        let traceback = match err.traceback(py) {
-                            Some(value) => match value.format() {
-                                Ok(tb) => format!("{}\n", tb),
-                                Err(_) => String::new(),
-                            },
-                            None => String::new(),
-                        };
-                        error!(target: "stretchable.taffylib", "Error in node `measure` (used `NAN, NAN` in place):\n{}{}", traceback, err);
-                        vec![f32::NAN, f32::NAN]
+                    match result {
+                        Ok(result) => result.extract(py).unwrap(),
+                        Err(err) => {
+                            let traceback = match err.traceback(py) {
+                                Some(value) => match value.format() {
+                                    Ok(tb) => format!("{}\n", tb),
+                                    Err(_) => String::new(),
+                                },
+                                None => String::new(),
+                            };
+                            error!(target: "stretchable.taffylib", "Error in node `measure` (used `NAN, NAN` in place):\n{}{}", traceback, err);
+                            vec![f32::NAN, f32::NAN]
+                        }
                     }
-                };
+                });
 
                 // return result
                 Size {

@@ -149,12 +149,6 @@ class Style:
             self.position,
             self.inset.to_dict(),
             # Alignment
-            self.align_items,
-            self.justify_items,
-            self.align_self,
-            self.justify_self,
-            self.align_content,
-            self.justify_content,
             self.gap.to_dict(),
             # Spacing
             self.margin.to_dict(),
@@ -164,7 +158,6 @@ class Style:
             self.size.to_dict(),
             self.min_size.to_dict(),
             self.max_size.to_dict(),
-            self.aspect_ratio,
             # Flex
             self.flex_wrap,
             self.flex_direction,
@@ -180,6 +173,15 @@ class Style:
             # Grid child
             self.grid_row.to_dict(),
             self.grid_column.to_dict(),
+            # Size, optional
+            self.aspect_ratio,
+            # Alignment, optional
+            self.align_items,
+            self.justify_items,
+            self.align_self,
+            self.justify_self,
+            self.align_content,
+            self.justify_content,
         )
 
     def __attrs_post_init__(self) -> None:

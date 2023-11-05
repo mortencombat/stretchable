@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "stretchable"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 keywords = ["flexbox", "grid", "block", "stretch", "css", "layout"]
 classifiers = [
     "Development Status :: 3 - Alpha",
