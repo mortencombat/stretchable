@@ -25,7 +25,7 @@ def print_layout(
     # for t in Box:
     #     box = node.get_layout(t, relative=relative)
     #     print(" " * level + t._name_ + ": " + str(box))
-    for child in node.children:
+    for child in node:
         print_layout(child, level + 2, box_type=box_type, relative=relative)
 
 

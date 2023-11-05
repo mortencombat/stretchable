@@ -38,23 +38,33 @@ XML_REPLACE = (("&ZeroWidthSpace;", ZERO_WIDTH_SPACE),)
 DEBUGGING NOTES:
 
 Date        Fixtures with measures      Panics          Failed      Passes      Remarks
-2023.11.04  Excluded                    None            ~40         ~400        Passed count includes excluded fixtures
-            Included                    None            75          372         Rounding disabled
-            Included                    None            93          354         Rounding enabled
+2023.11.04  Excluded                    -               ~40         ~400        Passed count includes excluded fixtures
+            Included w/o measure        -               75          372         Rounding disabled
+            Included w/o measure        -               93          354         Rounding enabled
+            Included w/o measure        -               74          373         Rounding disabled, .1f for x+y, .0f for width+height
+            Included w/ measure         Yes 1)
+            Included w/ measure         Yes 2)                                  Added additional checks for taffy._ptr before invoking calls with it
 
-rounding_fractial_input_6:
-    Fails (differently) with both rounding disabled and enabled
+
+1) invalid SlotMap key used / double free of object 0x153791290 /src/node.rs:238:31
+2) invalid SlotMap key used src/node.rs:238:31
+   occurs on: tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html
+   /src/lib.rs:585:54   let result = measure.call1(py, args).unwrap();
+   called `Result::unwrap()` on an `Err` value: PyErr { type: <class 'ValueError'>, value: ValueError('cannot convert float NaN to integer')
+
+
+
 
 """
 
 
 def get_fixtures(max_count: int = None) -> dict[str, list]:
-    # TODO: implement indexing/count here
     fixtures = []
-    folders = ("tests/fixtures/taffy/*.html",)
-    files = (
-        # "tests/fixtures/taffy/absolute_aspect_ratio_fill_max_height.html",
-    )
+    folders = []
+    # folders = ["tests/fixtures/taffy/*.html"]
+    files = [
+        "tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html",
+    ]
     cwd = os.getcwd()
     for folder in folders:
         for f in glob.glob(cwd + "/" + folder):
@@ -90,18 +100,13 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     xml = get_xml(filepath)
 
     # TODO: At the moment don't include fixtures that require measure
-    # req_measure = requires_measure(ElementTree.fromstring(xml))
-    # print(xml)
-    # print("requires_measure:", req_measure)
+    req_measure = requires_measure(ElementTree.fromstring(xml))
     # if req_measure:
     #     return
 
-    # WTF does double free error occur when only a few fixtures are tested but not when more are tested???
-
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
-    node = Node.from_xml(xml)
-    # node = Node.from_xml(xml, apply_node_measure)
-    node.compute_layout(use_rounding=True)
+    node = Node.from_xml(xml, apply_node_measure) if req_measure else Node.from_xml(xml)
+    node.compute_layout(use_rounding=False)
 
     # Render html with Chrome
     driver.get("file://" + str(filepath))
@@ -147,10 +152,13 @@ def assert_node_layout(
         # Assert position of node
         for param in ("x", "y", "width", "height"):
             rect_actual = node_actual.get_layout(relative=False)
-            v_act = getattr(rect_actual, param)
-            v_exp = node_expected.rect[param]
+            v_act = round(
+                getattr(rect_actual, param), 1 if param == "x" or param == "y" else 0
+            )
+            v_exp = round(node_expected.rect[param], 1)
+
             assert (
-                abs(v_act - v_exp) < 0.5  # 0.015
+                v_act == v_exp
             ), f"[{fixture}] Expected {param}={v_exp:.4f}, got {v_act:.4f}"
 
     # Assert positions of child nodes

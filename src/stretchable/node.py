@@ -39,16 +39,20 @@ TODO:
 MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 
 
+class TaffyUnavailableError(Exception):
+    ...
+
+
 class NodeLocatorError(Exception):
-    pass
+    ...
 
 
 class NodeNotFound(Exception):
-    pass
+    ...
 
 
 class LayoutNotComputedError(Exception):
-    pass
+    ...
 
 
 class Box(StrEnum):
@@ -98,6 +102,8 @@ class Node(list["Node"]):
         """
 
         self.__ptr = None
+        if not taffy._ptr:
+            raise TaffyUnavailableError
 
         # Node id requirements:
         #   May consist of -_!:;()[] a-z A-Z 0-9
@@ -137,7 +143,7 @@ class Node(list["Node"]):
         return self.__ptr
 
     def __del__(self) -> None:
-        if self._ptr is None or taffy._ptr is None:
+        if self._ptr is None or not taffy._ptr:
             return
         taffylib.node_drop(taffy._ptr, self._ptr)
         # taffy._nodes.remove(self._ptr)
@@ -165,18 +171,20 @@ class Node(list["Node"]):
         return self
 
     def append(self, node: "Node"):
+        if not taffy._ptr:
+            raise TaffyUnavailableError
         if not isinstance(node, Node):
             raise TypeError("Only nodes can be added")
         elif node.parent:
             raise Exception("Node is already associated with a parent node")
         taffylib.node_add_child(taffy._ptr, self._ptr, node._ptr)
-        node.parent = self
         logger.debug(
             "node_add_child(taffy: %s, parent: %s, child: %s)",
             taffy._ptr,
             self._ptr,
             node._ptr,
         )
+        node.parent = self
         super().append(node)
 
     def extend(self, __iterable: Iterable["Node"]) -> None:
@@ -184,28 +192,40 @@ class Node(list["Node"]):
             self.append(child)
 
     def remove(self, node: "Node") -> None:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
         taffylib.node_remove_child(taffy._ptr, self._ptr, node._ptr)
-        node.parent = None
         logger.debug(
             "node_remove_child(taffy: %s, parent: %s, child: %s)",
             taffy._ptr,
             self._ptr,
             node._ptr,
         )
+        node.parent = None
         return super().remove(node)
 
     def __delitem__(self, __index: SupportsIndex | slice) -> None:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
         for index in reversed(
             range(*__index.indices(len(self)))
             if isinstance(__index, slice)
             else [__index]
         ):
             taffylib.node_remove_child_at_index(taffy._ptr, self._ptr, index)
+            logger.debug(
+                "node_remove_child_at_index(taffy: %s, parent: %s, index: %s)",
+                taffy._ptr,
+                self._ptr,
+                index,
+            )
             self[index].parent = None
             super().__delitem__(index)
 
     def __setitem__(self, __index: int, node: "Node") -> None:
         assert __index >= 0 and __index < len(self)
+        if not taffy._ptr:
+            raise TaffyUnavailableError
 
         self[__index].parent = None
         taffylib.node_replace_child_at_index(taffy._ptr, self._ptr, __index, node)
@@ -318,7 +338,9 @@ class Node(list["Node"]):
 
     @property
     def is_dirty(self) -> bool:
-        taffylib.node_dirty(taffy._ptr, self._ptr)
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        return taffylib.node_dirty(taffy._ptr, self._ptr)
 
     @property
     def is_visible(self) -> bool:
@@ -385,6 +407,8 @@ class Node(list["Node"]):
     def measure(self, value: MeasureFunc) -> None:
         assert value is None or callable(value)
         self._measure = value
+        if not taffy._ptr:
+            raise TaffyUnavailableError
         if value is None:
             taffylib.node_remove_measure(taffy._ptr, self._ptr)
             logger.debug(
@@ -402,6 +426,9 @@ class Node(list["Node"]):
         *,
         use_rounding: bool = True,
     ) -> bool:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+
         if not available_space:
             available_space = SizeAvailableSpace.default()
 
