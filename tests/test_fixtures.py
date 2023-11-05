@@ -39,9 +39,14 @@ DEBUGGING NOTES:
 
 Date        Failed      Passes      Remarks
 2023.11.05  41          406         Taffy tests only
-2023.11.05  45          643         Taffy+Stretch tests
-2023.11.05  14          674         Added support for 'gap' in Style.from_inline(...)
-
+            45          643         Taffy+Stretch tests
+            14          674         Added support for 'gap' in Style.from_inline(...)
+            11          674         Fixed `measure_standard_text` function
+            7           677         Fixed error in bevy_issue_8017*.html,
+                                    border_center_child.html and
+                                    percentage_sizes_should_not_prevent_flex_shrinking.html fixtures
+            3           678         Removed 4 duplicate fixtures (which were all failing)
+            1           683         The last failing test is related to is_visible. Seems more like a Selenium/Chrome inconsistency.
 """
 
 
@@ -51,7 +56,7 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
         "tests/fixtures/**/*.html",
     ]
     files = [
-        # "tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html",
+        # "tests/fixtures/taffy/undefined_height_with_min_max.html",
     ]
     cwd = os.getcwd()
     for folder in folders:
@@ -280,13 +285,14 @@ def measure_standard_text(
         inline_size = known_dimensions.width.value
         block_size = known_dimensions.height.value
 
-    # ic(inline_size)
+    ic(inline_size)
 
     if math.isnan(inline_size):
-        # ic(inline_space, inline_space.value, min_line_length, max_line_length, H_WIDTH)
-        if inline_space == MIN_CONTENT:
+        ic(inline_space, inline_space.value, min_line_length, max_line_length, H_WIDTH)
+        if inline_space.scale == Scale.MIN_CONTENT:
+            ic("MIN_CONTENT")
             inline_size = min_line_length * H_WIDTH
-        elif inline_space == MAX_CONTENT:
+        elif inline_space.scale == Scale.MAX_CONTENT:
             inline_size = max_line_length * H_WIDTH
         elif math.isnan(inline_space.value):
             inline_size = max_line_length * H_WIDTH

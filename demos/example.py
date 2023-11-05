@@ -12,8 +12,8 @@ def print_layout(
     box_type: Box = Box.BORDER,
     relative: bool = True,
 ):
-    if not node.is_visible:
-        return
+    # if not node.is_visible:
+    #     return
     box = node.get_layout(box_type, relative=relative)
     print(
         " " * level
