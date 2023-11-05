@@ -29,7 +29,7 @@ Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for dev
 
 ## Testing
 
-Install test dependencies and invoke `pytest`. Note that there are more than 700 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take 10+ minutes to complete. Use `pytest --lf` to only run the last-failed tests.
+Install test dependencies and invoke `pytest`. Note that there are ~700 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take 10+ minutes to complete. Use `pytest --lf` to only run the last-failed tests.
 
 *NOTE:* Currently there are 14 tests (out of 688) which are failing. Work is in progress to fix the failing tests, see [#43](https://github.com/mortencombat/stretchable/issues/43).
 
