@@ -37,22 +37,10 @@ XML_REPLACE = (("&ZeroWidthSpace;", ZERO_WIDTH_SPACE),)
 """
 DEBUGGING NOTES:
 
-Date        Fixtures with measures      Panics          Failed      Passes      Remarks
-2023.11.04  Excluded                    -               ~40         ~400        Passed count includes excluded fixtures
-            Included w/o measure        -               75          372         Rounding disabled
-            Included w/o measure        -               93          354         Rounding enabled
-            Included w/o measure        -               74          373         Rounding disabled, .1f for x+y, .0f for width+height
-            Included w/ measure         Yes 1)
-            Included w/ measure         Yes 2)                                  Added additional checks for taffy._ptr before invoking calls with it
-            Included w/ measure         -               41          406         Fixed measure func for certain scenarios
-2023.11.05  Included w/ measure         -               41          406
-2023.11.05  All                         
-
-1) invalid SlotMap key used / double free of object 0x153791290 /src/node.rs:238:31
-2) invalid SlotMap key used src/node.rs:238:31
-   occurs on: tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html
-   /src/lib.rs:585:54   let result = measure.call1(py, args).unwrap();
-   called `Result::unwrap()` on an `Err` value: PyErr { type: <class 'ValueError'>, value: ValueError('cannot convert float NaN to integer')
+Date        Failed      Passes      Remarks
+2023.11.05  41          406         Taffy tests only
+2023.11.05  45          643         Taffy+Stretch tests
+2023.11.05  14          674         Added support for 'gap' in Style.from_inline(...)
 
 """
 

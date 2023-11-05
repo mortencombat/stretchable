@@ -16,7 +16,7 @@ def print_chrome_layout(node: WebElement, index: int = 0):
 
 
 filepath = Path(
-    "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html"
+    "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/measure_child_constraint.html"
 )
 
 # Get layout using taffy

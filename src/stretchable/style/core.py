@@ -291,6 +291,19 @@ class Style:
                 return None
             return Size(*values)
 
+        def to_gap() -> Size:
+            gap = SizePointsPercent.from_any(0)
+            for prefix in (None, "row", "column"):
+                prop = prefix + "-gap" if prefix else "gap"
+                if prop in keys:
+                    value = props[prop]
+                    keys.remove(prop)
+                    if prefix is None or prefix == "row":
+                        gap.height = value
+                    if prefix is None or prefix == "column":
+                        gap.width = value
+            return gap
+
         def prop_to_enum(prop: str) -> IntEnum:
             match prop:
                 case "display":
@@ -346,6 +359,7 @@ class Style:
             width, height                       -> size = Size
             max-width, max-height               -> max_size = Size
             min-width, min-height               -> min_size = Size
+            gap, row-gap, column-gap            -> gap = Size
 
         Rect entries:
             top, right, bottom, left            -> position = Rect
@@ -376,6 +390,9 @@ class Style:
             v = to_size(prefix)
             if v:
                 args[f"{prefix}_size" if prefix else "size"] = v
+
+        # Row/column gap
+        args["gap"] = to_gap()
 
         # Rect entries: inset, margin, border, padding
         for prop in ("inset", "margin", "border", "padding"):
