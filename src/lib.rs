@@ -9,6 +9,8 @@ use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
 
+// use pyo3::create_exception;
+// use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
@@ -559,6 +561,13 @@ fn node_get_layout(taffy_ptr: usize, node_ptr: usize) -> PyLayout {
     layout
 }
 
+// create_exception!(
+//     taffylib,
+//     NodeMeasureError,
+//     PyException,
+//     "Raised when the `measure` method assigned to a node failed."
+// );
+
 trait FromPyMeasure<T> {
     fn from_py(node: PyObject, measure: PyObject) -> T;
 }
@@ -582,10 +591,12 @@ impl FromPyMeasure<MeasureFunc> for MeasureFunc {
                     available_width,
                     available_height,
                 );
-                let result = measure.call1(py, args).unwrap();
-                // cast
-                let size: Vec<f32> = result.extract(py).unwrap();
-                // return args
+                let size: Vec<f32> = match measure.call1(py, args) {
+                    Ok(result) => result.extract(py).unwrap(),
+                    Err(_) => vec![f32::NAN, f32::NAN],
+                };
+
+                // return result
                 Size {
                     width: size[0],
                     height: size[1],
@@ -649,6 +660,7 @@ fn taffylib(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(node_set_measure))?;
     m.add_wrapped(wrap_pyfunction!(node_remove_measure))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
+    // m.add("NodeMeasureError", py.get_type::<NodeMeasureError>())?;
 
     Ok(())
 }

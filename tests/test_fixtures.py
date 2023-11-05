@@ -44,7 +44,7 @@ Date        Fixtures with measures      Panics          Failed      Passes      
             Included w/o measure        -               74          373         Rounding disabled, .1f for x+y, .0f for width+height
             Included w/ measure         Yes 1)
             Included w/ measure         Yes 2)                                  Added additional checks for taffy._ptr before invoking calls with it
-
+            Included w/ measure         -               41          406         Fixed measure func for certain scenarios
 
 1) invalid SlotMap key used / double free of object 0x153791290 /src/node.rs:238:31
 2) invalid SlotMap key used src/node.rs:238:31
@@ -52,18 +52,21 @@ Date        Fixtures with measures      Panics          Failed      Passes      
    /src/lib.rs:585:54   let result = measure.call1(py, args).unwrap();
    called `Result::unwrap()` on an `Err` value: PyErr { type: <class 'ValueError'>, value: ValueError('cannot convert float NaN to integer')
 
+TODO:
 
-
+/src/lib.rs:586     Handle result error (instead of just unwrap() which can cause panics). Raise Python exception.
+                    https://pyo3.rs/main/exception
+Can taffylib get access to Python logging, so errors could be logged even if we cannot raise an exception?
 
 """
 
 
 def get_fixtures(max_count: int = None) -> dict[str, list]:
     fixtures = []
-    folders = []
-    # folders = ["tests/fixtures/taffy/*.html"]
+    # folders = []
+    folders = ["tests/fixtures/taffy/*.html"]
     files = [
-        "tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html",
+        # "tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html",
     ]
     cwd = os.getcwd()
     for folder in folders:
@@ -292,16 +295,23 @@ def measure_standard_text(
         inline_size = known_dimensions.width.value
         block_size = known_dimensions.height.value
 
+    # ic(inline_size)
+
     if math.isnan(inline_size):
+        # ic(inline_space, inline_space.value, min_line_length, max_line_length, H_WIDTH)
         if inline_space == MIN_CONTENT:
             inline_size = min_line_length * H_WIDTH
         elif inline_space == MAX_CONTENT:
+            inline_size = max_line_length * H_WIDTH
+        elif math.isnan(inline_space.value):
             inline_size = max_line_length * H_WIDTH
         else:
             inline_size = max(
                 min(inline_space.value, max_line_length * H_WIDTH),
                 min_line_length * H_WIDTH,
             )
+
+    # ic(block_size)
 
     if math.isnan(block_size):
         inline_line_length = math.floor(inline_size / H_WIDTH)
@@ -323,6 +333,8 @@ def measure_standard_text(
         else (inline_size, block_size)
     )
 
+    # ic(width, height)
+
     # Reduce to available_space
     if (
         available_space.height.scale == Scale.POINTS
@@ -336,13 +348,13 @@ def measure_standard_text(
         width = available_space.width.value
 
     # NOTE: Not sure this aspect_ratio correction is correct in all cases!
-    ic(
-        aspect_ratio,
-        width,
-        height,
-        available_space.width.value,
-        available_space.height.value,
-    )
+    # ic(
+    #     aspect_ratio,
+    #     width,
+    #     height,
+    #     available_space.width.value,
+    #     available_space.height.value,
+    # )
     if aspect_ratio:
         if (
             available_space.height.scale == Scale.POINTS

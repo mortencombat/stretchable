@@ -386,7 +386,6 @@ class Node(list["Node"]):
     ) -> tuple[float, float]:
         """This function is a wrapper for the user-supplied measure function,
         converting arguments into and results from the call by Taffy."""
-
         known_dimensions = SizePoints(width=known_width, height=known_height)
         available_space = SizeAvailableSpace(
             LengthAvailableSpace.from_dict(available_width),
@@ -394,6 +393,7 @@ class Node(list["Node"]):
         )
         result = node.measure(known_dimensions, available_space)
         assert isinstance(result, SizePoints)
+        print(result)
         return (
             result.width.value if result.width else NAN,
             result.height.value if result.height else NAN,
