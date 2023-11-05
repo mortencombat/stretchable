@@ -1,6 +1,10 @@
-# Introduction
+# stretchable
 
-This package enables target-agnostic layout operations using CSS Grid and Flexbox. Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)
+![PyPI - Version](https://img.shields.io/pypi/v/stretchable)
+![GitHub issues](https://img.shields.io/github/issues/mortencombat/stretchable?logo=github)
+
+**stretchable** is a layout library for Python that enables target-agnostic layout operations using CSS Grid and Flexbox. Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
 
 It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Grid/Flexbox written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy.
 
@@ -23,15 +27,19 @@ Helpful resources to getting started with layouts using CSS Grid and Flexbox are
 
 See [demos](https://github.com/mortencombat/stretchable/tree/main/demos) for examples of basic usage.
 
-## Building
+## Contribute
+
+Contributions are welcomed. Please open an issue to clarify/plan implementation details prior to starting the work.
+
+### Building
 
 Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for development and `maturin build [--release]` to build.
 
-## Testing
+### Testing
 
 Install test dependencies and invoke `pytest`. Note that there are ~700 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take 10+ minutes to complete. Use `pytest --lf` to only run the last-failed tests.
 
-*NOTE:* There is one test fixture `max_height_overrides_height_on_root` which is known to fail. This is related to node visibility, see [#43](https://github.com/mortencombat/stretchable/issues/43).
+**NOTE:** There is one test fixture `max_height_overrides_height_on_root` which is known to fail. This is related to node visibility, see [#43](https://github.com/mortencombat/stretchable/issues/43).
 
 ## License
 
