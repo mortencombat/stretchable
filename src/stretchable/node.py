@@ -136,7 +136,11 @@ class Node(list["Node"]):
 
     @property
     def root(self) -> "Node":
-        return self if not self.parent else self.parent.root
+        return self if self.is_root else self.parent.root
+
+    @property
+    def is_root(self) -> bool:
+        return self.parent is None
 
     def add(self, *children) -> Self:
         self.extend(children)
@@ -357,7 +361,13 @@ class Node(list["Node"]):
             raise LayoutNotComputedError(
                 "Cannot determine if node is visible, layout is not computed"
             )
-        if (self._layout.width <= 0 or self._layout.height <= 0) and len(self) == 0:
+        # if self._layout.width <= 0 and len(self) == 0:
+        # if self._layout.width <= 0 and self._layout.height <= 0 and len(self) == 0:
+        if (
+            (self._layout.width <= 0 or self._layout.height <= 0)
+            and len(self) == 0
+            and not self.is_root
+        ):
             # Box is zero-sized with no children
             # logger.debug(
             #     "(%s) zero-sized with no children, width %s, height %s => not visible",
