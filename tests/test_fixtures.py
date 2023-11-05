@@ -46,6 +46,7 @@ Date        Fixtures with measures      Panics          Failed      Passes      
             Included w/ measure         Yes 2)                                  Added additional checks for taffy._ptr before invoking calls with it
             Included w/ measure         -               41          406         Fixed measure func for certain scenarios
 2023.11.05  Included w/ measure         -               41          406
+2023.11.05  All                         
 
 1) invalid SlotMap key used / double free of object 0x153791290 /src/node.rs:238:31
 2) invalid SlotMap key used src/node.rs:238:31
@@ -58,10 +59,8 @@ Date        Fixtures with measures      Panics          Failed      Passes      
 
 def get_fixtures(max_count: int = None) -> dict[str, list]:
     fixtures = []
-    # folders = []
     folders = [
-        # "tests/fixtures/taffy/*.html",
-        "tests/fixtures/stretch/*.html",
+        "tests/fixtures/**/*.html",
     ]
     files = [
         # "tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html",

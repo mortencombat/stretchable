@@ -21,7 +21,7 @@ Helpful resources to getting started with layouts using CSS Grid and Flexbox are
 
 ## Usage
 
-See [demos](https://github.com/mortencombat/stretchable/tree/main/demos) for examples of basic usage. Keep in mind that the current version of Stretchable is early stage and the API can be expected to change (eg. improve).
+See [demos](https://github.com/mortencombat/stretchable/tree/main/demos) for examples of basic usage.
 
 ## Building
 
@@ -30,6 +30,8 @@ Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for dev
 ## Testing
 
 Install test dependencies and invoke `pytest`. Note that there are more than 700 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take 10+ minutes to complete. Use `pytest --lf` to only run the last-failed tests.
+
+NOTE: Currently there are ~45 tests (out of 700+) which are failing. Naturally, the aim is to reduce the number of failing tests, see #43.
 
 ## License
 
