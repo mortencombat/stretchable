@@ -32,8 +32,8 @@ class SizeBase(Generic[T]):
             width = height = values[0]
         else:
             width, height = values
-        self.width = self._type_T.from_any(width)
-        self.height = self._type_T.from_any(height)
+        self.width: T = self._type_T.from_any(width)
+        self.height: T = self._type_T.from_any(height)
 
     def to_dict(self) -> dict[str, dict[str, float]]:
         return dict(

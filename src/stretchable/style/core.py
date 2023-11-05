@@ -4,8 +4,7 @@ from typing import Iterable, Self
 
 from attrs import define, field, validators
 
-from stretchable import taffylib
-
+from .. import taffylib
 from .geometry.length import AUTO, NAN, PCT, PT, Length, LengthPointsPercentAuto
 from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
 from .geometry.size import Size, SizePointsPercent, SizePointsPercentAuto
@@ -185,14 +184,12 @@ class Style:
 
     def __attrs_post_init__(self) -> None:
         object.__setattr__(self, "_Style__ptr", taffylib.style_create(*self.to_args()))
-        # taffy._styles.add(self.__ptr)
         logger.debug("style_create() -> %s" % self.__ptr)
 
     def __del__(self) -> None:
         if self.__ptr is None:
             return
         taffylib.style_drop(self.__ptr)
-        # taffy._styles.remove(self.__ptr)
         logger.debug("style_drop(ptr: %s)", self.__ptr)
 
     @property

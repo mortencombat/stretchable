@@ -42,8 +42,8 @@ class Taffy:
 
     @use_rounding.setter
     def use_rounding(self, value: bool) -> None:
-        if value == self._use_rounding:
-            return
+        # if value == self._use_rounding:
+        #     return
         if value:
             taffylib.enable_rounding(self._ptr)
         else:

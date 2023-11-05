@@ -39,10 +39,10 @@ class RectBase(Generic[T]):
             bottom = values[2]
         else:
             top, right, bottom, left = values
-        self.top = self._type_T.from_any(top)
-        self.right = self._type_T.from_any(right)
-        self.bottom = self._type_T.from_any(bottom)
-        self.left = self._type_T.from_any(left)
+        self.top: T = self._type_T.from_any(top)
+        self.right: T = self._type_T.from_any(right)
+        self.bottom: T = self._type_T.from_any(bottom)
+        self.left: T = self._type_T.from_any(left)
 
     def to_dict(self) -> dict[str, dict[str, float]]:
         return dict(

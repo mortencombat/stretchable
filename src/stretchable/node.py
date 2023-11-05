@@ -6,53 +6,25 @@ from xml.etree import ElementTree
 
 from attrs import define
 
-from stretchable import taffy, taffylib
-from stretchable.style import Style
-from stretchable.style.geometry.length import NAN, LengthAvailableSpace
-from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
-from stretchable.style.props import Display
+from . import taffylib
+from .context import taffy
+from .exceptions import (
+    LayoutNotComputedError,
+    NodeLocatorError,
+    NodeNotFound,
+    TaffyUnavailableError,
+)
+from .style import Display, Rect, Style
+from .style.geometry.length import NAN, LengthAvailableSpace
+from .style.geometry.size import SizeAvailableSpace, SizePoints
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
-_valid_id = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]*$")
-# _xml_parser = ElementTree.XMLParser()
-# _xml_parser.parser.UseForeignDTD(True)
-# _xml_parser.entity["&ZeroWidthSpace;"] = ""
+_valid_key = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]*$")
 
-"""
-TODO:
-
- 1) Consider renaming Tree to Root (?)
- 2) Implement __str__ for classes (Node/Tree)
- 3) Use __str__ from 1) in logger
- 4) Add tests from Taffy
-    4a) Implement measure_standard_text equivalent (from taffy tests/fixtures.rs) and implement this on nodes with inner-content
- 5) Run/fix tests
- 6) Support grid_[template/auto]_[rows/columns] in Style
-
-
-
-
-"""
 
 MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
-
-
-class TaffyUnavailableError(Exception):
-    ...
-
-
-class NodeLocatorError(Exception):
-    ...
-
-
-class NodeNotFound(Exception):
-    ...
-
-
-class LayoutNotComputedError(Exception):
-    ...
 
 
 class Box(StrEnum):
@@ -76,7 +48,7 @@ class Layout:
 
 class Node(list["Node"]):
     __slots__ = (
-        "_id",
+        "_key",
         "_style",
         "_children",
         "_measure",
@@ -89,7 +61,7 @@ class Node(list["Node"]):
     def __init__(
         self,
         *children,
-        id: str = None,
+        key: str = None,
         measure: MeasureFunc = None,
         style: Style = None,
         **style_args,
@@ -105,12 +77,12 @@ class Node(list["Node"]):
         if not taffy._ptr:
             raise TaffyUnavailableError
 
-        # Node id requirements:
+        # Node key requirements:
         #   May consist of -_!:;()[] a-z A-Z 0-9
         #   Must contain at least one alphabetical character
-        if id is not None and not _valid_id.match(id):
-            raise ValueError("The given `id` is not valid")
-        self._id = id
+        if key is not None and not _valid_key.match(key):
+            raise ValueError("The given `key` is not valid")
+        self._key = key
 
         self._layout = None
         self._zorder = None
@@ -222,19 +194,37 @@ class Node(list["Node"]):
             self[index].parent = None
             super().__delitem__(index)
 
-    def __setitem__(self, __index: int, node: "Node") -> None:
-        assert __index >= 0 and __index < len(self)
+    def __setitem__(
+        self, __index: SupportsIndex | slice, value: "Node" | Iterable["Node"]
+    ) -> None:
         if not taffy._ptr:
             raise TaffyUnavailableError
 
-        self[__index].parent = None
-        taffylib.node_replace_child_at_index(taffy._ptr, self._ptr, __index, node)
-        node.parent = self
-        super().__setitem__(__index, node)
+        if isinstance(__index, slice):
+            items = zip(range(*__index.indices(len(self))), value)
+        else:
+            items = [(__index, value)]
+
+        for index, node in items:
+            self[index].parent = None
+            taffylib.node_replace_child_at_index(
+                taffy._ptr, self._ptr, index, node._ptr
+            )
+            node.parent = self
+            super().__setitem__(index, node)
+
+        # assert __index >= 0 and __index < len(self)
+        # if not taffy._ptr:
+        #     raise TaffyUnavailableError
+
+        # self[__index].parent = None
+        # taffylib.node_replace_child_at_index(taffy._ptr, self._ptr, __index, node._ptr)
+        # node.parent = self
+        # super().__setitem__(__index, node)
 
     # endregion
 
-    # region Id/locator
+    # region Key/locator
 
     @property
     def address(self) -> str:
@@ -250,10 +240,19 @@ class Node(list["Node"]):
             addr = ""
         if addr and not addr.endswith("/"):
             addr += "/"
-        if self.id:
-            addr += self.id
+        if self.key:
+            addr += self.key
         else:
-            addr += str(self.parent.index(self))
+            index = None
+            for i, child in enumerate(self.parent):
+                if child is not self:
+                    continue
+                index = i
+            if index is None:
+                raise NodeLocatorError(
+                    "Node is not registered as a child of the parent node"
+                )
+            addr += str(index)
 
         return addr
 
@@ -307,10 +306,10 @@ class Node(list["Node"]):
             raise NodeNotFound("Node not found", addr)
 
         pre, sep, post = addr.partition("/")
-        if _valid_id.match(pre):
+        if _valid_key.match(pre):
             # If pre is valid node id, look in children ids
             for child in self:
-                if child.id and child.id == pre:
+                if child.key and child.key == pre:
                     return child.find(post) if post else child
             raise NodeNotFound("Node not found", addr)
         else:
@@ -321,14 +320,14 @@ class Node(list["Node"]):
                 index = -1
             if index < 0:
                 raise NodeLocatorError("Address is not valid", addr)
-            if index >= len(self.children):
+            if index >= len(self):
                 raise NodeNotFound("Node not found", addr)
             child = self[index]
             return child.find(post) if post else child
 
     @property
-    def id(self) -> str:
-        return self._id
+    def key(self) -> str:
+        return self._key
 
     # endregion
 
@@ -341,6 +340,11 @@ class Node(list["Node"]):
         if not taffy._ptr:
             raise TaffyUnavailableError
         return taffylib.node_dirty(taffy._ptr, self._ptr)
+
+    def mark_dirty(self) -> None:
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+        taffylib.node_mark_dirty(taffy._ptr, self._ptr)
 
     @property
     def is_visible(self) -> bool:
@@ -424,7 +428,7 @@ class Node(list["Node"]):
         self,
         available_space: Optional[SizeAvailableSpace] = None,
         *,
-        use_rounding: bool = True,
+        use_rounding: bool = False,
     ) -> bool:
         if not taffy._ptr:
             raise TaffyUnavailableError
@@ -464,6 +468,37 @@ class Node(list["Node"]):
         if self.is_visible:
             for child in self:
                 child._update_layout()
+
+    @staticmethod
+    def _scale_box(
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        rect: Rect,
+        container: Layout = None,
+        *,
+        factor: float = 1.0,
+    ) -> tuple[float, float, float, float]:
+        """
+        Returns deltas from rect, converted to floats, using container dimensions in case of percentage values.
+        Values returned correspond to: start, end, top, bottom (same as rect).
+
+        A positive factor expands, negative factor contracts.
+        """
+
+        container = container.width if container else None
+        left = rect.left.to_pts(container)
+        right = rect.right.to_pts(container)
+        top = rect.top.to_pts(container)
+        bottom = rect.bottom.to_pts(container)
+
+        return (
+            x - factor * left,
+            y - factor * top,
+            width + factor * (left + right),
+            height + factor * (top + bottom),
+        )
 
     def get_layout(
         self,
@@ -551,8 +586,8 @@ class Node(list["Node"]):
         customize: Callable[[Self, ElementTree.Element], Self] = None,
     ) -> Self:
         args = dict()
-        if "id" in element.attrib:
-            args["id"] = element.attrib["id"]
+        if "key" in element.attrib:
+            args["key"] = element.attrib["key"]
         if "style" in element.attrib:
             args["style"] = Style.from_inline(element.attrib["style"])
         node = cls(**args)

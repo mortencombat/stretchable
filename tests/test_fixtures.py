@@ -45,6 +45,7 @@ Date        Fixtures with measures      Panics          Failed      Passes      
             Included w/ measure         Yes 1)
             Included w/ measure         Yes 2)                                  Added additional checks for taffy._ptr before invoking calls with it
             Included w/ measure         -               41          406         Fixed measure func for certain scenarios
+2023.11.05  Included w/ measure         -               41          406
 
 1) invalid SlotMap key used / double free of object 0x153791290 /src/node.rs:238:31
 2) invalid SlotMap key used src/node.rs:238:31
@@ -52,19 +53,16 @@ Date        Fixtures with measures      Panics          Failed      Passes      
    /src/lib.rs:585:54   let result = measure.call1(py, args).unwrap();
    called `Result::unwrap()` on an `Err` value: PyErr { type: <class 'ValueError'>, value: ValueError('cannot convert float NaN to integer')
 
-TODO:
-
-/src/lib.rs:586     Handle result error (instead of just unwrap() which can cause panics). Raise Python exception.
-                    https://pyo3.rs/main/exception
-Can taffylib get access to Python logging, so errors could be logged even if we cannot raise an exception?
-
 """
 
 
 def get_fixtures(max_count: int = None) -> dict[str, list]:
     fixtures = []
     # folders = []
-    folders = ["tests/fixtures/taffy/*.html"]
+    folders = [
+        # "tests/fixtures/taffy/*.html",
+        "tests/fixtures/stretch/*.html",
+    ]
     files = [
         # "tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html",
     ]
@@ -109,7 +107,7 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
 
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
     node = Node.from_xml(xml, apply_node_measure) if req_measure else Node.from_xml(xml)
-    node.compute_layout(use_rounding=False)
+    node.compute_layout()
 
     # Render html with Chrome
     driver.get("file://" + str(filepath))
@@ -370,40 +368,3 @@ def measure_standard_text(
     size = SizePoints(width, height)
     logger.debug("measure_standard_text(...) -> %s", size)
     return size
-
-
-"""
-
-22230 segmentation fault, last occurred on:
-[MainThread  ] [DEBUG]  Fixture: intrinsic_sizing_cross_size_column
-[MainThread  ] [DEBUG]  Applying node_measure...
-[MainThread  ] [DEBUG]  -> Done.
-[MainThread  ] [DEBUG]  Set rounding_enabled = False
-[MainThread  ] [DEBUG]  Invoking compute_layout...
-
-29458 segmentation fault, occured on:
-DEBUG:stretchable.tests:Invoking compute_layout...
-DEBUG:stretchable.tests:Measure 'HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH'
-DEBUG:stretchable.tests:Measured size Size(width=100.00 pt, height=30.00 pt)
-DEBUG:stretchable.tests:Measure 'HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH'
-
-36409 abort
-DEBUG:stretchable.tests:Fixture: aspect_ratio_flex_row_fill_max_height
-DEBUG:stretchable.tests:Set node.measure for 'HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH'.
-DEBUG:stretchable.tests:Set rounding_enabled = False
-DEBUG:stretchable.tests:Invoking compute_layout...
-DEBUG:stretchable.tests:Measure 'HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH', avail space width 100.00 pt height 20.00 pt
-DEBUG:stretchable.tests:Measured size Size(width=40.00 pt, height=20.00 pt)
-DEBUG:stretchable.tests:Measure 'HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH', avail space width min-content height 20.00 pt
-
-37816 abort
-DEBUG:stretchable.tests:Fixture: aspect_ratio_flex_row_fill_max_height
-DEBUG:stretchable.tests:Set node.measure for 'HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH'.
-DEBUG:stretchable.tests:Set rounding_enabled = False
-DEBUG:stretchable.tests:Invoking compute_layout...
-DEBUG:stretchable.tests:measure_standard_text('HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH', available_space = 100.00 pt x 20.00 pt, known_dims = nan x nan, aspect_ratio = 2.0, writing_mode = 0
-DEBUG:stretchable.tests:measure_standard_text(...) -> Size(width=40.00 pt, height=20.00 pt)
-DEBUG:stretchable.tests:measure_standard_text('HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH', available_space = min-content x 20.00 pt, known_dims = nan x nan, aspect_ratio = 2.0, writing_mode = 0
-
-
-"""

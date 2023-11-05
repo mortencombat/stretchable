@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from stretchable.node import Box, Node
-from stretchable.style.core import PCT, Rect, Size
+from stretchable import Box, Node
+from stretchable.style import PCT, Rect, Size
 
 
 def print_layout(
@@ -22,9 +22,6 @@ def print_layout(
         + str(box)
         + f" (visible: {node.is_visible})"
     )
-    # for t in Box:
-    #     box = node.get_layout(t, relative=relative)
-    #     print(" " * level + t._name_ + ": " + str(box))
     for child in node:
         print_layout(child, level + 2, box_type=box_type, relative=relative)
 
@@ -45,7 +42,7 @@ def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
         if t == Box.BORDER:
             ax.annotate(f"Node {index}", (box.x, box.y), color=f"C{index}")
 
-    for child in node.children:
+    for child in node:
         plot_node(child, ax, index=index + 1, flip_y=flip_y)
 
 
@@ -56,11 +53,6 @@ if __name__ == "__main__":
         Box.BORDER: "solid",
         Box.MARGIN: "dashdot",
     }
-
-    """
-    NOTE:   There is an issue with rounding. For example, float borders and the calculated boxes will not line up.
-
-    """
 
     m, b, p = 30, 3, 10 * PCT
 
@@ -87,16 +79,8 @@ if __name__ == "__main__":
         ),
     )
 
-    # Which of these supports percentages:
-    #   Border, margin, padding ?
-    #   Enforce requirement
-
-    # THERE IS AN ISSUE WITH PERCENTAGES
-    # HOW DOES CSS/STRETCH INTERPRET PERCENTAGES
-    # If using
-
     w, h = 500, 500
-    layout = root.compute_layout(Size(w, h))
+    root.compute_layout(Size(w, h))
 
     print_layout(root, box_type=Box.MARGIN, relative=False)
 
@@ -111,5 +95,3 @@ if __name__ == "__main__":
     ax.axis("equal")
 
     plt.savefig("demos/example.jpg")
-
-    # %%

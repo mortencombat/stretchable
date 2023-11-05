@@ -19,17 +19,14 @@ filepath = Path(
     "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/aspect_ratio_flex_row_fill_max_height.html"
 )
 
+# Get layout using taffy
 xml = get_xml(filepath)
-
-# double clear could be caused by an exception in Python?
-
 node = Node.from_xml(xml, apply_node_measure)
 node.compute_layout(use_rounding=False)
-
 print_layout(node)
 
 
-# Render html with Chrome
+# Get layout using Chrome
 driver = webdriver.Chrome()
 driver.get("file://" + str(filepath))
 driver.implicitly_wait(0.5)

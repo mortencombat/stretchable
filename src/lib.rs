@@ -2,17 +2,20 @@
 // #![feature(dec2flt)]
 
 use core::panic;
+use log::{error, LevelFilter};
 use std::f32;
 
 extern crate dict_derive;
 use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
-
 // use pyo3::create_exception;
 // use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
+
+extern crate pyo3_log;
+use pyo3_log::{Caching, Logger};
 
 extern crate taffy;
 use taffy::node::MeasureFunc;
@@ -591,9 +594,21 @@ impl FromPyMeasure<MeasureFunc> for MeasureFunc {
                     available_width,
                     available_height,
                 );
-                let size: Vec<f32> = match measure.call1(py, args) {
+                let result = measure.call1(py, args);
+
+                let size: Vec<f32> = match result {
                     Ok(result) => result.extract(py).unwrap(),
-                    Err(_) => vec![f32::NAN, f32::NAN],
+                    Err(err) => {
+                        let traceback = match err.traceback(py) {
+                            Some(value) => match value.format() {
+                                Ok(tb) => format!("{}\n", tb),
+                                Err(_) => String::new(),
+                            },
+                            None => String::new(),
+                        };
+                        error!(target: "stretchable.taffylib", "Error in node `measure` (used `NAN, NAN` in place):\n{}{}", traceback, err);
+                        vec![f32::NAN, f32::NAN]
+                    }
                 };
 
                 // return result
@@ -639,7 +654,13 @@ unsafe fn node_remove_measure(taffy: i64, node: i64) {
 
 // for pyo3-pack, name must match module.
 #[pymodule]
-fn taffylib(_py: Python, m: &PyModule) -> PyResult<()> {
+fn taffylib(py: Python, m: &PyModule) -> PyResult<()> {
+    Logger::new(py, Caching::LoggersAndLevels)?
+        .filter(LevelFilter::Warn)
+        // .filter_target("stretchable::taffylib".to_owned(), LevelFilter::Warn)
+        .install()
+        .unwrap();
+
     m.add_wrapped(wrap_pyfunction!(init))?;
     m.add_wrapped(wrap_pyfunction!(free))?;
     m.add_wrapped(wrap_pyfunction!(enable_rounding))?;

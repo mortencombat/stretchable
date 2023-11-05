@@ -21,13 +21,13 @@ def measure_test(
 with Tree() as tree:
     tree.use_rounding = False
 
-    node_1 = Node(id="main")
+    node_1 = Node(key="main")
     tree.add(node_1)
-    node_2 = Node(id="header")
+    node_2 = Node(key="header")
     node_1.add(node_2)
-    node_3 = Node(id="body", size=Size(150, 200))
+    node_3 = Node(key="body", size=Size(150, 200))
     node_1.add(node_3)
-    node_4 = Node(id="footer")  # , measure=measure_test)
+    node_4 = Node(key="footer")  # , measure=measure_test)
     node_1.add(node_4)
 
     tree.compute_layout()

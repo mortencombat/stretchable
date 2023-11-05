@@ -8,9 +8,21 @@
 # from .node import Box, Layout, Node, reset
 # from .style import Rect, Size, Style
 
-from .core import Taffy
+from .node import Box, Layout, Node
 
-taffy = Taffy()
+__all__ = [
+    "Node",
+    "Box",
+    "Layout",
+]
 
-node_ptrs = []
-style_ptrs = []
+
+"""
+TODO:
+
+  - Implement __str__ for Node class
+  - Use __str__ from 1) in logger
+  - Support grid_[template/auto]_[rows/columns] in Style
+  - Script to download and process fixtures from taffy github? (LOW)
+
+"""

@@ -1,6 +1,6 @@
 from enum import IntEnum
 from math import isnan
-from typing import Any, Generic, Self, TypeVar, get_args
+from typing import Any, Generic, Optional, Self, TypeVar, get_args
 
 T = TypeVar("T")
 NAN = float("nan")
@@ -110,6 +110,21 @@ class LengthBase(Generic[T]):
 
     def to_dict(self) -> dict[str, int | float]:
         return dict(dim=self.scale.value, value=self.value)
+
+    def to_pts(self, container: Optional[float] = None) -> float:
+        match self.scale:
+            case Scale.POINTS:
+                return self.value
+            case Scale.PERCENT:
+                if container is None:
+                    raise ValueError(
+                        "Length scale is PERCENT, `container` dimension must be provided"
+                    )
+                return self.value * container
+            case scale:
+                raise ValueError(
+                    "Length with scale %s cannot be represented in PTS" % scale
+                )
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, LengthBase):
