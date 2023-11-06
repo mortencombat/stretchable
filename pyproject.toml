@@ -33,6 +33,7 @@ build = [
 test = [
     "pytest",
     "pytest-cache",
+    "pytest-cov",
     "hypothesis",
     "selenium",
     ]
