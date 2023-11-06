@@ -9,6 +9,7 @@ from xml.etree import ElementTree
 import pytest
 from icecream import ic
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -77,7 +78,9 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
 
 @pytest.fixture(scope="module")
 def driver():
-    driver = webdriver.Chrome()
+    options = Options()
+    options.headless = True
+    driver = webdriver.Chrome(options=options)
     yield driver
     driver.quit()
 
