@@ -80,6 +80,7 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
 def driver():
     options = Options()
     options.headless = True
+    options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options=options)
     yield driver
     driver.quit()

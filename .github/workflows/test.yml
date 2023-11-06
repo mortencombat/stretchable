@@ -1,0 +1,21 @@
+name: Run Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install software
+        run: sudo apt-get install -y chromium-browser
+      - name: Install the necessary packages
+        run: pip install .[test]
+      - name: Run tests
+        run: pytest --cov-report xml:coverage.xml --cov=stretchable --junit-xml tests.xml tests/
+        # TODO: If tests ran on main branch, process tests.xml and coverage.xml into badges
