@@ -3,8 +3,8 @@
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
 [![PyPI - Version](https://img.shields.io/pypi/v/stretchable)](https://pypi.org/project/stretchable/)
 [![GitHub issues](https://img.shields.io/github/issues/mortencombat/stretchable?logo=github)](https://github.com/mortencombat/stretchable/issues)
-[![pytest - results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
-[![Test coverage](https://gist.github.com/mortencombat/b121474745d15f92a295a0bdd7497529)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
+[![pytest - results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
+[![Test coverage](https://gist.github.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 
 **stretchable** is a layout library for Python that enables target-agnostic layout operations using CSS Grid and Flexbox. Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
 
