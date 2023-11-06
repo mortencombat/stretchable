@@ -7,19 +7,13 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
-from icecream import ic
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from stretchable.node import Node
-from stretchable.style.geometry.length import (
-    MAX_CONTENT,
-    MIN_CONTENT,
-    LengthAvailableSpace,
-    Scale,
-)
+from stretchable.style.geometry.length import LengthAvailableSpace, Scale
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
 logger = logging.getLogger("stretchable")
@@ -96,12 +90,8 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
 
     xml = get_xml(filepath)
 
-    # TODO: At the moment don't include fixtures that require measure
-    req_measure = requires_measure(ElementTree.fromstring(xml))
-    # if req_measure:
-    #     return
-
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
+    req_measure = requires_measure(ElementTree.fromstring(xml))
     node = Node.from_xml(xml, apply_node_measure) if req_measure else Node.from_xml(xml)
     node.compute_layout()
 
@@ -268,12 +258,6 @@ def measure_standard_text(
         inline_size = known_dimensions.height.value
         block_size = known_dimensions.width.value
     else:
-        ic(
-            available_space.height.scale,
-            aspect_ratio,
-            available_space.width.value,
-            available_space.height.value,
-        )
         if (
             available_space.height.scale == Scale.POINTS
             and aspect_ratio
@@ -289,12 +273,8 @@ def measure_standard_text(
         inline_size = known_dimensions.width.value
         block_size = known_dimensions.height.value
 
-    ic(inline_size)
-
     if math.isnan(inline_size):
-        ic(inline_space, inline_space.value, min_line_length, max_line_length, H_WIDTH)
         if inline_space.scale == Scale.MIN_CONTENT:
-            ic("MIN_CONTENT")
             inline_size = min_line_length * H_WIDTH
         elif inline_space.scale == Scale.MAX_CONTENT:
             inline_size = max_line_length * H_WIDTH
@@ -305,8 +285,6 @@ def measure_standard_text(
                 min(inline_space.value, max_line_length * H_WIDTH),
                 min_line_length * H_WIDTH,
             )
-
-    # ic(block_size)
 
     if math.isnan(block_size):
         inline_line_length = math.floor(inline_size / H_WIDTH)
@@ -328,8 +306,6 @@ def measure_standard_text(
         else (inline_size, block_size)
     )
 
-    # ic(width, height)
-
     # Reduce to available_space
     if (
         available_space.height.scale == Scale.POINTS
@@ -343,13 +319,6 @@ def measure_standard_text(
         width = available_space.width.value
 
     # NOTE: Not sure this aspect_ratio correction is correct in all cases!
-    # ic(
-    #     aspect_ratio,
-    #     width,
-    #     height,
-    #     available_space.width.value,
-    #     available_space.height.value,
-    # )
     if aspect_ratio:
         if (
             available_space.height.scale == Scale.POINTS
