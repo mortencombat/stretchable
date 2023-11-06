@@ -1,7 +1,7 @@
 # stretchable
 
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
 [![PyPI - Version](https://img.shields.io/pypi/v/stretchable)](https://pypi.org/project/stretchable/)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
 [![GitHub issues](https://img.shields.io/github/issues/mortencombat/stretchable?logo=github)](https://github.com/mortencombat/stretchable/issues)
 [![pytest - results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 [![Test coverage](https://gist.github.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
@@ -40,8 +40,6 @@ Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for dev
 ### Testing
 
 Install test dependencies and invoke `pytest`. Note that there are ~450 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~10 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
-
-**NOTE:** There is one test fixture `max_height_overrides_height_on_root` which is known to fail. This is related to node visibility, see [#43](https://github.com/mortencombat/stretchable/issues/43).
 
 ## License
 
