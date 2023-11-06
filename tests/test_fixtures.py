@@ -73,8 +73,16 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
 @pytest.fixture(scope="module")
 def driver():
     options = Options()
-    options.headless = True
-    options.add_argument("--disable-extensions")
+    for option in (
+        "--headless",
+        "--disable-gpu",
+        "--window-size=1920,1200",
+        "--ignore-certificate-errors",
+        "--disable-extensions",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+    ):
+        options.add_argument(option)
     driver = webdriver.Chrome(options=options)
     yield driver
     driver.quit()
