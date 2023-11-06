@@ -18,5 +18,30 @@ jobs:
       - name: Install the necessary packages
         run: pip install .[test]
       - name: Run tests
-        run: pytest --cov-report xml:.coverage.xml --cov=stretchable --junit-xml .tests.xml tests/
-        # TODO: If tests ran on main branch, process tests.xml and coverage.xml into badges
+        run: pytest --cov-report xml:reports/coverage.xml --cov=stretchable --junit-xml reports/junit.xml tests/
+        continue-on-error: true
+      - name: Upload pytest test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: pytest-results
+          path: reports/pytest.xml
+      - name: Generate badges
+        run: |
+          pip install genbadge defusedxml
+          genbadge tests --input-file ./reports/pytest.xml --output-file ./stretchable-tests.svg
+          genbadge coverage --input-file ./reports/coverage.xml --output-file ./stretchable-coverage.svg
+        if: github.ref == 'refs/heads/main'
+      - name: Upload test results badge to gist
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: 901f1f1190ba5aff13164ede9d4c249f
+          file_path: stretchable-tests.svg
+        if: github.ref == 'refs/heads/main'
+      - name: Upload coverage badge to gist
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: b121474745d15f92a295a0bdd7497529
+          file_path: stretchable-coverage.svg
+        if: github.ref == 'refs/heads/main'
