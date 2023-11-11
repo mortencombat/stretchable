@@ -63,6 +63,11 @@ class SizeBase(Generic[T]):
     def __str__(self) -> str:
         return f"Size(width={str(self.width)}, height={str(self.height)})"
 
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, SizeBase):
+            return False
+        return self.width == __value.width and self.height == __value.height
+
 
 class Size(SizeBase[Length]):
     pass

@@ -1,7 +1,10 @@
+from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import Self
 
 from attrs import define, field, validators
+
+from .geometry.length import LengthMaxTrackSize, LengthMinTrackSize
 
 # region Layout strategy/misc
 
@@ -220,6 +223,58 @@ class GridIndexType(IntEnum):
     AUTO = 0
     INDEX = 1
     SPAN = 2
+
+
+@define(frozen=True)
+class GridTrackSize:
+    min_size: LengthMinTrackSize
+    max_size: LengthMaxTrackSize
+
+    def to_dict(self) -> dict:
+        return dict(
+            min_size=LengthMinTrackSize.to_dict(),
+            max_size=LengthMaxTrackSize.to_dict(),
+        )
+
+
+class GridTrackRepetition(IntEnum):
+    AUTO_FIT = -1
+    AUTO_FILL = 0
+    COUNT = 1  # repeat_count
+
+
+class GridTrackSizing(ABC):
+    @abstractmethod
+    def to_dict(self) -> dict:
+        ...
+
+
+@define(frozen=True)
+class GridTrackSizingSingle(GridTrackSizing):
+    track: GridTrackSize
+
+    def to_dict(self) -> dict:
+        return dict(repetition=-2, single=self.track.to_dict(), repeat=[])
+
+
+@define(frozen=True)
+class GridTrackSizingRepeat(GridTrackSizing):
+    tracks: list[GridTrackSize]
+    repeat: GridTrackRepetition = field(default=GridTrackRepetition.AUTO_FILL)
+    repeat_count: int = field(kw_only=True, default=None)
+
+    def to_dict(self) -> dict:
+        if self.repeat == GridTrackRepetition.COUNT and self.repeat_count:
+            repetition = self.repeat_count
+        elif self.repeat != GridTrackRepetition.COUNT:
+            repetition = self.repeat
+        else:
+            repetition = GridTrackRepetition.AUTO_FILL
+        return dict(
+            repetition=repetition,
+            single=None,
+            repeat=[t.to_dict() for t in self.tracks],
+        )
 
 
 @define(frozen=True)

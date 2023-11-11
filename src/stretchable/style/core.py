@@ -17,6 +17,10 @@ from .props import (
     FlexWrap,
     GridAutoFlow,
     GridPlacement,
+    GridTrackSize,
+    GridTrackSizing,
+    GridTrackSizingRepeat,
+    GridTrackSizingSingle,
     JustifyContent,
     JustifyItems,
     JustifySelf,
@@ -116,20 +120,15 @@ class Style:
         default=AUTO, converter=LengthPointsPercentAuto.from_any
     )
 
-    # TODO: Grid container
+    # Grid container
     grid_auto_flow: GridAutoFlow = field(
         default=GridAutoFlow.ROW,
         validator=[validators.instance_of(GridAutoFlow)],
     )
-    # grid_template_rows (defines the width of the grid rows)
-    #   GridTrackVec<TrackSizingFunction>
-    # grid_template_columns (defines the heights of the grid columns)
-    #   GridTrackVec<TrackSizingFunction>
-    # grid_auto_rows (defines the size of implicitly created rows)
-    #   GridTrackVec<NonRepeatedTrackSizingFunction>
-    # grid_auto_columns (defines the size of implicitly created columns)
-    #   GridTrackVec<NonRepeatedTrackSizingFunction>
-    # GridTrackVec: A vector of grid tracks (defined in taffy::util::sys)
+    grid_template_rows: list[GridTrackSizing] = field(factory=list)
+    grid_template_columns: list[GridTrackSizing] = field(factory=list)
+    grid_auto_rows: list[GridTrackSize] = field(factory=list)
+    grid_auto_columns: list[GridTrackSize] = field(factory=list)
 
     # Grid child
     grid_row: GridPlacement = field(
@@ -165,11 +164,11 @@ class Style:
             self.flex_shrink,
             self.flex_basis.to_dict(),
             # Grid container
+            [e.to_dict() for e in self.grid_template_rows.to_dict],
+            [e.to_dict() for e in self.grid_template_columns.to_dict],
+            [e.to_dict() for e in self.grid_auto_rows.to_dict],
+            [e.to_dict() for e in self.grid_auto_columns.to_dict],
             self.grid_auto_flow,
-            # grid_template_rows
-            # grid_template_columns
-            # grid_auto_rows
-            # grid_auto_columns
             # Grid child
             self.grid_row.to_dict(),
             self.grid_column.to_dict(),

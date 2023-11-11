@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import logging
 import re
 from enum import StrEnum, auto
 from typing import Callable, Iterable, Optional, Self, SupportsIndex
 from xml.etree import ElementTree
 
+import attrs
 from attrs import define
 
 from . import taffylib
@@ -15,8 +18,8 @@ from .exceptions import (
     TaffyUnavailableError,
 )
 from .style import Display, Rect, Style
-from .style.geometry.length import NAN, LengthAvailableSpace, Scale
-from .style.geometry.size import SizeAvailableSpace, SizePoints
+from .style.geometry.length import AUTO, NAN, LengthAvailableSpace, Scale
+from .style.geometry.size import SizeAvailableSpace, SizePoints, SizePointsPercentAuto
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
@@ -26,6 +29,8 @@ _valid_key = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9
 
 MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 
+USE_ROOT_CONTAINER: bool = True
+
 
 class Box(StrEnum):
     CONTENT = auto()  # Innermost box, corresponding to inside of padding
@@ -34,16 +39,45 @@ class Box(StrEnum):
     MARGIN = auto()  # Outside of margin
 
 
-@define
+@define(frozen=True)
 class Layout:
     x: float
     y: float
     width: float
     height: float
 
+    def scale(
+        self,
+        offsets: Rect,
+        container: Layout = None,
+        *,
+        factor: float = 1,
+    ) -> Layout:
+        """
+        Adjusts layout by the provided offsets.
 
-# TODO:
-#   Add parent
+        :param offsets: The offsets to use (typically margin, border or padding)
+        :type offsets: Rect
+        :param container: The container to use in case of percentage offsets, defaults to None
+        :type container: Layout, optional
+        :param factor: The factor to apply to offsets (positive value expands, negative value contracts), defaults to 1
+        :type factor: float
+        :return: Adjusted layout
+        :rtype: Layout
+        """
+
+        container = container.width if container else None
+        left = offsets.left.to_pts(container)
+        right = offsets.right.to_pts(container)
+        top = offsets.top.to_pts(container)
+        bottom = offsets.bottom.to_pts(container)
+
+        return Layout(
+            self.x - factor * left,
+            self.y - factor * top,
+            self.width + factor * (left + right),
+            self.height + factor * (top + bottom),
+        )
 
 
 class Node(list["Node"]):
@@ -53,6 +87,8 @@ class Node(list["Node"]):
         "_children",
         "_measure",
         "_layout",
+        "_container",
+        "_view",
         "_zorder",
         "_parent",
         "__ptr",
@@ -87,6 +123,7 @@ class Node(list["Node"]):
         self._layout = None
         self._zorder = None
         self._parent = None
+        self._container: Node = None
         self._measure = measure
 
         # Style
@@ -217,15 +254,6 @@ class Node(list["Node"]):
             node.parent = self
             super().__setitem__(index, node)
 
-        # assert __index >= 0 and __index < len(self)
-        # if not taffy._ptr:
-        #     raise TaffyUnavailableError
-
-        # self[__index].parent = None
-        # taffylib.node_replace_child_at_index(taffy._ptr, self._ptr, __index, node._ptr)
-        # node.parent = self
-        # super().__setitem__(__index, node)
-
     # endregion
 
     # region Key/locator
@@ -355,35 +383,23 @@ class Node(list["Node"]):
         if self.parent and not self.parent.is_visible:
             return False
         if self.style.display == Display.NONE:
-            # logger.debug("(%s) Display.NONE => not visible", self._ptr)
             return False
         if self.is_dirty:
             raise LayoutNotComputedError(
                 "Cannot determine if node is visible, layout is not computed"
             )
-        # if self._layout.width <= 0 and len(self) == 0:
-        # if self._layout.width <= 0 and self._layout.height <= 0 and len(self) == 0:
         if (
             (self._layout.width <= 0 or self._layout.height <= 0)
             and len(self) == 0
             and not self.is_root
         ):
             # Box is zero-sized with no children
-            # logger.debug(
-            #     "(%s) zero-sized with no children, width %s, height %s => not visible",
-            #     self._ptr,
-            #     self._layout.width,
-            #     self._layout.height,
-            # )
             return False
         if (
             self._layout.y + self._layout.height < 0
             or self._layout.x + self._layout.width < 0
         ):
-            # Box is outside
-            # logger.debug(
-            #     "(%s) box is outside visible area => not visible", self._ptr
-            # )
+            # Box is outside canvas
             return False
 
         return True
@@ -436,7 +452,7 @@ class Node(list["Node"]):
 
     def compute_layout(
         self,
-        available_space: Optional[SizeAvailableSpace] = None,
+        available_space: Optional[SizeAvailableSpace | tuple[float, float]] = None,
         *,
         use_rounding: bool = False,
     ) -> bool:
@@ -445,18 +461,32 @@ class Node(list["Node"]):
 
         if not available_space:
             available_space = SizeAvailableSpace.default()
+        elif not isinstance(available_space, SizeAvailableSpace):
+            available_space = SizeAvailableSpace(*available_space)
 
-        if self.root.has_auto_margin:
-            logger.warn(
-                "It is not recommended to use AUTO margins on the root node. You will not be able to use get_layout(flip_y = True)"
-            )
+        if USE_ROOT_CONTAINER and self.is_root:
+            # If this is a root node, use a container node to be able to get the
+            # position (x, y) of the root node relative to the 'canvas' (as
+            # specified using available_space parameter).
+            if self._container:
+                self._container.size = available_space
+            else:
+                self._container = Container(self, available_space)
+            ptr = self._container._ptr
+        else:
+            ptr = self._ptr
 
         taffy.use_rounding = use_rounding
         result = taffylib.node_compute_layout(
-            taffy._ptr, self._ptr, available_space.to_dict()
+            taffy._ptr, ptr, available_space.to_dict()
         )
-        if result:
-            self._update_layout()
+        if not result:
+            return False
+
+        # Update layout of this node, child nodes and container, if applicable
+        self._update_layout()
+        if USE_ROOT_CONTAINER and self.is_root:
+            self._container._update_layout()
 
         return result
 
@@ -484,47 +514,21 @@ class Node(list["Node"]):
             for child in self:
                 child._update_layout()
 
-    @staticmethod
-    def _scale_box(
-        x: float,
-        y: float,
-        width: float,
-        height: float,
-        rect: Rect,
-        container: Layout = None,
-        *,
-        factor: float = 1.0,
-    ) -> tuple[float, float, float, float]:
-        """
-        Returns deltas from rect, converted to floats, using container dimensions in case of percentage values.
-        Values returned correspond to: start, end, top, bottom (same as rect).
-
-        A positive factor expands, negative factor contracts.
-        """
-
-        container = container.width if container else None
-        left = rect.left.to_pts(container)
-        right = rect.right.to_pts(container)
-        top = rect.top.to_pts(container)
-        bottom = rect.bottom.to_pts(container)
-
-        return (
-            x - factor * left,
-            y - factor * top,
-            width + factor * (left + right),
-            height + factor * (top + bottom),
-        )
-
     @property
     def has_auto_margin(self) -> bool:
         if not self.style.margin:
             return False
         return (
             self.style.margin.top.scale == Scale.AUTO
-            or self.style.margin.right == Scale.AUTO
-            or self.style.margin.bottom == Scale.AUTO
-            or self.style.margin.left == Scale.AUTO
+            or self.style.margin.right.scale == Scale.AUTO
+            or self.style.margin.bottom.scale == Scale.AUTO
+            or self.style.margin.left.scale == Scale.AUTO
         )
+
+    @property
+    def layout(self) -> Layout:
+        """The computed layout (position and size) of the nodes `border` box relative to the parent."""
+        return self._layout
 
     def get_layout(
         self,
@@ -535,6 +539,9 @@ class Node(list["Node"]):
     ) -> Layout:
         """
         Get the computed layout (position and size) for the node.
+
+        For a description of the box model, see:
+        https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
 
         :param box: The box/edge, defaults to Box.BORDER
         :type box: Box, optional
@@ -552,8 +559,11 @@ class Node(list["Node"]):
         :rtype: Layout
         """
 
-        # https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
-        if box == Box.MARGIN and self.has_auto_margin:
+        if (
+            box == Box.MARGIN
+            and self.has_auto_margin
+            and (not self.is_root or not USE_ROOT_CONTAINER)
+        ):
             raise ValueError(
                 "Calculating the layout for Box.MARGIN is not currently supported with AUTO margins"
             )
@@ -561,21 +571,17 @@ class Node(list["Node"]):
         if self.is_dirty:
             raise LayoutNotComputedError
 
-        # self._layout => BORDER box (outside of box border)
-
+        layout = self.layout
         if box == Box.BORDER and relative and not flip_y:
-            return self._layout
-
-        x, y, w, h = (
-            self._layout.x,
-            self._layout.y,
-            self._layout.width,
-            self._layout.height,
-        )
+            return layout
 
         # NOTE: Consider if/how box_parent can be reused in some scenarios and refactor
+        # Generally consider caching of layouts
+        # Remember to reset cache on compute_layout
 
-        if box != Box.BORDER:
+        if USE_ROOT_CONTAINER and self.is_root and box == Box.MARGIN:
+            layout = self._container.layout
+        elif box != Box.BORDER:
             # Expand or contract:
             #   Box.CONTENT: -border -padding
             #   Box.PADDING: -border
@@ -594,25 +600,27 @@ class Node(list["Node"]):
                 actions = ((self.style.margin, 1),)
 
             box_parent = self._parent.get_layout(Box.BORDER) if self._parent else None
-            for rect, factor in actions:
-                x, y, w, h = Node._scale_box(
-                    x, y, w, h, rect, box_parent, factor=factor
-                )
+            for offsets, factor in actions:
+                layout = layout.scale(offsets, box_parent, factor=factor)
 
         if not relative and self._parent:
             box_parent = self._parent.get_layout(Box.BORDER, relative=False)
-            x += box_parent.x
-            y += box_parent.y
+            layout = attrs.evolve(
+                layout, x=layout.x + box_parent.x, y=layout.y + box_parent.y
+            )
 
         if flip_y:
-            box_ref = (
-                self.parent.get_layout(Box.CONTENT)
-                if relative
-                else self.root.get_layout(Box.MARGIN)
+            if relative:
+                layout_ref = self.parent.get_layout(Box.CONTENT)
+            elif USE_ROOT_CONTAINER:
+                layout_ref = self.root._container.layout
+            else:
+                layout_ref = self.root.layout
+            layout = attrs.evolve(
+                layout, y=layout_ref.height - layout.y - layout.height
             )
-            y = box_ref.height - y - h
 
-        return Layout(x, y, w, h)
+        return layout
 
     # endregion
 
@@ -640,3 +648,96 @@ class Node(list["Node"]):
         for child in element:
             node.add(Node._from_xml(child, customize))
         return node
+
+
+class Container:
+    __slots__ = ("_size", "__ptr", "_style", "_root", "_layout")
+
+    def __init__(self, root: Node, size: Optional[SizeAvailableSpace] = None):
+        self.__ptr = None
+        if not taffy._ptr:
+            raise TaffyUnavailableError
+
+        self._layout = None
+        self._size = None
+        self.size = size
+        self._root = root
+
+        # Create node in taffy
+        self.__ptr = taffylib.node_create(taffy._ptr, self._style._ptr)
+        logger.debug(
+            "node_create(taffy: %s, style: %s) -> %s",
+            taffy._ptr,
+            self._style._ptr,
+            self.__ptr,
+        )
+        # Add root node as child of this node
+        taffylib.node_add_child(taffy._ptr, self._ptr, root._ptr)
+
+    def _update_layout(self) -> None:
+        # NOTE: Since this container node has no margins, border and padding, this layout corresponds to all the boxes.
+
+        layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
+        x = layout["left"]
+        y = layout["top"]
+        width = layout["width"]
+        height = layout["height"]
+        logger.debug(
+            "node_get_layout(taffy: %s, node: %s [container]) -> (left: %s, top: %s, width: %s, height: %s)",
+            taffy._ptr,
+            self._ptr,
+            x,
+            y,
+            width,
+            height,
+        )
+
+        # Expand box to contain the root node
+        root_width = (
+            self._root.layout.x
+            + self._root.layout.width
+            + self._root.style.margin.right.to_pts(width)
+            if width and self._root.style.margin.right.scale != Scale.AUTO
+            else 0
+        )
+        if root_width > width:
+            width = root_width
+        root_height = (
+            self._root.layout.y
+            + self._root.layout.height
+            + self._root.style.margin.bottom.to_pts(width)
+            if width and self._root.style.margin.bottom.scale != Scale.AUTO
+            else 0
+        )
+        if root_height > height:
+            height = root_height
+        self._layout = Layout(x, y, width, height)
+        logger.debug("container dimensions: %s x %s", root_width, root_height)
+
+    @property
+    def layout(self) -> Layout:
+        return self._layout
+
+    @property
+    def _ptr(self) -> int:
+        return self.__ptr
+
+    @property
+    def size(self) -> SizeAvailableSpace:
+        return self._size
+
+    @size.setter
+    def size(self, value: SizeAvailableSpace) -> None:
+        if value == self._size:
+            return
+        if self._ptr and not taffy._ptr:
+            raise TaffyUnavailableError
+        self._size = value
+        self._style = Style(
+            size=SizePointsPercentAuto(
+                width=value.width if value.width.scale == Scale.POINTS else AUTO,
+                height=value.height if value.height.scale == Scale.POINTS else AUTO,
+            )
+        )
+        if self._ptr:
+            taffylib.node_set_style(taffy._ptr, self._ptr, self._style._ptr)

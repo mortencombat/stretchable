@@ -12,6 +12,11 @@ class Scale(IntEnum):
     PERCENT = 2
     MIN_CONTENT = 3
     MAX_CONTENT = 4
+    # For track size, see:
+    # <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
+    FIT_CONTENT_POINTS = 5
+    FIT_CONTENT_PERCENT = 6
+    FRACTION = 7
 
 
 class Points(IntEnum):
@@ -33,6 +38,25 @@ class AvailableSpace(IntEnum):
     DEFINITE = Scale.POINTS
     MIN_CONTENT = Scale.MIN_CONTENT
     MAX_CONTENT = Scale.MAX_CONTENT
+
+
+class MinTrackSize(IntEnum):
+    POINTS = Scale.POINTS
+    PERCENT = Scale.PERCENT
+    MIN_CONTENT = Scale.MIN_CONTENT
+    MAX_CONTENT = Scale.MAX_CONTENT
+    AUTO = Scale.AUTO
+
+
+class MaxTrackSize(IntEnum):
+    POINTS = Scale.POINTS
+    PERCENT = Scale.PERCENT
+    MIN_CONTENT = Scale.MIN_CONTENT
+    MAX_CONTENT = Scale.MAX_CONTENT
+    FIT_CONTENT_POINTS = Scale.FIT_CONTENT_POINTS
+    FIT_CONTENT_PERCENT = Scale.FIT_CONTENT_PERCENT
+    AUTO = Scale.AUTO
+    FRACTION = Scale.FRACTION
 
 
 # @define(frozen=True)
@@ -243,6 +267,14 @@ class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
     @staticmethod
     def default() -> Self:
         return LengthPointsPercentAuto(PointsPercentAuto.AUTO, NAN)
+
+
+class LengthMinTrackSize(LengthBase[MinTrackSize]):
+    ...
+
+
+class LengthMaxTrackSize(LengthBase[MaxTrackSize]):
+    ...
 
 
 AUTO = Length(Scale.AUTO)

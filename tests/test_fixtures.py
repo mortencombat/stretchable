@@ -51,6 +51,7 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
         "tests/fixtures/**/*.html",
     ]
     files = [
+        # "tests/fixtures/flex/margin_auto_right.html",
         # "tests/fixtures/taffy/undefined_height_with_min_max.html",
     ]
     cwd = os.getcwd()
