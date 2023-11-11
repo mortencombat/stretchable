@@ -15,7 +15,7 @@ from .exceptions import (
     TaffyUnavailableError,
 )
 from .style import Display, Rect, Style
-from .style.geometry.length import NAN, LengthAvailableSpace
+from .style.geometry.length import NAN, LengthAvailableSpace, Scale
 from .style.geometry.size import SizeAvailableSpace, SizePoints
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
@@ -446,6 +446,11 @@ class Node(list["Node"]):
         if not available_space:
             available_space = SizeAvailableSpace.default()
 
+        if self.root.has_auto_margin:
+            logger.warn(
+                "It is not recommended to use AUTO margins on the root node. You will not be able to use get_layout(flip_y = True)"
+            )
+
         taffy.use_rounding = use_rounding
         result = taffylib.node_compute_layout(
             taffy._ptr, self._ptr, available_space.to_dict()
@@ -510,20 +515,55 @@ class Node(list["Node"]):
             height + factor * (top + bottom),
         )
 
+    @property
+    def has_auto_margin(self) -> bool:
+        if not self.style.margin:
+            return False
+        return (
+            self.style.margin.top.scale == Scale.AUTO
+            or self.style.margin.right == Scale.AUTO
+            or self.style.margin.bottom == Scale.AUTO
+            or self.style.margin.left == Scale.AUTO
+        )
+
     def get_layout(
         self,
-        box_type: Box = Box.BORDER,
+        box: Box = Box.BORDER,
         *,
         relative: bool = True,
         flip_y: bool = False,
     ) -> Layout:
+        """
+        Get the computed layout (position and size) for the node.
+
+        :param box: The box/edge, defaults to Box.BORDER
+        :type box: Box, optional
+        :param relative: Determines if returned position is relative to parent
+            (True, the default) or relative to the root (False)
+        :type relative: bool, optional
+        :param flip_y: Determines if the vertical position (y) is measured from
+            the top (False, the default), or from the bottom (True)
+        :type flip_y: bool, optional
+        :raises ValueError: If box = Box.MARGIN is requested with AUTO margins,
+            since this is currently not supported
+        :raises LayoutNotComputedError: If the layout is not computed before
+            requesting the layout
+        :return: The computed layout
+        :rtype: Layout
+        """
+
         # https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
+        if box == Box.MARGIN and self.has_auto_margin:
+            raise ValueError(
+                "Calculating the layout for Box.MARGIN is not currently supported with AUTO margins"
+            )
+
         if self.is_dirty:
             raise LayoutNotComputedError
 
         # self._layout => BORDER box (outside of box border)
 
-        if box_type == Box.PADDING and relative and not flip_y:
+        if box == Box.BORDER and relative and not flip_y:
             return self._layout
 
         x, y, w, h = (
@@ -535,35 +575,29 @@ class Node(list["Node"]):
 
         # NOTE: Consider if/how box_parent can be reused in some scenarios and refactor
 
-        if box_type != Box.BORDER:
+        if box != Box.BORDER:
             # Expand or contract:
-            #   BoxType.CONTENT: -border -padding
-            #   BoxType.PADDING: -border
-            #   BoxType.BORDER: (none)
-            #   BoxType.MARGIN: +margin
+            #   Box.CONTENT: -border -padding
+            #   Box.PADDING: -border
+            #   Box.BORDER: (none)
+            #   Box.MARGIN: +margin
             # Padding, border and margin are defined in Style.
-            # Points can be used directly. Percentages need to converted based on container dimension.
-            # (which container dimension/box?)
 
-            if box_type == Box.CONTENT:
+            if box == Box.CONTENT:
                 actions = (
                     (self.style.border, -1),
                     (self.style.padding, -1),
                 )
-            elif box_type == Box.PADDING:
+            elif box == Box.PADDING:
                 actions = ((self.style.border, -1),)
-            elif box_type == Box.MARGIN:
+            elif box == Box.MARGIN:
                 actions = ((self.style.margin, 1),)
 
             box_parent = self._parent.get_layout(Box.BORDER) if self._parent else None
-            # print("BoxType:", box_type)
             for rect, factor in actions:
-                # print(f"  {factor=} {rect}")
-                # print(f"    {x=} {y=} {w=} {h=} ->")
                 x, y, w, h = Node._scale_box(
                     x, y, w, h, rect, box_parent, factor=factor
                 )
-                # print(f"    -> {x=} {y=} {w=} {h=}")
 
         if not relative and self._parent:
             box_parent = self._parent.get_layout(Box.BORDER, relative=False)
@@ -572,9 +606,9 @@ class Node(list["Node"]):
 
         if flip_y:
             box_ref = (
-                self._parent.get_layout(Box.CONTENT)
+                self.parent.get_layout(Box.CONTENT)
                 if relative
-                else self._root.get_layout(Box.MARGIN)
+                else self.root.get_layout(Box.MARGIN)
             )
             y = box_ref.height - y - h
 

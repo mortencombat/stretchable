@@ -12,7 +12,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from stretchable.node import Node
+from stretchable.node import Box, Layout, Node
 from stretchable.style.geometry.length import LengthAvailableSpace, Scale
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
@@ -134,6 +134,43 @@ def get_xml(filepath: Path) -> str:
     return xml
 
 
+def get_css_values(node: WebElement, prop: str) -> tuple[float, float, float, float]:
+    """Returns a tuple of 4 flots corresponding to the widths of either margin, border or padding CSS properties."""
+    values = []
+    for edge in ("top", "right", "bottom", "left"):
+        propname = f"{prop}-{edge}"
+        if prop == "border":
+            propname += "-width"
+        values.append(float(node.value_of_css_property(propname).strip().rstrip("px")))
+    return values
+
+
+def apply_css_values(node: WebElement, layout: Layout, prop: str, k: float) -> Layout:
+    """Applies CSS margin/border/padding to `layout` with a specified factor `k`."""
+    values = []
+    values = get_css_values(node, prop)
+    return Layout(
+        layout.x + k * values[3],
+        layout.y + k * values[0],
+        layout.width - k * (values[1] + values[3]),
+        layout.height - k * (values[0] + values[2]),
+    )
+
+
+def get_layout_expected(node: WebElement, box: Box) -> Layout:
+    layout = Layout(**node.rect)
+    if box == Box.MARGIN:
+        # Expand by margin
+        layout = apply_css_values(node, layout, "margin", -1)
+    if box == Box.PADDING or box == Box.CONTENT:
+        # Contract by border
+        layout = apply_css_values(node, layout, "border", 1)
+    if box == Box.CONTENT:
+        # Contract by padding
+        layout = apply_css_values(node, layout, "padding", 1)
+    return layout
+
+
 def assert_node_layout(
     node_actual: Node,
     node_expected: WebElement,
@@ -144,17 +181,26 @@ def assert_node_layout(
         visible == node_actual.is_visible
     ), f"[{fixture}] Expected {visible=}, got {node_actual.is_visible}"
     if visible:
-        # Assert position of node
-        for param in ("x", "y", "width", "height"):
-            rect_actual = node_actual.get_layout(relative=False)
-            v_act = round(
-                getattr(rect_actual, param), 1 if param == "x" or param == "y" else 0
-            )
-            v_exp = round(node_expected.rect[param], 1)
+        for box in Box:
+            if box == Box.MARGIN and node_actual.has_auto_margin:
+                # Taffy does not expose calculated/applied margins, and
+                # stretchable does not offer to calculate the margin box for
+                # 'auto' margins.
+                continue
+            rect_expected = get_layout_expected(node_expected, box)
+            rect_actual = node_actual.get_layout(box=box, relative=False)
 
-            assert (
-                v_act == v_exp
-            ), f"[{fixture}] Expected {param}={v_exp:.4f}, got {v_act:.4f}"
+            # Assert position of node
+            for param in ("x", "y", "width", "height"):
+                v_act = round(
+                    getattr(rect_actual, param),
+                    1 if param == "x" or param == "y" else 0,
+                )
+                v_exp = round(getattr(rect_expected, param), 1)
+
+                assert (
+                    v_act == v_exp
+                ), f"[{fixture}/{box._name_}] Expected {param}={v_exp:.4f}, got {v_act:.4f}"
 
     # Assert positions of child nodes
     children = node_expected.find_elements(by=By.XPATH, value="*")

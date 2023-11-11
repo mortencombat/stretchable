@@ -9,21 +9,15 @@ def print_layout(
     node: Node,
     level: int = 0,
     *,
-    box_type: Box = Box.BORDER,
     relative: bool = True,
 ):
-    # if not node.is_visible:
-    #     return
-    box = node.get_layout(box_type, relative=relative)
-    print(
-        " " * level
-        + box_type._name_
-        + ": "
-        + str(box)
-        + f" (visible: {node.is_visible})"
-    )
+    print(" " * level + "Visible: " + str(node.is_visible))
+    print(node.style.margin, node.style.border, node.style.padding)
+    for box in Box:
+        layout = node.get_layout(box, relative=relative)
+        print(" " * level + box._name_ + ": " + str(layout))
     for child in node:
-        print_layout(child, level + 2, box_type=box_type, relative=relative)
+        print_layout(child, level + 2, relative=relative)
 
 
 def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
@@ -82,7 +76,7 @@ if __name__ == "__main__":
     w, h = 500, 500
     root.compute_layout(Size(w, h))
 
-    print_layout(root, box_type=Box.MARGIN, relative=False)
+    print_layout(root, relative=False)
 
     fig, ax = plt.subplots(figsize=(420 / 25.4, 297 / 25.4))
 
