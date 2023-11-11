@@ -6,7 +6,7 @@
 [![pytest - results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 [![Test coverage](https://gist.github.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 
-**stretchable** is a layout library for Python that enables target-agnostic layout operations using CSS Grid and Flexbox. Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
+**stretchable** is a layout library for Python that enables context-agnostic layout operations using CSS Grid and Flexbox. Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
 
 It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Grid/Flexbox written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy.
 
@@ -17,7 +17,7 @@ Helpful resources to getting started with layouts using CSS Grid and Flexbox are
 ### Flexbox
 
 - [Flexbox Froggy](https://flexboxfroggy.com/). This is an interactive tutorial/game that allows you to learn the essential parts of Flexbox in a fun engaging way.
-- [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different Flexbox properties and how they work.
+- [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
 - [Yoga Playground](https://yogalayout.com/playground)
 
 ### CSS Grid
