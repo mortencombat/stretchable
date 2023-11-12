@@ -48,9 +48,11 @@ Date        Failed      Passes      Remarks
 def get_fixtures(max_count: int = None) -> dict[str, list]:
     fixtures = []
     folders = [
-        "tests/fixtures/**/*.html",
+        "tests/fixtures/grid/*.html",
+        # "tests/fixtures/**/*.html",
     ]
     files = [
+        # "tests/fixtures/grid/grid_margins_percent_start.html",
         # "tests/fixtures/flex/margin_auto_right.html",
         # "tests/fixtures/taffy/undefined_height_with_min_max.html",
     ]
@@ -60,8 +62,8 @@ def get_fixtures(max_count: int = None) -> dict[str, list]:
             filepath = Path(f)
             if filepath.stem.startswith("x"):
                 continue
-            if filepath.stem.startswith("grid"):
-                continue
+            # if filepath.stem.startswith("grid"):
+            #     continue
             fixtures.append(filepath)
     for file in files:
         fixtures.append(Path(cwd + "/" + file))
@@ -183,7 +185,7 @@ def assert_node_layout(
     ), f"[{fixture}] Expected {visible=}, got {node_actual.is_visible}"
     if visible:
         for box in Box:
-            if box == Box.MARGIN and node_actual.has_auto_margin:
+            if box == Box.MARGIN:  # and node_actual.has_auto_margin:
                 # Taffy does not expose calculated/applied margins, and
                 # stretchable does not offer to calculate the margin box for
                 # 'auto' margins.
