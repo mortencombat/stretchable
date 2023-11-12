@@ -353,14 +353,14 @@ impl FromIndex<GridTrackRepetition> for GridTrackRepetition {
 #[derive(FromPyObject, IntoPyObject)]
 pub struct PyGridTrackSizing {
     repetition: i32,
-    single: PyGridTrackSize,
+    single: Option<PyGridTrackSize>,
     repeat: Vec<PyGridTrackSize>,
 }
 
 impl From<PyGridTrackSizing> for TrackSizingFunction {
     fn from(value: PyGridTrackSizing) -> TrackSizingFunction {
         if value.repetition == -2 {
-            TrackSizingFunction::Single(NonRepeatedTrackSizingFunction::from(value.single))
+            TrackSizingFunction::Single(NonRepeatedTrackSizingFunction::from(value.single.unwrap()))
         } else {
             TrackSizingFunction::Repeat(
                 GridTrackRepetition::from_index(value.repetition),

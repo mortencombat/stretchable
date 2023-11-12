@@ -29,7 +29,7 @@ _valid_key = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9
 
 MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 
-USE_ROOT_CONTAINER: bool = True
+USE_ROOT_CONTAINER: bool = False
 
 
 class Box(StrEnum):
