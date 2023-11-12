@@ -4,7 +4,6 @@ from enum import Enum, IntEnum
 from typing import Any, Iterable, Self
 
 from attrs import define, field, validators
-from icecream import ic
 
 from .. import taffylib
 from .geometry import length, rect
