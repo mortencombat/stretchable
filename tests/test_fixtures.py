@@ -48,11 +48,10 @@ Date        Failed      Passes      Remarks
 def get_fixtures(max_count: int = None) -> dict[str, list]:
     fixtures = []
     folders = [
-        "tests/fixtures/grid/*.html",
-        # "tests/fixtures/**/*.html",
+        # "tests/fixtures/grid/*.html",
+        "tests/fixtures/**/*.html",
     ]
     files = [
-        # "tests/fixtures/grid/grid_margins_percent_start.html",
         # "tests/fixtures/flex/margin_auto_right.html",
         # "tests/fixtures/taffy/undefined_height_with_min_max.html",
     ]
