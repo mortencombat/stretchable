@@ -321,6 +321,88 @@ impl From<PyGridPlacement> for Line<GridPlacement> {
     }
 }
 
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyGridTrackSize {
+    min_size: PyLength,
+    max_size: PyLength,
+}
+
+impl From<PyGridTrackSize> for NonRepeatedTrackSizingFunction {
+    fn from(size: PyGridTrackSize) -> NonRepeatedTrackSizingFunction {
+        NonRepeatedTrackSizingFunction {
+            min: MinTrackSizingFunction::from(size.min_size),
+            max: MaxTrackSizingFunction::from(size.max_size),
+        }
+    }
+}
+
+impl FromIndex<GridTrackRepetition> for GridTrackRepetition {
+    fn from_index(index: i32) -> GridTrackRepetition {
+        if index == -1 {
+            GridTrackRepetition::AutoFit
+        } else if index == 0 {
+            GridTrackRepetition::AutoFill
+        } else if index > 0 {
+            GridTrackRepetition::Count(index as u16)
+        } else {
+            panic!("invalid index {}", index)
+        }
+    }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyGridTrackSizing {
+    repetition: i32,
+    single: Option<PyGridTrackSize>,
+    repeat: Vec<PyGridTrackSize>,
+}
+
+impl From<PyGridTrackSizing> for TrackSizingFunction {
+    fn from(value: PyGridTrackSizing) -> TrackSizingFunction {
+        if value.repetition == -2 {
+            TrackSizingFunction::Single(NonRepeatedTrackSizingFunction::from(value.single.unwrap()))
+        } else {
+            TrackSizingFunction::Repeat(
+                GridTrackRepetition::from_index(value.repetition),
+                value
+                    .repeat
+                    .into_iter()
+                    .map(|e| NonRepeatedTrackSizingFunction::from(e))
+                    .collect(),
+            )
+        }
+    }
+}
+
+impl From<PyLength> for MinTrackSizingFunction {
+    fn from(length: PyLength) -> MinTrackSizingFunction {
+        match length.dim {
+            0 => MinTrackSizingFunction::Auto,
+            1 => MinTrackSizingFunction::Fixed(LengthPercentage::Points(length.value)),
+            2 => MinTrackSizingFunction::Fixed(LengthPercentage::Percent(length.value)),
+            3 => MinTrackSizingFunction::MinContent,
+            4 => MinTrackSizingFunction::MaxContent,
+            _ => panic!("unsupported dimension {}", length.dim),
+        }
+    }
+}
+
+impl From<PyLength> for MaxTrackSizingFunction {
+    fn from(length: PyLength) -> MaxTrackSizingFunction {
+        match length.dim {
+            0 => MaxTrackSizingFunction::Auto,
+            1 => MaxTrackSizingFunction::Fixed(LengthPercentage::Points(length.value)),
+            2 => MaxTrackSizingFunction::Fixed(LengthPercentage::Percent(length.value)),
+            3 => MaxTrackSizingFunction::MinContent,
+            4 => MaxTrackSizingFunction::MaxContent,
+            5 => MaxTrackSizingFunction::FitContent(LengthPercentage::Points(length.value)),
+            6 => MaxTrackSizingFunction::FitContent(LengthPercentage::Percent(length.value)),
+            7 => MaxTrackSizingFunction::Fraction(length.value),
+            _ => panic!("unsupported dimension {}", length.dim),
+        }
+    }
+}
+
 #[pyfunction]
 fn style_drop(style_ptr: usize) {
     let _style = unsafe { Box::from_raw(style_ptr as *mut Style) };
@@ -349,8 +431,13 @@ fn style_create(
     flex_grow: f32,
     flex_shrink: f32,
     flex_basis: PyLength,
-    // Grid
+    // Grid container properties
+    grid_template_rows: Vec<PyGridTrackSizing>,
+    grid_template_columns: Vec<PyGridTrackSizing>,
+    grid_auto_rows: Vec<PyGridTrackSize>,
+    grid_auto_columns: Vec<PyGridTrackSize>,
     grid_auto_flow: i32,
+    // Grid child properties
     grid_row: PyGridPlacement,
     grid_column: PyGridPlacement,
     // Size, optional
@@ -392,8 +479,25 @@ fn style_create(
         flex_grow: flex_grow,
         flex_shrink: flex_shrink,
         flex_basis: Dimension::from(flex_basis),
-        // Grid
+        // Grid container properties
+        grid_template_rows: grid_template_rows
+            .into_iter()
+            .map(|e| TrackSizingFunction::from(e))
+            .collect(),
+        grid_template_columns: grid_template_columns
+            .into_iter()
+            .map(|e| TrackSizingFunction::from(e))
+            .collect(),
+        grid_auto_rows: grid_auto_rows
+            .into_iter()
+            .map(|e| NonRepeatedTrackSizingFunction::from(e))
+            .collect(),
+        grid_auto_columns: grid_auto_columns
+            .into_iter()
+            .map(|e| NonRepeatedTrackSizingFunction::from(e))
+            .collect(),
         grid_auto_flow: GridAutoFlow::from_index(grid_auto_flow),
+        // Grid child properties
         grid_row: Line::from(grid_row),
         grid_column: Line::from(grid_column),
         ..Default::default()

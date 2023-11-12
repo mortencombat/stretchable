@@ -1,13 +1,14 @@
 import logging
-from enum import IntEnum
-from typing import Iterable, Self
+import re
+from enum import Enum, IntEnum
+from typing import Any, Iterable, Self
 
 from attrs import define, field, validators
+from icecream import ic
 
 from .. import taffylib
-from .geometry.length import AUTO, NAN, PCT, PT, Length, LengthPointsPercentAuto
-from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
-from .geometry.size import Size, SizePointsPercent, SizePointsPercentAuto
+from .geometry import length, rect
+from .geometry import size as _size
 from .props import (
     AlignContent,
     AlignItems,
@@ -17,26 +18,33 @@ from .props import (
     FlexWrap,
     GridAutoFlow,
     GridPlacement,
+    GridTrackSize,
+    GridTrackSizing,
     JustifyContent,
     JustifyItems,
     JustifySelf,
     Overflow,
     Position,
+    parse_value,
 )
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
 
-def to_css_prop_name(enum: IntEnum) -> str:
-    raise NotImplementedError
+def grid_template_from_any(value: Any) -> list[GridTrackSizing]:
+    if not isinstance(value, (list, tuple)):
+        value = [value]
+    return [GridTrackSizing.from_any(v) for v in value]
 
 
-def to_css_prop_value(enum: IntEnum) -> str:
-    raise NotImplementedError
+def grid_auto_from_any(value: Any) -> list[GridTrackSize]:
+    if not isinstance(value, (list, tuple)):
+        value = [value]
+    return [GridTrackSize.from_any(v) for v in value]
 
 
-@define(frozen=True)
+@define(frozen=True, kw_only=True)
 class Style:
     # Layout mode/strategy
     display: Display = field(
@@ -49,8 +57,8 @@ class Style:
         default=Position.RELATIVE,
         validator=[validators.instance_of(Position)],
     )
-    inset: RectPointsPercentAuto = field(
-        default=AUTO, converter=RectPointsPercentAuto.from_any
+    inset: rect.RectPointsPercentAuto = field(
+        default=length.AUTO, converter=rect.RectPointsPercentAuto.from_any
     )
 
     # Alignment
@@ -78,26 +86,30 @@ class Style:
         default=None,
         validator=[validators.optional(validators.instance_of(JustifyContent))],
     )
-    gap: SizePointsPercent = field(default=0.0, converter=SizePointsPercent.from_any)
+    gap: _size.SizePointsPercent = field(
+        default=0.0, converter=_size.SizePointsPercent.from_any
+    )
 
     # Spacing
-    margin: RectPointsPercentAuto = field(
-        default=0.0, converter=RectPointsPercentAuto.from_any
+    margin: rect.RectPointsPercentAuto = field(
+        default=0.0, converter=rect.RectPointsPercentAuto.from_any
     )
-    padding: RectPointsPercent = field(
-        default=0.0, converter=RectPointsPercent.from_any
+    padding: rect.RectPointsPercent = field(
+        default=0.0, converter=rect.RectPointsPercent.from_any
     )
-    border: RectPointsPercent = field(default=0.0, converter=RectPointsPercent.from_any)
+    border: rect.RectPointsPercent = field(
+        default=0.0, converter=rect.RectPointsPercent.from_any
+    )
 
     # Size
-    size: SizePointsPercentAuto = field(
-        default=AUTO, converter=SizePointsPercentAuto.from_any
+    size: _size.SizePointsPercentAuto = field(
+        default=length.AUTO, converter=_size.SizePointsPercentAuto.from_any
     )
-    min_size: SizePointsPercentAuto = field(
-        default=AUTO, converter=SizePointsPercentAuto.from_any
+    min_size: _size.SizePointsPercentAuto = field(
+        default=length.AUTO, converter=_size.SizePointsPercentAuto.from_any
     )
-    max_size: SizePointsPercentAuto = field(
-        default=AUTO, converter=SizePointsPercentAuto.from_any
+    max_size: _size.SizePointsPercentAuto = field(
+        default=length.AUTO, converter=_size.SizePointsPercentAuto.from_any
     )
     aspect_ratio: float = field(default=None)
 
@@ -112,24 +124,27 @@ class Style:
     )
     flex_grow: float = 0.0
     flex_shrink: float = 1.0
-    flex_basis: LengthPointsPercentAuto = field(
-        default=AUTO, converter=LengthPointsPercentAuto.from_any
+    flex_basis: length.LengthPointsPercentAuto = field(
+        default=length.AUTO, converter=length.LengthPointsPercentAuto.from_any
     )
 
-    # TODO: Grid container
+    # Grid container
     grid_auto_flow: GridAutoFlow = field(
         default=GridAutoFlow.ROW,
         validator=[validators.instance_of(GridAutoFlow)],
     )
-    # grid_template_rows (defines the width of the grid rows)
-    #   GridTrackVec<TrackSizingFunction>
-    # grid_template_columns (defines the heights of the grid columns)
-    #   GridTrackVec<TrackSizingFunction>
-    # grid_auto_rows (defines the size of implicitly created rows)
-    #   GridTrackVec<NonRepeatedTrackSizingFunction>
-    # grid_auto_columns (defines the size of implicitly created columns)
-    #   GridTrackVec<NonRepeatedTrackSizingFunction>
-    # GridTrackVec: A vector of grid tracks (defined in taffy::util::sys)
+    grid_template_rows: list[GridTrackSizing] = field(
+        default=None, converter=grid_template_from_any
+    )
+    grid_template_columns: list[GridTrackSizing] = field(
+        default=None, converter=grid_template_from_any
+    )
+    grid_auto_rows: list[GridTrackSize] = field(
+        default=None, converter=grid_auto_from_any
+    )
+    grid_auto_columns: list[GridTrackSize] = field(
+        default=None, converter=grid_auto_from_any
+    )
 
     # Grid child
     grid_row: GridPlacement = field(
@@ -165,11 +180,11 @@ class Style:
             self.flex_shrink,
             self.flex_basis.to_dict(),
             # Grid container
+            [e.to_dict() for e in self.grid_template_rows],
+            [e.to_dict() for e in self.grid_template_columns],
+            [e.to_dict() for e in self.grid_auto_rows],
+            [e.to_dict() for e in self.grid_auto_columns],
             self.grid_auto_flow,
-            # grid_template_rows
-            # grid_template_columns
-            # grid_auto_rows
-            # grid_auto_columns
             # Grid child
             self.grid_row.to_dict(),
             self.grid_column.to_dict(),
@@ -200,36 +215,16 @@ class Style:
 
     @staticmethod
     def from_inline(style: str) -> Self:
-        def parse_value(value: str) -> Length | float | str | tuple[Length]:
-            def parse_single(val: str) -> Length | float | str:
-                val = val.strip()
-                if val.endswith("px"):
-                    val = float(val.rstrip("px")) * PT
-                elif val.endswith("%"):
-                    val = float(val.rstrip("%")) * PCT
-                elif val.lower() == "auto":
-                    val = AUTO
-                else:
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                return val
-
-            value = value.strip()
-            if " " in value:
-                return tuple(parse_single(v) for v in value.split(" "))
-            else:
-                return parse_single(value)
-
-        def parse_style(style: str) -> dict[str, Length | str]:
+        def parse_style(style: str) -> dict[str, length.Length | str]:
             props = dict()
             for entry in style.split(";"):
                 entry = entry.strip()
                 if not entry:
                     continue
                 name, _, value = entry.partition(":")
-                props[name.strip()] = parse_value(value)
+                if not name.startswith("grid-"):
+                    value = parse_value(value)
+                props[name.strip()] = value
             return props
 
         def get_prop_name(prefix: str, key: str, suffix: str = None) -> str:
@@ -246,13 +241,13 @@ class Style:
         def to_rect(
             prefix: str = None,
             *,
-            default: Length = NAN,
+            default: length.Length = length.NAN,
             suffix: Iterable[str] = None,
             start: Iterable[str] = ("left", "start"),
             end: Iterable[str] = ("right", "end"),
             top: Iterable[str] = ("top",),
             bottom: Iterable[str] = ("bottom",),
-        ) -> Rect:
+        ) -> rect.Rect:
             if prefix:
                 for s in (None, suffix) if suffix else (None,):
                     prop = get_prop_name(prefix, None, s)
@@ -260,9 +255,9 @@ class Style:
                         keys.remove(prop)
                         values = props[prop]
                         try:
-                            return Rect(*values)
+                            return rect.Rect(*values)
                         except TypeError:
-                            return Rect(values)
+                            return rect.Rect(values)
 
             values = [default] * 4
             not_present = True
@@ -276,9 +271,11 @@ class Style:
                             not_present = False
             if not_present:
                 return None
-            return Rect(*values)
+            return rect.Rect(*values)
 
-        def to_size(prefix: str = None, *, default: Length = AUTO) -> Size:
+        def to_size(
+            prefix: str = None, *, default: length.Length = length.AUTO
+        ) -> _size.Size:
             values = [default] * 2
             not_present = True
             for i, key in enumerate(("width", "height")):
@@ -289,20 +286,29 @@ class Style:
                     not_present = False
             if not_present:
                 return None
-            return Size(*values)
+            return _size.Size(*values)
 
-        def to_gap() -> Size:
-            gap = SizePointsPercent.from_any(0)
+        def to_gap() -> _size.Size:
+            width, height = None, None
             for prefix in (None, "row", "column"):
                 prop = prefix + "-gap" if prefix else "gap"
-                if prop in keys:
-                    value = props[prop]
-                    keys.remove(prop)
+                if prop not in keys:
+                    continue
+                value = props[prop]
+                keys.remove(prop)
+                if isinstance(value, tuple) and len(value) == 2:
+                    width, height = value
+                else:
                     if prefix is None or prefix == "row":
-                        gap.height = value
+                        height = value
                     if prefix is None or prefix == "column":
-                        gap.width = value
-            return gap
+                        width = value
+            if width is None and height is None:
+                return None
+            return _size.Size(
+                width=width if width is not None else 0,
+                height=height if height is not None else 0,
+            )
 
         def prop_to_enum(prop: str) -> IntEnum:
             match prop:
@@ -310,6 +316,10 @@ class Style:
                     return Display
                 case "justify-content":
                     return JustifyContent
+                case "justify-items":
+                    return JustifyItems
+                case "justify-self":
+                    return JustifySelf
                 case "align-items":
                     return AlignItems
                 case "align-self":
@@ -324,20 +334,22 @@ class Style:
                     return Position
                 case "flex-wrap":
                     return FlexWrap
+                case "grid-auto-flow":
+                    return GridAutoFlow
             raise ValueError(f"Unrecognized property '{prop}'")
 
         def to_enum(prop: str) -> IntEnum:
             if prop in keys:
                 keys.remove(prop)
                 enum = prop_to_enum(prop)
-                return enum[props[prop].upper().replace("-", "_")]
+                return enum[props[prop].strip().upper().replace("-", "_")]
 
         def to_float(prop: str) -> float:
             if prop in keys:
                 keys.remove(prop)
                 return props[prop]
 
-        def to_flex() -> dict[str, Length | float]:
+        def to_flex() -> dict[str, length.Length | float]:
             if "flex" not in keys:
                 return None
 
@@ -353,6 +365,59 @@ class Style:
                 flex_shrink=values[1] if n >= 2 else 1,
                 flex_basis=values[2] if n >= 3 else 0,
             )
+
+        def to_grid() -> dict[str, Any]:
+            def split_parts(value: str) -> list[str]:
+                # Remove any spaces trailing the separator
+                value = value.strip().replace(", ", ",")
+                # Split into parts
+                return re.split(" (?![^(,]*\\))", value)
+
+            parsed = dict()
+            for suffix in ("row", "column"):
+                # grid_template_rows/columns
+                prop = f"grid-template-{suffix}s"
+                if prop in keys:
+                    try:
+                        value = props[prop]
+                        parsed[prop.replace("-", "_")] = [
+                            GridTrackSizing.from_inline(v) for v in split_parts(value)
+                        ]
+                        keys.remove(prop)
+                    except ValueError:
+                        logger.warning(
+                            f"Style property {prop}: {value} could not be parsed"
+                        )
+
+                # grid-auto-rows/columns
+                prop = f"grid-auto-{suffix}s"
+                if prop in keys:
+                    try:
+                        value = props[prop]
+                        parsed[prop.replace("-", "_")] = [
+                            GridTrackSize.from_inline(v) for v in split_parts(value)
+                        ]
+                        keys.remove(prop)
+                    except ValueError:
+                        logger.warning(
+                            f"Style property {prop}: {value} could not be parsed"
+                        )
+
+                # grid-row/column
+                prop = f"grid-{suffix}"
+                if prop in keys:
+                    value = props[prop]
+                    try:
+                        parsed[prop.replace("-", "_")] = GridPlacement.from_inline(
+                            props[prop]
+                        )
+                        keys.remove(prop)
+                    except ValueError:
+                        logger.warning(
+                            f"Style property {prop}: {value} could not be parsed"
+                        )
+
+            return parsed
 
         """
         Size entries:
@@ -377,6 +442,9 @@ class Style:
             flex-grow, flex-shrink, aspect-ratio
                                                 -> flex_grow (etc.)
 
+        grid entries:
+            ...
+
         Dim entries:
             flex-basis                          -> flex_basis = Dim
         """
@@ -392,12 +460,16 @@ class Style:
                 args[f"{prefix}_size" if prefix else "size"] = v
 
         # Row/column gap
-        args["gap"] = to_gap()
+        v = to_gap()
+        if v:
+            args["gap"] = v
 
         # Rect entries: inset, margin, border, padding
         for prop in ("inset", "margin", "border", "padding"):
             prefix, suffix = (None, None) if prop == "inset" else (prop, "width")
-            v = to_rect(prefix, suffix=suffix, default=AUTO if prop == "inset" else 0)
+            v = to_rect(
+                prefix, suffix=suffix, default=length.AUTO if prop == "inset" else 0
+            )
             if v:
                 args[prop] = v
 
@@ -413,8 +485,11 @@ class Style:
             "align-items",
             "align-self",
             "align-content",
+            "justify-items",
+            "justify-self",
             "justify-content",
             "position",
+            "grid-auto-flow",
         ):
             v = to_enum(prop)
             if v is not None:
@@ -432,14 +507,30 @@ class Style:
         if v:
             args.update(**v)
 
+        # Special handling for grid properties
+        v = to_grid()
+        if v:
+            args.update(**v)
+
         # If there are any keys left, these are unrecognized/unsupported
         if len(keys) > 0:
             for key in keys:
                 logger.warning(f"Style property {key} is not recognized/supported")
 
+        values = []
+        for value in args.values():
+            if isinstance(value, (tuple, list)):
+                value = " ".join(str(e) for e in value)
+            elif isinstance(value, Enum):
+                value = value._name_.lower().replace("_", "-")
+            else:
+                value = str(value)
+            values.append(value)
+
         logger.debug(
-            "from_inline('%s') => " + "; ".join([name + "=%s" for name in args.keys()]),
+            "from_inline('%s') => "
+            + "; ".join([name.replace("_", "-") + ": %s" for name in args.keys()]),
             style,
-            *args.values(),
+            *values,
         )
         return Style(**args)

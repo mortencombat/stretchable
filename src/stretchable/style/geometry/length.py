@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import IntEnum
 from math import isnan
 from typing import Any, Generic, Optional, Self, TypeVar, get_args
@@ -12,6 +14,11 @@ class Scale(IntEnum):
     PERCENT = 2
     MIN_CONTENT = 3
     MAX_CONTENT = 4
+    # For track size, see:
+    # <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
+    FIT_CONTENT_POINTS = 5
+    FIT_CONTENT_PERCENT = 6
+    FLEX = 7
 
 
 class Points(IntEnum):
@@ -33,6 +40,25 @@ class AvailableSpace(IntEnum):
     DEFINITE = Scale.POINTS
     MIN_CONTENT = Scale.MIN_CONTENT
     MAX_CONTENT = Scale.MAX_CONTENT
+
+
+class MinTrackSize(IntEnum):
+    POINTS = Scale.POINTS
+    PERCENT = Scale.PERCENT
+    MIN_CONTENT = Scale.MIN_CONTENT
+    MAX_CONTENT = Scale.MAX_CONTENT
+    AUTO = Scale.AUTO
+
+
+class MaxTrackSize(IntEnum):
+    POINTS = Scale.POINTS
+    PERCENT = Scale.PERCENT
+    MIN_CONTENT = Scale.MIN_CONTENT
+    MAX_CONTENT = Scale.MAX_CONTENT
+    FIT_CONTENT_POINTS = Scale.FIT_CONTENT_POINTS
+    FIT_CONTENT_PERCENT = Scale.FIT_CONTENT_PERCENT
+    AUTO = Scale.AUTO
+    FLEX = Scale.FLEX
 
 
 # @define(frozen=True)
@@ -79,6 +105,14 @@ class LengthBase(Generic[T]):
                 return "min-content"
             case Scale.MAX_CONTENT:
                 return "max-content"
+            case Scale.FIT_CONTENT_POINTS:
+                value = f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
+                return f"fit-content({value})"
+            case Scale.FIT_CONTENT_PERCENT:
+                value = f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
+                return f"fit-content({value})"
+            case Scale.FLEX:
+                return f"{self.value:.2f} fr" if not isnan(self.value) else "nan"
             case _:
                 return "None"
 
@@ -129,12 +163,14 @@ class LengthBase(Generic[T]):
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, LengthBase):
             return False
-        return self.scale == __value.scale and self.value == __value.value
+        return self.scale == __value.scale and (
+            self.value == __value.value or (isnan(self.value) and isnan(__value.value))
+        )
 
 
 class Length(LengthBase[Scale]):
     def __mul__(self, value):
-        if self.scale not in (Scale.POINTS, Scale.PERCENT):
+        if self.scale not in (Scale.POINTS, Scale.PERCENT, Scale.FLEX):
             raise TypeError("Cannot multiply Length of type: " + str(self))
         elif not isinstance(value, (int, float)):
             raise ValueError("Cannot multiply with non-numeric value: " + str(value))
@@ -245,8 +281,39 @@ class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
         return LengthPointsPercentAuto(PointsPercentAuto.AUTO, NAN)
 
 
+class LengthMinTrackSize(LengthBase[MinTrackSize]):
+    ...
+
+
+class LengthMaxTrackSize(LengthBase[MaxTrackSize]):
+    @staticmethod
+    def flex(value: float | Length) -> Self:
+        if value is None:
+            value = NAN
+        elif issubclass(type(value), LengthBase) and value.scale != Scale.FLEX:
+            raise ValueError(f"Only FLEX is supported in this context, not {value}")
+        return LengthMaxTrackSize(MaxTrackSize.FLEX, value)
+
+    @staticmethod
+    def fit_content(value: float | Length) -> LengthMaxTrackSize:
+        if not isinstance(value, Length):
+            value = LengthMaxTrackSize(MaxTrackSize.FIT_CONTENT_POINTS, value)
+        elif value.scale == Scale.POINTS:
+            value = LengthMaxTrackSize(MaxTrackSize.FIT_CONTENT_POINTS, value.value)
+        elif value.scale == Scale.PERCENT:
+            value = LengthMaxTrackSize(MaxTrackSize.FIT_CONTENT_PERCENT, value.value)
+        elif (
+            value.scale != Scale.FIT_CONTENT_PERCENT
+            and value.scale != Scale.FIT_CONTENT_POINTS
+        ):
+            raise TypeError(f"{value} is not a valid value in this context")
+        return value
+
+
 AUTO = Length(Scale.AUTO)
 PCT = Length(Scale.PERCENT, 0.01)
 PT = Length(Scale.POINTS, 1)
+FR = Length(Scale.FLEX, 1)
 MIN_CONTENT = Length(Scale.MIN_CONTENT)
 MAX_CONTENT = Length(Scale.MAX_CONTENT)
+ZERO = Length(Scale.POINTS, 0)

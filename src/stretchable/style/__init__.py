@@ -1,8 +1,4 @@
 from .core import (
-    AUTO,
-    NAN,
-    PCT,
-    PT,
     AlignContent,
     AlignItems,
     AlignSelf,
@@ -11,16 +7,18 @@ from .core import (
     FlexWrap,
     GridAutoFlow,
     GridPlacement,
+    GridTrackSize,
+    GridTrackSizing,
     JustifyContent,
     JustifyItems,
     JustifySelf,
-    Length,
     Overflow,
     Position,
-    Rect,
-    Size,
     Style,
 )
+from .geometry.length import AUTO, NAN, PCT, PT, Length
+from .geometry.rect import Rect
+from .geometry.size import Size
 
 __all__ = [
     "Style",
@@ -34,6 +32,8 @@ __all__ = [
     "JustifyContent",
     "GridPlacement",
     "GridAutoFlow",
+    "GridTrackSize",
+    "GridTrackSizing",
     "FlexWrap",
     "FlexDirection",
     "Display",
