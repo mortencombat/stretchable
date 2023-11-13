@@ -3,7 +3,8 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-from importlib import metadata
+import os
+import re
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -12,9 +13,12 @@ project = "stretchable"
 author = "Kenneth Trelborg Vestergaard"
 copyright = f"2023, {author}"
 
-release = metadata.version("stretchable")
+# The full version, including alpha/beta/rc tags.
+release = re.sub("^v", "", os.popen("git describe --tags --abbrev=0").read().strip())
 if "dev" in release:
     release = version = "UNRELEASED"
+elif "-" in release:
+    version = release
 else:
     # The short X.Y version.
     version = release.rsplit(".", 1)[0]
