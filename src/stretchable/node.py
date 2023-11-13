@@ -40,26 +40,28 @@ class Box(StrEnum):
 
 
 @define(frozen=True)
-class Layout:
+class Frame:
+    """Represents a rectangle with a position (``x``, ``y``) and size (``width``, ``height``)."""
+
     x: float
     y: float
     width: float
     height: float
 
-    def scale(
+    def offset(
         self,
         offsets: Rect,
-        container: Layout = None,
+        container: Frame = None,
         *,
         factor: float = 1,
-    ) -> Layout:
+    ) -> Frame:
         """
-        Adjusts layout by the provided offsets.
+        Returns a copy of the frame offset by the specified ``offsets``.
 
         :param offsets: The offsets to use (typically margin, border or padding)
         :type offsets: Rect
         :param container: The container to use in case of percentage offsets, defaults to None
-        :type container: Layout, optional
+        :type container: Frame, optional
         :param factor: The factor to apply to offsets (positive value expands, negative value contracts), defaults to 1
         :type factor: float
         :return: Adjusted layout
@@ -72,7 +74,7 @@ class Layout:
         top = offsets.top.to_pts(container)
         bottom = offsets.bottom.to_pts(container)
 
-        return Layout(
+        return Frame(
             self.x - factor * left,
             self.y - factor * top,
             self.width + factor * (left + right),
@@ -81,12 +83,25 @@ class Layout:
 
 
 class Node(list["Node"]):
+    """
+    A node in a layout.
+
+    Arguments:
+        *children: Child nodes (instances of `Node`).
+        key: Node identifier that can be used to locate the node in the node tree, optional.
+        measure: Callable that can measure the node during computation of layout, optional.
+        style: Style of the node, optional.
+        **style_args: If ``style`` is not given, any additional keyword arguments
+            are taken as arguments to be used for creating an instance `Style` and
+            applying this to the node.
+    """
+
     __slots__ = (
         "_key",
         "_style",
         "_children",
         "_measure",
-        "_layout",
+        "_frame",
         "_container",
         "_view",
         "_zorder",
@@ -96,19 +111,12 @@ class Node(list["Node"]):
 
     def __init__(
         self,
-        *children,
+        *children: Node,
         key: str = None,
         measure: MeasureFunc = None,
         style: Style = None,
         **style_args,
     ):
-        """
-        ...
-
-        Arguments:
-            measure:    a callable that takes (available_space: Size[AvailableSpace], known_dimensions: Size[float]) and returns Size[float]
-        """
-
         self.__ptr = None
         if not taffy._ptr:
             raise TaffyUnavailableError
@@ -120,7 +128,7 @@ class Node(list["Node"]):
             raise ValueError("The given `key` is not valid")
         self._key = key
 
-        self._layout = None
+        self._frame = None
         self._zorder = None
         self._parent = None
         self._container: Node = None
@@ -164,11 +172,12 @@ class Node(list["Node"]):
     # region Children
 
     @property
-    def parent(self) -> "Node":
+    def parent(self) -> Node | None:
+        """The parent node if this node, or None if it does not have a parent node."""
         return self._parent
 
     @parent.setter
-    def parent(self, value: "Node") -> None:
+    def parent(self, value: Node) -> None:
         self._parent = value
 
     @property
@@ -179,11 +188,13 @@ class Node(list["Node"]):
     def is_root(self) -> bool:
         return self.parent is None
 
-    def add(self, *children) -> Self:
+    def add(self, *children: Node) -> Node:
+        """Add one or more child nodes and return the node itself (enables chaining of node instantiation, see `examples`)."""
         self.extend(children)
         return self
 
-    def append(self, node: "Node"):
+    def append(self, node: Node):
+        """Add a child node."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         if not isinstance(node, Node):
@@ -200,11 +211,13 @@ class Node(list["Node"]):
         node.parent = self
         super().append(node)
 
-    def extend(self, __iterable: Iterable["Node"]) -> None:
+    def extend(self, __iterable: Iterable[Node]) -> None:
+        """Add one or more child nodes."""
         for child in __iterable:
             self.append(child)
 
-    def remove(self, node: "Node") -> None:
+    def remove(self, node: Node) -> None:
+        """Remove child `Node`."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         taffylib.node_remove_child(taffy._ptr, self._ptr, node._ptr)
@@ -261,8 +274,7 @@ class Node(list["Node"]):
     @property
     def address(self) -> str:
         """
-        The address of this node, relative to farthest parent node
-        or root if associated with a tree.
+        The address of this node, relative to the root node.
         """
         if not self.parent:
             return "/"
@@ -290,34 +302,35 @@ class Node(list["Node"]):
 
     def find(self, address: str) -> Self:
         """
-        Returns the node at the specified address.
+        Returns the node at the specified address, using a syntax similar to
+        file paths, eg. a leading ``/`` starts from the root of the node tree,
+        ``./`` indicates the current location and ``../`` steps up a level.
 
-        Nodes can be identified either by the node id (str) if it is defined,
+        Nodes can be identified either by the ``key`` (`str`) if it is defined,
         or the 0-based node index.
 
-        Example tree:
-            tree
-            - 'header'
-            - 'body'
-              - 'left'
-              - 'center'
-                - 'title'
-                - 'content'
-              - 'right'
-            - 'footer'
+        Example node tree and corresponding addresses:
 
-        Absolute address examples (start with a leading /, nodes must be
-        associated with a tree, which is the root):
-            /body/center/title -> 'title' node
-            /1/1/0 -> 'title' node
-            /2 -> 'footer' node
+        .. code-block:: python
 
-        Relative address examples, using find() on the 'body' node:
-            center/title -> 'title' node
-            ./center/title -> 'title' node
-            1/1 -> 'content' node
-            ../footer -> 'footer' node
+            root
+            +- header
+            +- body
+            |  +- left
+            |  +- center
+            |  |  +- title      /body/center/title   /1/1/0
+            |  |  +- content    /body/1/1
+            |  +- right
+            +- footer           /footer              /2
 
+        Examples of relative address when using ``find()`` on the ``body`` node:
+
+        .. code-block:: python
+
+            center/title        ->  title
+            ./center/title      ->  title
+            1/1                 ->  content
+            ../footer           -> footer
 
         """
 
@@ -380,6 +393,8 @@ class Node(list["Node"]):
 
     @property
     def is_visible(self) -> bool:
+        """Whether the node is visible."""
+
         if self.parent and not self.parent.is_visible:
             return False
         if self.style.display == Display.NONE:
@@ -389,15 +404,15 @@ class Node(list["Node"]):
                 "Cannot determine if node is visible, layout is not computed"
             )
         if (
-            (self._layout.width <= 0 or self._layout.height <= 0)
+            (self._frame.width <= 0 or self._frame.height <= 0)
             and len(self) == 0
             and not self.is_root
         ):
             # Box is zero-sized with no children
             return False
         if (
-            self._layout.y + self._layout.height < 0
-            or self._layout.x + self._layout.width < 0
+            self._frame.y + self._frame.height < 0
+            or self._frame.x + self._frame.width < 0
         ):
             # Box is outside canvas
             return False
@@ -431,6 +446,7 @@ class Node(list["Node"]):
 
     @property
     def measure(self) -> MeasureFunc:
+        """Method invoked to measure the node size during computation of layout."""
         return self._measure
 
     @measure.setter
@@ -456,6 +472,8 @@ class Node(list["Node"]):
         *,
         use_rounding: bool = False,
     ) -> bool:
+        """Computes the layout for this node and any child nodes."""
+
         if not taffy._ptr:
             raise TaffyUnavailableError
 
@@ -495,7 +513,7 @@ class Node(list["Node"]):
             raise LayoutNotComputedError
 
         layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
-        self._layout = Layout(
+        self._frame = Frame(
             layout["left"], layout["top"], layout["width"], layout["height"]
         )
         self._zorder = layout["order"]
@@ -504,10 +522,10 @@ class Node(list["Node"]):
             taffy._ptr,
             self._ptr,
             self._zorder,
-            self._layout.x,
-            self._layout.y,
-            self._layout.width,
-            self._layout.height,
+            self._frame.x,
+            self._frame.y,
+            self._frame.width,
+            self._frame.height,
         )
 
         if self.is_visible:
@@ -526,17 +544,17 @@ class Node(list["Node"]):
         )
 
     @property
-    def layout(self) -> Layout:
+    def frame(self) -> Frame:
         """The computed layout (position and size) of the nodes `border` box relative to the parent."""
-        return self._layout
+        return self._frame
 
-    def get_layout(
+    def get_frame(
         self,
         box: Box = Box.BORDER,
         *,
         relative: bool = True,
         flip_y: bool = False,
-    ) -> Layout:
+    ) -> Frame:
         """
         Get the computed layout (position and size) for the node.
 
@@ -571,7 +589,7 @@ class Node(list["Node"]):
         if self.is_dirty:
             raise LayoutNotComputedError
 
-        layout = self.layout
+        layout = self.frame
         if box == Box.BORDER and relative and not flip_y:
             return layout
 
@@ -580,7 +598,7 @@ class Node(list["Node"]):
         # Remember to reset cache on compute_layout
 
         if USE_ROOT_CONTAINER and self.is_root and box == Box.MARGIN:
-            layout = self._container.layout
+            layout = self._container.frame
         elif box != Box.BORDER:
             # Expand or contract:
             #   Box.CONTENT: -border -padding
@@ -599,23 +617,23 @@ class Node(list["Node"]):
             elif box == Box.MARGIN:
                 actions = ((self.style.margin, 1),)
 
-            box_parent = self._parent.get_layout(Box.BORDER) if self._parent else None
+            box_parent = self._parent.get_frame(Box.BORDER) if self._parent else None
             for offsets, factor in actions:
-                layout = layout.scale(offsets, box_parent, factor=factor)
+                layout = layout.offset(offsets, box_parent, factor=factor)
 
         if not relative and self._parent:
-            box_parent = self._parent.get_layout(Box.BORDER, relative=False)
+            box_parent = self._parent.get_frame(Box.BORDER, relative=False)
             layout = attrs.evolve(
                 layout, x=layout.x + box_parent.x, y=layout.y + box_parent.y
             )
 
         if flip_y:
             if relative:
-                layout_ref = self.parent.get_layout(Box.CONTENT)
+                layout_ref = self.parent.get_frame(Box.CONTENT)
             elif USE_ROOT_CONTAINER:
-                layout_ref = self.root._container.layout
+                layout_ref = self.root._container.frame
             else:
-                layout_ref = self.root.layout
+                layout_ref = self.root.frame
             layout = attrs.evolve(
                 layout, y=layout_ref.height - layout.y - layout.height
             )
@@ -694,8 +712,8 @@ class Container:
 
         # Expand box to contain the root node
         root_width = (
-            self._root.layout.x
-            + self._root.layout.width
+            self._root.frame.x
+            + self._root.frame.width
             + self._root.style.margin.right.to_pts(width)
             if width and self._root.style.margin.right.scale != Scale.AUTO
             else 0
@@ -703,19 +721,19 @@ class Container:
         if root_width > width:
             width = root_width
         root_height = (
-            self._root.layout.y
-            + self._root.layout.height
+            self._root.frame.y
+            + self._root.frame.height
             + self._root.style.margin.bottom.to_pts(width)
             if width and self._root.style.margin.bottom.scale != Scale.AUTO
             else 0
         )
         if root_height > height:
             height = root_height
-        self._layout = Layout(x, y, width, height)
+        self._layout = Frame(x, y, width, height)
         logger.debug("container dimensions: %s x %s", root_width, root_height)
 
     @property
-    def layout(self) -> Layout:
+    def layout(self) -> Frame:
         return self._layout
 
     @property

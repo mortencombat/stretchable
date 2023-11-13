@@ -14,7 +14,7 @@ def print_layout(
     print(" " * level + "Visible: " + str(node.is_visible))
     print(node.style.margin, node.style.border, node.style.padding)
     for box in Box:
-        layout = node.get_layout(box, relative=relative)
+        layout = node.get_frame(box, relative=relative)
         print(" " * level + box._name_ + ": " + str(layout))
     for child in node:
         print_layout(child, level + 2, relative=relative)
@@ -22,7 +22,7 @@ def print_layout(
 
 def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
     for t in Box:
-        box = node.get_layout(t, relative=False, flip_y=flip_y)
+        box = node.get_frame(t, relative=False, flip_y=flip_y)
         ax.add_patch(
             Rectangle(
                 (box.x, box.y),

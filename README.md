@@ -38,6 +38,10 @@ Contributions are welcomed. Please open an issue to clarify/plan implementation 
 
 Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for development and `maturin build [--release]` to build.
 
+### Documentation
+
+To build documentation with live reloading: `sphinx-autobuild docs/source docs/build/html`
+
 ### Testing
 
 Install test dependencies and invoke `pytest`. Note that there are ~450 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~10 minutes to complete. Use `pytest --lf` to only run the last-failed tests.

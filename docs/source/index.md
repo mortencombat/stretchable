@@ -6,9 +6,7 @@ TODO
 
 ## Project Information
 
-```{include} ../../README.md
-:start-after: '## Project Information'
-```
+TODO
 
 ---
 
@@ -18,12 +16,9 @@ TODO
 :maxdepth: 2
 
 overview
-```
-
-```{toctree}
-:caption: Meta
-:maxdepth: 1
-
+examples
+layouts
+api
 ```
 
 [Full Index](genindex)

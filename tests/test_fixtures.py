@@ -12,7 +12,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from stretchable.node import Box, Layout, Node
+from stretchable.node import Box, Frame, Node
 from stretchable.style.geometry.length import LengthAvailableSpace, Scale
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
@@ -147,11 +147,11 @@ def get_css_values(node: WebElement, prop: str) -> tuple[float, float, float, fl
     return values
 
 
-def apply_css_values(node: WebElement, layout: Layout, prop: str, k: float) -> Layout:
+def apply_css_values(node: WebElement, layout: Frame, prop: str, k: float) -> Frame:
     """Applies CSS margin/border/padding to `layout` with a specified factor `k`."""
     values = []
     values = get_css_values(node, prop)
-    return Layout(
+    return Frame(
         layout.x + k * values[3],
         layout.y + k * values[0],
         layout.width - k * (values[1] + values[3]),
@@ -159,8 +159,8 @@ def apply_css_values(node: WebElement, layout: Layout, prop: str, k: float) -> L
     )
 
 
-def get_layout_expected(node: WebElement, box: Box) -> Layout:
-    layout = Layout(**node.rect)
+def get_layout_expected(node: WebElement, box: Box) -> Frame:
+    layout = Frame(**node.rect)
     if box == Box.MARGIN:
         # Expand by margin
         layout = apply_css_values(node, layout, "margin", -1)
@@ -190,7 +190,7 @@ def assert_node_layout(
                 # 'auto' margins.
                 continue
             rect_expected = get_layout_expected(node_expected, box)
-            rect_actual = node_actual.get_layout(box=box, relative=False)
+            rect_actual = node_actual.get_frame(box=box, relative=False)
 
             # Assert position of node
             for param in ("x", "y", "width", "height"):

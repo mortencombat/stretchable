@@ -44,6 +44,8 @@ docs = [
     "furo",
     "sphinx-copybutton",
     "readthedocs-sphinx-search",
+    "sphinx-autobuild",
+    "sphinx-autodoc-typehints",
 ]
 
 [project.urls]
