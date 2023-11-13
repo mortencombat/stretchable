@@ -38,6 +38,13 @@ test = [
     "hypothesis",
     "selenium",
     ]
+docs = [
+    "sphinx",
+    "myst-parser",
+    "furo",
+    "sphinx-copybutton",
+    "readthedocs-sphinx-search",
+]
 
 [project.urls]
 Homepage = "https://github.com/mortencombat/stretchable"
