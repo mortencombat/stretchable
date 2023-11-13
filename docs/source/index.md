@@ -10,15 +10,15 @@ TODO
 
 ---
 
-## Full Table of Contents
-
 ```{toctree}
+:hidden:
 :maxdepth: 2
 
 overview
 examples
 layouts
 api
+glossary
+license
+genindex
 ```
-
-[Full Index](genindex)

@@ -40,7 +40,9 @@ Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for dev
 
 ### Documentation
 
-To build documentation with live reloading: `sphinx-autobuild docs/source docs/build/html`
+To build documentation use `make html` (in `docs/` folder) or, to use live reloading: `sphinx-autobuild docs/source docs/build/html`
+
+NOTE: Sometimes, you may need to run `make clean html` (in `docs/` folder) to ensure that all changes are included in the built html.
 
 ### Testing
 
