@@ -47,4 +47,7 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mortencombat/stretchable"
+Homepage = "https://stretchable.readthedocs.io/en/latest/"
+Documentation = "https://stretchable.readthedocs.io/en/latest/"
+Source = "https://github.com/mortencombat/stretchable"
+Tracker = "https://github.com/mortencombat/stretchable/issues"
