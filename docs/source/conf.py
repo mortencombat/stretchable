@@ -5,6 +5,9 @@
 
 import os
 import re
+import sys
+
+sys.path.append(os.path.abspath("./_ext"))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -38,6 +41,7 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx_copybutton",
     "sphinx_autodoc_typehints",
+    "autoenum",
 ]
 
 autodoc_member_order = "groupwise"

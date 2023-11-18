@@ -14,7 +14,7 @@ Node
 .. autoclass:: Frame
     :members: offset
 
-.. autoclass:: Box
+.. autoenum:: Box()
 
 Style
 -----

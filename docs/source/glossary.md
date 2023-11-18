@@ -18,14 +18,14 @@ CSS box model
 
     ![](_static/box-model.png)
 
-content
-    The content of the box, where text and images appear.
+content box
+    The box surrounding the content, where text and images appear.
 
-padding
-    Clears an area around the content.
+padding box
+    Padding clears an area around the content, between the content and the border. The padding box is the box surrounding the padding, which also lines up with the inside of the border.
 
-border
-    A border that goes around the padding and content.
+border box
+    The border goes around the padding and content. The border box is the box surrounding the outside of the border. **stretchable** uses `box-sizing: border-box`, which means that the dimensions (width and height) that you assign to an element corresponds to the border box of the element.
 
-margin
-    Clears an area outside the border.
+margin box
+    Margin clears an area outside the border. The margin box is the box surrounding the margin, eg. the outermost bounds of the element.

@@ -33,6 +33,8 @@ USE_ROOT_CONTAINER: bool = False
 
 
 class Box(StrEnum):
+    """Describes which box of a node a given layout corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
+
     CONTENT = auto()  # Innermost box, corresponding to inside of padding
     PADDING = auto()  # Outside of padding / inside of border
     BORDER = auto()  # Outside of border
@@ -561,7 +563,7 @@ class Node(list["Node"]):
         For a description of the box model, see:
         https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
 
-        :param box: The box/edge, defaults to Box.BORDER
+        :param box: The box/edge, defaults to :py:attr:`Box.BORDER`
         :type box: Box, optional
         :param relative: Determines if returned position is relative to parent
             (True, the default) or relative to the root (False)
