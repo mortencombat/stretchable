@@ -18,6 +18,7 @@ from .props import (
     FlexDirection,
     FlexWrap,
     GridAutoFlow,
+    GridIndexType,
     GridPlacement,
     GridTrackSize,
     GridTrackSizing,
@@ -55,6 +56,30 @@ def grid_auto_from_any(value: Any) -> list[GridTrackSize]:
 
 @define(frozen=True, kw_only=True)
 class Style:
+    """Style configuration for a node.
+
+    Parameters
+    ----------
+    display
+        Visibility and layout strategy
+    position
+        Positioning mode
+    inset
+        Position/inset of node edges
+    align_items
+        Used to control how child nodes are aligned, optional
+    justify_items
+        Used to control how child nodes are aligned
+    align_self
+    justify_self
+    align_content
+    justify_content
+        ...
+    gap
+        ...
+
+    """
+
     # Layout mode/strategy
     display: Display = field(
         default=Display.FLEX,

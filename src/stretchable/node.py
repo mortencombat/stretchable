@@ -32,18 +32,35 @@ MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 USE_ROOT_CONTAINER: bool = False
 
 
-class Edge(StrEnum):
-    """Describes which box of a node a given layout corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
+"""
+    
+"""
 
-    CONTENT = auto()  # Innermost box, corresponding to inside of padding
-    PADDING = auto()  # Outside of padding / inside of border
-    BORDER = auto()  # Outside of border
-    MARGIN = auto()  # Outside of margin
+
+class Edge(StrEnum):
+    """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
+
+    CONTENT = auto()
+    PADDING = auto()
+    BORDER = auto()
+    MARGIN = auto()
 
 
 @define(frozen=True)
 class Box:
-    """Represents a rectangle with a position (``x``, ``y``) and size (``width``, ``height``)."""
+    """Represents a rectangle with a position and size.
+
+    Parameters
+    ----------
+    x : float
+        The horizontal position of the left edge of the box
+    y : float
+        The vertical position of the top (default) or bottom (if using ``flip_y = True`` in :py:obj:`Node.get_box()`) edge of the box
+    width : float
+        The width of the box
+    height : float
+        The height of the box
+    """
 
     x: float
     y: float
@@ -85,17 +102,23 @@ class Box:
 
 
 class Node(list["Node"]):
-    """
-    A node in a layout.
+    """A node in a layout.
 
-    Arguments:
-        *children: Child nodes (instances of `Node`).
-        key: Node identifier that can be used to locate the node in the node tree, optional.
-        measure: Callable that can measure the node during computation of layout, optional.
-        style: Style of the node, optional.
-        **style_args: If ``style`` is not given, any additional keyword arguments
-            are taken as arguments to be used for creating an instance `Style` and
-            applying this to the node.
+    Parameters
+    ----------
+    *children
+        Any child nodes to add to this node, optional
+    key
+        Node identifier that can be used to locate the node in the node tree, optional
+    measure
+        A method that is able to measure and return the size of the node
+        during computation of layout, optional
+    style
+        The style to apply to the node, optional
+    **kwargs
+        If the ``style`` parameter is not provided, any additional keyword arguments are passed
+        to a new instance of :py:obj:`Style` which is assigned to this node, optional
+
     """
 
     __slots__ = (
@@ -115,9 +138,9 @@ class Node(list["Node"]):
         self,
         *children: Node,
         key: str = None,
-        measure: MeasureFunc = None,
+        measure: Callable[[SizePoints, SizeAvailableSpace], SizePoints] = None,
         style: Style = None,
-        **style_args,
+        **kwargs,
     ):
         self.__ptr = None
         if not taffy._ptr:
@@ -138,8 +161,8 @@ class Node(list["Node"]):
 
         # Style
         if not style:
-            style = Style(**style_args)
-        elif style_args:
+            style = Style(**kwargs)
+        elif kwargs:
             raise ValueError("Provide only `style` or style attributes, not both")
         self._style = style
 
@@ -175,7 +198,7 @@ class Node(list["Node"]):
 
     @property
     def parent(self) -> Node | None:
-        """The parent node if this node, or None if it does not have a parent node."""
+        """The parent :py:obj:`Node` of this node, or :py:obj:`None` if it does not have a parent node."""
         return self._parent
 
     @parent.setter
@@ -183,11 +206,13 @@ class Node(list["Node"]):
         self._parent = value
 
     @property
-    def root(self) -> "Node":
+    def root(self) -> Node:
+        """The root :py:obj:`Node` of the node tree with which this node is associated."""
         return self if self.is_root else self.parent.root
 
     @property
     def is_root(self) -> bool:
+        """``True`` if this node is the root node, ``False`` otherwise."""
         return self.parent is None
 
     def add(self, *children: Node) -> Node:
@@ -303,37 +328,22 @@ class Node(list["Node"]):
         return addr
 
     def find(self, address: str) -> Node:
-        """
-        Returns the node at the specified address, using a syntax similar to
-        file paths, eg. a leading ``/`` starts from the root of the node tree,
-        ``./`` indicates the current location and ``../`` steps up a level.
+        """Returns the node at the specified address.
 
-        Nodes can be identified either by the ``key`` (`str`) if it is defined,
-        or the 0-based node index.
+        Node addresses use a syntax similar to file paths, eg. a leading ``/``
+        starts from the root of the node tree, ``./`` indicates the current
+        location and ``../`` steps up a level.
 
-        Example node tree and corresponding addresses:
+        Nodes can be identified either by the :py:attr:`Node.key` (optional), or
+        the 0-based node index.
 
-        .. code-block:: python
+        See :ref:`Locating Nodes` for some examples of how to locate nodes using
+        this method.
 
-            root
-            +- header
-            +- body
-            |  +- left
-            |  +- center
-            |  |  +- title      /body/center/title   /1/1/0
-            |  |  +- content    /body/1/1
-            |  +- right
-            +- footer           /footer              /2
-
-        Examples of relative address when using ``find()`` on the ``body`` node:
-
-        .. code-block:: python
-
-            center/title        ->  title
-            ./center/title      ->  title
-            1/1                 ->  content
-            ../footer           -> footer
-
+        Parameters
+        ----------
+        address
+            The address of the node to find
         """
 
         addr = address.strip()
@@ -373,7 +383,8 @@ class Node(list["Node"]):
             return child.find(post) if post else child
 
     @property
-    def key(self) -> str:
+    def key(self) -> str | None:
+        """Node identifier."""
         return self._key
 
     # endregion
@@ -384,11 +395,13 @@ class Node(list["Node"]):
 
     @property
     def is_dirty(self) -> bool:
+        """``True`` if the layout needs to be (re)computed to get the layout of this node, ``False`` otherwise."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         return taffylib.node_dirty(taffy._ptr, self._ptr)
 
-    def mark_dirty(self) -> None:
+    def mark_dirty(self):
+        """Marks this node as `dirty` meaning that the layout needs to be recomputed."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         taffylib.node_mark_dirty(taffy._ptr, self._ptr)
@@ -474,7 +487,24 @@ class Node(list["Node"]):
         *,
         use_rounding: bool = False,
     ) -> bool:
-        """Computes the layout for this node and any child nodes."""
+        """Computes the layout for this node and any child nodes.
+
+        Parameters
+        ----------
+        available_space
+            The available space for the layout. It may be provided as :py:obj:`SizeAvailableSpace`, as a :py:obj:`tuple` of width and height, or omitted
+        use_rounding
+            If ``True``, all positions and dimensions will be rounded to integers.
+
+        Returns
+        -------
+        ``True`` if layout was computed successfully, ``False`` otherwise.
+
+        Notes
+        -----
+
+        Depending on the nodes, the resulting layout may extend outside ``available_space``.
+        """
 
         if not taffy._ptr:
             raise TaffyUnavailableError
@@ -565,20 +595,20 @@ class Node(list["Node"]):
         For a description of the box model, see:
         https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
 
-        :param box: The box/edge, defaults to :py:attr:`Box.BORDER`
-        :type box: Box, optional
-        :param relative: Determines if returned position is relative to parent
-            (True, the default) or relative to the root (False)
-        :type relative: bool, optional
-        :param flip_y: Determines if the vertical position (y) is measured from
-            the top (False, the default), or from the bottom (True)
-        :type flip_y: bool, optional
-        :raises ValueError: If box = Box.MARGIN is requested with AUTO margins,
-            since this is currently not supported
-        :raises LayoutNotComputedError: If the layout is not computed before
-            requesting the layout
-        :return: The computed layout
-        :rtype: Layout
+        Parameters
+        ----------
+        edge
+            The edge for which to get the corresponding :obj:`Box`
+        relative
+            Determines if returned position is relative to parent
+            (if ``True``) or relative to the root (if ``False``)
+        flip_y
+            Determines if the vertical position (y) is measured from
+            the top (if ``False``), or from the bottom (if ``True``)
+
+        Returns
+        -------
+        The :obj:`Box` corresponding to the provided arguments
         """
 
         if (

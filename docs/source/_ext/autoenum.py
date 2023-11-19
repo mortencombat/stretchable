@@ -59,18 +59,24 @@ class EnumDocumenter(ClassDocumenter):
         self.add_line("", source_name)
 
         self.add_line(":Members:", source_name)
+        names = []
         for name, member in enum_object.__members__.items():
-            value = member.value
-            if use_hex:
-                objrepr = hex(value)
-            else:
-                objrepr = memory_address_re.sub("", repr(value)).replace("\n", " ")
+            names.append(name)
 
-            self.add_line(f"   .. attribute:: {name}", source_name)
-            self.add_line(f"      :annotation: {objrepr}", source_name)
+            # value = member.value
+            # if use_hex:
+            #     objrepr = hex(value)
+            # else:
+            #     objrepr = memory_address_re.sub("", repr(value)).replace("\n", " ")
+
+            # self.add_line(f"   .. attribute:: {name}", source_name)
+            # self.add_line(f"      :annotation: {objrepr}", source_name)
 
             #   **: {the_member_value}", source_name)
-            self.add_line("", source_name)
+            # self.add_line("", source_name)
+
+        self.add_line("   ``" + "``, ``".join(names) + "``", source_name)
+        self.add_line("", source_name)
 
 
 class PyEnumXRefRole(PyXRefRole):

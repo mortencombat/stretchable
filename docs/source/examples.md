@@ -20,5 +20,28 @@ root.compute_layout()
 ## Locating Nodes
 
 ```{eval-rst}
-.. todo:: Add examples of identifying and locating nodes in a tree. Move example tree/addresses from `Node` API reference to here.
+.. todo:: Add examples of identifying and locating nodes in a tree. Move example tree/addresses from `stretchable.Node` API reference to here.
 ```
+
+Example node tree and corresponding addresses:
+
+.. code-block:: python
+
+    root
+    +- header
+    +- body
+    |  +- left
+    |  +- center
+    |  |  +- title      /body/center/title   /1/1/0
+    |  |  +- content    /body/1/1
+    |  +- right
+    +- footer           /footer              /2
+
+Examples of relative address when using ``find()`` on the ``body`` node:
+
+.. code-block:: python
+
+    center/title        ->  title
+    ./center/title      ->  title
+    1/1                 ->  content
+    ../footer           -> footer
