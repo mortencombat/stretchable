@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import logging
 import re
 from enum import Enum, IntEnum
-from typing import Any, Iterable, Self
+from typing import Any, Iterable, Optional
 
 from attrs import define, field, validators
 
@@ -29,6 +31,14 @@ from .props import (
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
+
+_ATTR_NAMES: dict[str, tuple[str]] = {
+    "gap": ("column-gap", "row-gap"),
+    "size": (),
+    "max_size": ("max-width", "max-height"),
+    "min_size": ("min-width", "min-height"),
+    "inset": (),
+}
 
 
 def grid_template_from_any(value: Any) -> list[GridTrackSizing]:
@@ -212,8 +222,31 @@ class Style:
     def _ptr(self) -> int:
         return self.__ptr
 
+    def _str(self, args: Optional[tuple[str]] = None) -> str:
+        entries = []
+        for arg in dir(self):
+            if arg.startswith("_"):
+                continue
+            if args and arg not in args:
+                continue
+            value = getattr(self, arg)
+            if arg in _ATTR_NAMES:
+                entries.append(value._str(*_ATTR_NAMES[arg], include_class=False))
+                continue
+            if isinstance(value, Enum):
+                value = value._name_.lower()
+            elif isinstance(value, (tuple, list)):
+                value = " ".join(str(v) for v in value)
+            else:
+                value = str(value)
+            entries.append(f"{arg.replace('_', '-')}: {value}")
+        return "Style(" + "; ".join(entries) + ")"
+
+    def __str__(self) -> str:
+        return self._str()
+
     @staticmethod
-    def from_inline(style: str) -> Self:
+    def from_inline(style: str) -> Style:
         def parse_style(style: str) -> dict[str, length.Length | str]:
             props = dict()
             for entry in style.split(";"):
@@ -516,20 +549,23 @@ class Style:
             for key in keys:
                 logger.warning(f"Style property {key} is not recognized/supported")
 
-        values = []
-        for value in args.values():
-            if isinstance(value, (tuple, list)):
-                value = " ".join(str(e) for e in value)
-            elif isinstance(value, Enum):
-                value = value._name_.lower().replace("_", "-")
-            else:
-                value = str(value)
-            values.append(value)
+        # values = []
+        # for value in args.values():
+        #     if isinstance(value, (tuple, list)):
+        #         value = " ".join(str(e) for e in value)
+        #     elif isinstance(value, Enum):
+        #         value = value._name_.lower().replace("_", "-")
+        #     else:
+        #         value = str(value)
+        #     values.append(value)
 
-        logger.debug(
-            "from_inline('%s') => "
-            + "; ".join([name.replace("_", "-") + ": %s" for name in args.keys()]),
-            style,
-            *values,
-        )
-        return Style(**args)
+        # logger.debug(
+        #     "from_inline('%s') => "
+        #     + "; ".join([name.replace("_", "-") + ": %s" for name in args.keys()]),
+        #     style,
+        #     *values,
+        # )
+
+        s = Style(**args)
+        logger.debug("from_inline('%s') => %s", style, s._str(args.keys()))
+        return s

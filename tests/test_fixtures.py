@@ -12,7 +12,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from stretchable.node import Box, Frame, Node
+from stretchable.node import Box, Edge, Node
 from stretchable.style.geometry.length import LengthAvailableSpace, Scale
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
@@ -147,11 +147,11 @@ def get_css_values(node: WebElement, prop: str) -> tuple[float, float, float, fl
     return values
 
 
-def apply_css_values(node: WebElement, layout: Frame, prop: str, k: float) -> Frame:
+def apply_css_values(node: WebElement, layout: Box, prop: str, k: float) -> Box:
     """Applies CSS margin/border/padding to `layout` with a specified factor `k`."""
     values = []
     values = get_css_values(node, prop)
-    return Frame(
+    return Box(
         layout.x + k * values[3],
         layout.y + k * values[0],
         layout.width - k * (values[1] + values[3]),
@@ -159,15 +159,15 @@ def apply_css_values(node: WebElement, layout: Frame, prop: str, k: float) -> Fr
     )
 
 
-def get_layout_expected(node: WebElement, box: Box) -> Frame:
-    layout = Frame(**node.rect)
-    if box == Box.MARGIN:
+def get_layout_expected(node: WebElement, box: Edge) -> Box:
+    layout = Box(**node.rect)
+    if box == Edge.MARGIN:
         # Expand by margin
         layout = apply_css_values(node, layout, "margin", -1)
-    if box == Box.PADDING or box == Box.CONTENT:
+    if box == Edge.PADDING or box == Edge.CONTENT:
         # Contract by border
         layout = apply_css_values(node, layout, "border", 1)
-    if box == Box.CONTENT:
+    if box == Edge.CONTENT:
         # Contract by padding
         layout = apply_css_values(node, layout, "padding", 1)
     return layout
@@ -183,14 +183,14 @@ def assert_node_layout(
         visible == node_actual.is_visible
     ), f"[{fixture}] Expected {visible=}, got {node_actual.is_visible}"
     if visible:
-        for box in Box:
-            if box == Box.MARGIN:  # and node_actual.has_auto_margin:
+        for box in Edge:
+            if box == Edge.MARGIN:  # and node_actual.has_auto_margin:
                 # Taffy does not expose calculated/applied margins, and
                 # stretchable does not offer to calculate the margin box for
                 # 'auto' margins.
                 continue
             rect_expected = get_layout_expected(node_expected, box)
-            rect_actual = node_actual.get_frame(box=box, relative=False)
+            rect_actual = node_actual.get_box(edge=box, relative=False)
 
             # Assert position of node
             for param in ("x", "y", "width", "height"):

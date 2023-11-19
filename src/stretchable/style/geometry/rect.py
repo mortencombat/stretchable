@@ -67,8 +67,29 @@ class RectBase(Generic[T]):
         else:
             return cls(value)
 
+    def _str(
+        self,
+        top: str = "top",
+        right: str = "right",
+        bottom: str = "bottom",
+        left: str = "left",
+        include_class: bool = True,
+    ) -> str:
+        v = "; ".join(
+            f"{label}: {value}"
+            for label, value in (
+                (top, self.top),
+                (right, self.right),
+                (bottom, self.bottom),
+                (left, self.left),
+            )
+        )
+        if include_class:
+            v = f"Rect({v})"
+        return v
+
     def __str__(self) -> str:
-        return f"Rect(top={self.top}, right={self.right}, bottom={self.bottom}, left={self.left})"
+        return self._str()
 
 
 class Rect(RectBase[Length]):

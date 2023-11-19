@@ -7,8 +7,8 @@ node
 style
     The style of a node determines the size and position of the node relative to the canvas and other nodes. **stretchable** supports the *CSS Grid* and *Flexbox* styling algorithms.
 
-frame
-    A frame is a rectangle with a certain position (relative to the containing node or the root node) and size. The frame can correspond to different types of boxes as defined in the CSS box model. The position and size of the frame is the result of a layout computation.
+box
+    A box is a rectangle with a certain position (relative to the containing node or the root node) and size. The box can correspond to different edges as defined in the CSS box model. The position and size of the box is the result of a layout computation.
 
 CSS
     Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. **stretchable** uses the layout elements and algorithms of CSS (as implemented in [Taffy](https://github.com/dioxuslabs/taffy)).
@@ -18,14 +18,14 @@ CSS box model
 
     ![](_static/box-model.png)
 
-content box
-    The box surrounding the content, where text and images appear.
+content edge
+    The content edge is the box surrounding the content, where text and images appear.
 
-padding box
-    Padding clears an area around the content, between the content and the border. The padding box is the box surrounding the padding, which also lines up with the inside of the border.
+padding edge
+    Padding clears an area around the content, between the content and the border. The padding edge is the box surrounding the padding, which also lines up with the inside of the border.
 
-border box
-    The border goes around the padding and content. The border box is the box surrounding the outside of the border. **stretchable** uses `box-sizing: border-box`, which means that the dimensions (width and height) that you assign to an element corresponds to the border box of the element.
+border edge
+    The border goes around the padding and content. The border edge is the box surrounding the outside of the border. **stretchable** uses `box-sizing: border-box`, which means that the dimensions (width and height) that you assign to an element corresponds to the border box of the element.
 
-margin box
-    Margin clears an area outside the border. The margin box is the box surrounding the margin, eg. the outermost bounds of the element.
+margin edge
+    Margin clears an area outside the border. The margin edge is the box surrounding the margin, eg. the outermost bounds of the element.

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from stretchable import Box, Node
+from stretchable import Edge, Node
 from stretchable.style import PCT, Rect, Size
 
 
@@ -13,16 +13,16 @@ def print_layout(
 ):
     print(" " * level + "Visible: " + str(node.is_visible))
     print(node.style.margin, node.style.border, node.style.padding)
-    for box in Box:
-        layout = node.get_frame(box, relative=relative)
+    for box in Edge:
+        layout = node.get_box(box, relative=relative)
         print(" " * level + box._name_ + ": " + str(layout))
     for child in node:
         print_layout(child, level + 2, relative=relative)
 
 
 def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
-    for t in Box:
-        box = node.get_frame(t, relative=False, flip_y=flip_y)
+    for t in Edge:
+        box = node.get_box(t, relative=False, flip_y=flip_y)
         ax.add_patch(
             Rectangle(
                 (box.x, box.y),
@@ -33,7 +33,7 @@ def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
                 facecolor="none",
             )
         )
-        if t == Box.BORDER:
+        if t == Edge.BORDER:
             ax.annotate(f"Node {index}", (box.x, box.y), color=f"C{index}")
 
     for child in node:
@@ -42,10 +42,10 @@ def plot_node(node: Node, ax, index: int = 0, flip_y: bool = False):
 
 if __name__ == "__main__":
     linestyles = {
-        Box.CONTENT: "dotted",
-        Box.PADDING: "dashed",
-        Box.BORDER: "solid",
-        Box.MARGIN: "dashdot",
+        Edge.CONTENT: "dotted",
+        Edge.PADDING: "dashed",
+        Edge.BORDER: "solid",
+        Edge.MARGIN: "dashdot",
     }
 
     m, b, p = 30, 3, 10 * PCT

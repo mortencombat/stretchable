@@ -11,10 +11,9 @@ Node
 .. autoclass:: Node
     :members:
 
-.. autoclass:: Frame
-    :members: offset
-
-.. autoenum:: Box()
+.. autoclass:: Box
+   
+.. autoenum:: Edge()
 
 Style
 -----
