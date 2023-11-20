@@ -75,7 +75,7 @@ class EnumDocumenter(ClassDocumenter):
             #   **: {the_member_value}", source_name)
             # self.add_line("", source_name)
 
-        self.add_line("   ``" + "``, ``".join(names) + "``", source_name)
+        self.add_line("   ``" + "`` ``".join(names) + "``", source_name)
         self.add_line("", source_name)
 
 

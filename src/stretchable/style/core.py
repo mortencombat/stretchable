@@ -125,14 +125,14 @@ class Style:
     )
 
     # Spacing
-    margin: rect.RectPointsPercentAuto = field(
-        default=0.0, converter=rect.RectPointsPercentAuto.from_any
-    )
     padding: rect.RectPointsPercent = field(
         default=0.0, converter=rect.RectPointsPercent.from_any
     )
     border: rect.RectPointsPercent = field(
         default=0.0, converter=rect.RectPointsPercent.from_any
+    )
+    margin: rect.RectPointsPercentAuto = field(
+        default=0.0, converter=rect.RectPointsPercentAuto.from_any
     )
 
     # Size

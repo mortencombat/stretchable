@@ -5,8 +5,8 @@ API Reference
 
 What follows is an API reference. If you'd like a more hands-on tutorial, have a look at :doc:`examples`.
 
-Node
-----
+Nodes
+-----
 
 .. autoclass:: Node
     :members: address, parent, is_dirty, key, is_root, root, style, find, compute_layout, mark_dirty, get_box
@@ -15,8 +15,8 @@ Node
    
 .. autoenum:: Edge()
 
-Style
------
+Styles
+------
 
 .. class:: Style(**kwargs)
 
@@ -70,6 +70,115 @@ Style
 
         Sets the distribution of space between and around content items.
 
+    .. property:: gap
+        :type: SizePointsPercent
+
+        TODO
+
+    .. property:: padding
+        :type: RectPointsPercent
+
+        TODO
+
+    .. property:: border
+        :type: RectPointsPercent
+
+        TODO
+
+    .. property:: margin
+        :type: RectPointsPercentAuto
+
+        TODO
+
+    .. property:: size
+        :type: SizePointsPercentAuto
+
+        TODO
+    
+    .. property:: min_size
+        :type: SizePointsPercentAuto
+
+        TODO
+
+    .. property:: max_size
+        :type: SizePointsPercentAuto
+
+        TODO
+
+    .. property:: aspect_ratio
+        :type: float
+
+        TODO
+
+    .. property:: flex_wrap
+        :type: FlexWrap
+
+        TODO
+
+    .. property:: flex_direction
+        :type: FlexDirection
+
+        TODO
+
+    .. property:: flex_grow
+        :type: float
+
+        TODO
+        (default: ``0.0``)
+
+    .. property:: flex_shrink
+        :type: float
+
+        TODO 
+        (default: ``1.0``)
+
+    .. property:: flex_basis
+        :type: LengthPointsPercentAuto
+
+        TODO
+        (default: ``AUTO``)
+
+    .. property:: grid_auto_flow
+        :type: GridAutoFlow
+
+        TODO
+
+    .. property:: grid_template_rows
+        :type: list[GridTrackSizing]
+
+        TODO 
+        (default: :py:obj:`None`)
+
+    .. property:: grid_template_columns
+        :type: list[GridTrackSizing]
+
+        TODO
+        (default: :py:obj:`None`)
+
+    .. property:: grid_auto_rows
+        :type: list[GridTrackSize]
+
+        TODO 
+        (default: :py:obj:`None`)
+    
+    .. property:: grid_auto_columns
+        :type: list[GridTrackSize]
+
+        TODO 
+        (default: :py:obj:`None`)
+
+    .. property:: grid_row
+        :type: GridPlacement
+
+        TODO
+        (default: ``AUTO``)
+
+    .. property:: grid_column
+        :type: GridPlacement
+
+        TODO
+        (default: ``AUTO``)
+
 -------
 Options
 -------
@@ -112,8 +221,11 @@ Grid
 
 .. autoenum:: stretchable.style.GridIndexType()
 
-.. class:: GridTrackSize
+.. class:: stretchable.style.GridTrackSize
 
+.. class:: stretchable.style.GridTrackSizing
+
+.. class:: stretchable.style.GridPlacement
 
 --------
 Geometry
