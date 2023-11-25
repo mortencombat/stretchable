@@ -231,13 +231,40 @@ Grid
 Geometry
 --------
 
-The :mod:`stretchable.style.geometry` module contains three basic structures: Length, Size and Rect.
+The :mod:`stretchable.style.geometry` module describes :ref:`length <Length>`, :ref:`size <Size>` (2 lengths, typically width and height) and :ref:`rectangles <Rect>` (4 lengths). For each of these, different :ref:`scales <Scale>` (eg. points, percentages, etc.) are available.
 
+All of the classes have different variants which limit the allowed scales for a specific context/setting on the :py:class:`Style` class.
+
+=====
+Scale
+=====
+
+.. autoenum:: stretchable.style.geometry.Scale()
+
+.. autoenum:: stretchable.style.geometry.Points()
+
+.. autoenum:: stretchable.style.geometry.PointsPercent()
+
+.. autoenum:: stretchable.style.geometry.PointsPercentAuto()
+
+.. autoenum:: stretchable.style.geometry.AvailableSpace()
+
+.. autoenum:: stretchable.style.geometry.MinTrackSize()
+
+.. autoenum:: stretchable.style.geometry.MaxTrackSize()
 
 ======
 Length
 ======
 
+.. class:: stretchable.style.geometry.Length(scale: Scale, value: float) -> Length
+
+    Represents a length. For some values of `scale`, `value` is not applicable.
+
+    It is recommended to use the static constructors on the different variants of `Length`, instead of using the constructor directly.
+
+.. todo::
+    Add documentation for Length constructors and variants.
 
 
 ====
@@ -245,17 +272,24 @@ Size
 ====
 
 
+.. class:: stretchable.style.geometry.Size(*values: Length, width: Length = None, height: Length = None) -> Size
+
+    Represents two :ref:`lengths <Length>` (typically the size of a rectangle eg. width and height).
+
+.. todo::
+    Add documentation for Size constructors and variants.
+
+
 ====
 Rect
 ====
 
-.. todo:: Include the signature and arguments of Rect, then list the other variants and describe what type of parameters they can take, referring to the Length section.
+.. class:: stretchable.style.geometry.Rect(*values: Length, top: Length = None, right: Length = None, bottom: Length = None, left: Length = None) -> Rect
 
-.. autoclass:: stretchable.style.geometry.rect.Rect
+    Represents four :ref:`lengths <Length>`.
 
-.. autoclass:: stretchable.style.geometry.size.SizePoints
-
-.. autoclass:: stretchable.style.geometry.size.SizeAvailableSpace
+.. todo::
+    Add documentation for Rect constructors and variants.
 
 
 Exceptions
@@ -265,5 +299,8 @@ Exceptions
 .. autoexception:: stretchable.exceptions.NodeLocatorError
 .. autoexception:: stretchable.exceptions.NodeNotFound
 .. autoexception:: stretchable.exceptions.LayoutNotComputedError
-    
+
+.. todo::
+    Add documentation for exceptions.
+
     
