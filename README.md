@@ -1,5 +1,8 @@
-# stretchable &middot; [![PyPI - Version](https://img.shields.io/pypi/v/stretchable)](https://pypi.org/project/stretchable/) [![Python Versions](https://img.shields.io/pypi/pyversions/stretchable)](https://www.python.org) [![License](https://img.shields.io/github/license/mortencombat/stretchable?color=blue)](https://github.com/mortencombat/stretchable/blob/main/LICENSE)
+# stretchable 
 
+[![PyPI - Version](https://img.shields.io/pypi/v/stretchable)](https://pypi.org/project/stretchable/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/stretchable)](https://www.python.org)
+[![License](https://img.shields.io/github/license/mortencombat/stretchable?color=blue)](https://github.com/mortencombat/stretchable/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/mortencombat/stretchable?logo=github)](https://github.com/mortencombat/stretchable/issues)
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
 [![Documentation Status](https://readthedocs.org/projects/stretchable/badge/?version=latest)](https://stretchable.readthedocs.io/en/latest/?badge=latest)
