@@ -6,7 +6,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/mortencombat/stretchable?logo=github)](https://github.com/mortencombat/stretchable/issues)
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
 [![Documentation Status](https://readthedocs.org/projects/stretchable/badge/?version=latest)](https://stretchable.readthedocs.io/en/latest/?badge=latest)
-[![pytest - results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
+[![Test results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 [![Test coverage](https://gist.github.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 
 **stretchable** is a layout library for Python that enables context-agnostic layout operations using [CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) and [Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/). Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
@@ -47,7 +47,7 @@ print(content_box)
 
 ```
 
-For more information and details, see the documentation.
+For more information and details, see the [documentation](https://stretchable.readthedocs.io/).
 
 ## Contributing
 
@@ -65,7 +65,7 @@ NOTE: Sometimes, you may need to run `make clean html` (in `docs/` folder) to en
 
 ### Testing
 
-Install test dependencies and invoke `pytest`. Note that there are ~450 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~10 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
+Install test dependencies and invoke `pytest`. Note that there are ~650 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~20 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
 
 ## License
 

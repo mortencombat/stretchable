@@ -73,111 +73,121 @@ Styles
     .. property:: gap
         :type: SizePointsPercent
 
-        TODO
+        Sets the gaps (gutters) between rows and columns in a grid layout
+        (default: ``0.0``).
 
     .. property:: padding
         :type: RectPointsPercent
 
-        TODO
+        Sets the padding area between the :term:`content edge <Content edge>` and the :term:`padding edge <Padding edge>`
+        (default: ``0.0``).
 
     .. property:: border
         :type: RectPointsPercent
 
-        TODO
+        Sets the border area between the :term:`padding edge <Padding edge>` and the :term:`border edge <Border edge>`
+        (default: ``0.0``).
 
     .. property:: margin
         :type: RectPointsPercentAuto
 
-        TODO
+        Sets the margin area between the :term:`border edge <Border edge>` and the :term:`margin edge <Margin edge>`
+        (default: ``0.0``).
 
     .. property:: size
         :type: SizePointsPercentAuto
 
-        TODO
+        Sets the desired width and height of the :term:`border box <box>`
+        (default: ``AUTO``).
     
     .. property:: min_size
         :type: SizePointsPercentAuto
 
-        TODO
+        Sets the minimum width and height of the :term:`border box <box>`
+        (default: ``AUTO``).
 
     .. property:: max_size
         :type: SizePointsPercentAuto
 
-        TODO
+        Sets the maximum width and height of the :term:`border box <box>`
+        (default: ``AUTO``).
 
     .. property:: aspect_ratio
         :type: float
 
-        TODO
+        Sets the desired width-to-height of the :term:`border box <box>`
+        (default: :py:obj:`None`).
 
     .. property:: flex_wrap
         :type: FlexWrap
 
-        TODO
+        Sets whether flex items are forced onto one line or can wrap onto multiple lines. If wrapping is allowed, it sets the direction that lines are stacked
+        (default: ``NO_WRAP``).
 
     .. property:: flex_direction
         :type: FlexDirection
 
-        TODO
+        Sets how flex items are placed in the flex container defining the main axis and the direction (normal or reversed)
+        (default: ``ROW``).
 
     .. property:: flex_grow
         :type: float
 
-        TODO
-        (default: ``0.0``)
+        Sets the flex grow factor, which specifies how much of the flex container's remaining space should be assigned to the flex item's main size.
+        (default: ``0.0``).
 
     .. property:: flex_shrink
         :type: float
 
-        TODO 
-        (default: ``1.0``)
+        Sets the flex shrink factor of a flex item. If the size of all flex items is larger than the flex container, items shrink to fit according to flex-shrink
+        (default: ``1.0``).
 
     .. property:: flex_basis
         :type: LengthPointsPercentAuto
 
-        TODO
+        Sets the initial main size of the :term:`border box <box>` of a flex item
         (default: ``AUTO``)
 
     .. property:: grid_auto_flow
         :type: GridAutoFlow
 
-        TODO
+        Controls how the auto-placement algorithm works, specifying exactly how auto-placed items get flowed into the grid.
 
     .. property:: grid_template_rows
         :type: list[GridTrackSizing]
 
-        TODO 
-        (default: :py:obj:`None`)
+        Defines the track sizing functions of the grid rows
+        (default: :py:obj:`None`).
 
     .. property:: grid_template_columns
         :type: list[GridTrackSizing]
 
-        TODO
-        (default: :py:obj:`None`)
+        Defines the track sizing functions of the grid columns
+        (default: :py:obj:`None`).
 
     .. property:: grid_auto_rows
         :type: list[GridTrackSize]
 
-        TODO 
-        (default: :py:obj:`None`)
+        Specifies the size of an implicitly-created grid row track or pattern of tracks.
+        (default: :py:obj:`None`).
     
     .. property:: grid_auto_columns
         :type: list[GridTrackSize]
 
-        TODO 
-        (default: :py:obj:`None`)
+        Specifies the size of an implicitly-created grid column track or pattern of tracks.
+        (default: :py:obj:`None`).
 
     .. property:: grid_row
         :type: GridPlacement
 
-        TODO
-        (default: ``AUTO``)
+        Specifies a grid item's size and location within a grid row
+        (default: ``AUTO``).
 
     .. property:: grid_column
         :type: GridPlacement
 
-        TODO
-        (default: ``AUTO``)
+        Specifies a grid item's size and location within a grid column
+        (default: ``AUTO``).
 
 -------
 Options

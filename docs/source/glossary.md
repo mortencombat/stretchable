@@ -17,7 +17,7 @@ CSS
     Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. **stretchable** uses the layout elements and algorithms of CSS (as implemented in [Taffy](https://github.com/dioxuslabs/taffy)).
 
 CSS box model
-    In CSS, the term "box model" is used when talking about design and layout. The CSS box model is essentially a box that wraps around every node/element. It consists of *content*, *padding*, *borders* and *margins*. The image below illustrates the box model:
+    In CSS, the term "box model" is used when talking about design and layout. The [CSS box model](https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model) is essentially a box that wraps around every node/element. It consists of *content*, *padding*, *borders* and *margins*. The image below illustrates the box model:
 
     ![](_static/box-model.png)
 

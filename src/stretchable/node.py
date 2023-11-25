@@ -592,8 +592,7 @@ class Node(list["Node"]):
         """
         Get the computed layout (position and size) for the node.
 
-        For a description of the box model, see:
-        https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
+        See :term:`CSS box model` for more information.
 
         Parameters
         ----------
