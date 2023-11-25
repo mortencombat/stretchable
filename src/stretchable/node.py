@@ -216,7 +216,7 @@ class Node(list["Node"]):
         return self.parent is None
 
     def add(self, *children: Node) -> Node:
-        """Add one or more child nodes and return the node itself (enables chaining of node instantiation, see `examples`)."""
+        """Add one or more child nodes and return the node itself (enables chaining of node instantiation, see :ref:`Building Node Trees`)."""
         self.extend(children)
         return self
 

@@ -43,6 +43,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
+    "sphinxcontrib.mermaid",
     "autoenum",
 ]
 

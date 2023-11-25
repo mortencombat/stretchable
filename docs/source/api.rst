@@ -9,7 +9,7 @@ Nodes
 -----
 
 .. autoclass:: Node
-    :members: address, parent, is_dirty, key, is_root, root, style, find, compute_layout, mark_dirty, get_box
+    :members: address, parent, is_dirty, add, key, is_root, root, style, find, compute_layout, mark_dirty, get_box
 
 .. autoclass:: Box
    
