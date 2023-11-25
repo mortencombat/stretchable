@@ -42,30 +42,40 @@ def parse_value(
 
 
 class Display(IntEnum):
+    """Used to control node visibility and layout strategy.
+
+    See `display <https://developer.mozilla.org/en-US/docs/Web/CSS/display>`_ on MDN for more information.
+    """
+
     NONE = 0
     FLEX = 1
     GRID = 2
 
 
 class Overflow(IntEnum):
+    """Controls the desired behavior when content does not fit inside the parent node.
+
+    See `overflow <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>`_ on MDN for more information.
+    """
+
     VISIBLE = 0
     HIDDEN = 1
     SCROLL = 2
 
 
 class Position(IntEnum):
-    """
-    The positioning strategy for this item.
+    """The positioning strategy for this node.
 
     This controls both how the origin is determined for the `inset` property,
     and whether or not the item will be controlled by flexbox's layout
     algorithm.
 
-    WARNING: this enum follows the behavior of [CSS's `position`
-    property](https://developer.mozilla.org/en-US/docs/Web/CSS/position), which
-    can be unintuitive.
+    See `position <https://developer.mozilla.org/en-US/docs/Web/CSS/position>`_ on MDN for more information.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/position)
+    Warning
+    -------
+    This enum follows the behavior of CSS's `position` property, which
+    can be unintuitive.
     """
 
     RELATIVE = 0
@@ -78,12 +88,12 @@ class Position(IntEnum):
 
 
 class AlignItems(IntEnum):
-    """
-    Used to control how child nodes are aligned.
+    """Used to control how child nodes are aligned.
+
     For Flexbox it controls alignment in the cross axis.
     For Grid it controls alignment in the block axis.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/align-items)
+    See `align-items <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>`_ on MDN for more information.
     """
 
     START = 0
@@ -96,12 +106,12 @@ class AlignItems(IntEnum):
 
 
 class JustifyItems(IntEnum):
-    """
-    Used to control how child nodes are aligned.
+    """Used to control how child nodes are aligned.
+
     Does not apply to Flexbox, and will be ignored if specified on a flex container.
     For Grid it controls alignment in the inline axis.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items)
+    See `justify-items <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>`_ on MDN for more information.
     """
 
     START = 0
@@ -114,13 +124,13 @@ class JustifyItems(IntEnum):
 
 
 class AlignSelf(IntEnum):
-    """
-    Used to control how the specified nodes is aligned.
+    """Used to control how the node is aligned.
+
     Overrides the parent Node's `AlignItems` property.
     For Flexbox it controls alignment in the cross axis
     For Grid it controls alignment in the block axis
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/align-self)
+    See `align-self <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>`_ on MDN for more information.
     """
 
     START = 0
@@ -133,13 +143,13 @@ class AlignSelf(IntEnum):
 
 
 class JustifySelf(IntEnum):
-    """
-    Used to control how the specified nodes is aligned.
-    Overrides the parent Node's `JustifyItems` property.
+    """Used to control how the node is aligned.
+
+    Overrides the parent node :py:attr:`Style` property.
     Does not apply to Flexbox, and will be ignored if specified on a flex child
     For Grid it controls alignment in the inline axis
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self)
+    See `justify-self <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>`_ on MDN for more information.
     """
 
     START = 0
@@ -152,12 +162,12 @@ class JustifySelf(IntEnum):
 
 
 class AlignContent(IntEnum):
-    """
-    Sets the distribution of space between and around content items
-    For Flexbox it controls alignment in the cross axis
-    For Grid it controls alignment in the block axis
+    """Sets the distribution of space between and around content items.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/align-content)
+    For Flexbox it controls alignment in the cross axis. For Grid it controls
+    alignment in the block axis.
+
+    See `align-content <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>`_ on MDN for more information.
     """
 
     START = 0
@@ -172,12 +182,12 @@ class AlignContent(IntEnum):
 
 
 class JustifyContent(IntEnum):
-    """
-    Sets the distribution of space between and around content items
-    For Flexbox it controls alignment in the main axis
-    For Grid it controls alignment in the inline axis
+    """Sets the distribution of space between and around content items.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content)
+    For Flexbox it controls alignment in the main axis. For Grid it controls
+    alignment in the inline axis.
+
+    See `justify-content <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>`_ on MDN for more information.
     """
 
     START = 0
@@ -197,11 +207,10 @@ class JustifyContent(IntEnum):
 
 
 class FlexWrap(IntEnum):
-    """
-    Controls whether flex items are forced onto one line or can wrap onto
+    """Controls whether flex items are forced onto one line or can wrap onto
     multiple lines.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap)
+    See `flex-wrap <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap>`_ on MDN for more information.
     """
 
     NO_WRAP = 0
@@ -210,17 +219,17 @@ class FlexWrap(IntEnum):
 
 
 class FlexDirection(IntEnum):
-    """
-    The direction of the flexbox layout main axis. There are always two
-    perpendicular layout axes: main (or primary) and cross (or secondary).
-    Adding items will cause them to be positioned adjacent to each other along
-    the main axis. By varying this value throughout your tree, you can create
-    complex axis-aligned layouts.
+    """The direction of the flexbox layout main axis.
+
+    There are always two perpendicular layout axes: main (or primary) and cross
+    (or secondary). Adding items will cause them to be positioned adjacent to
+    each other along the main axis. By varying this value throughout your tree,
+    you can create complex axis-aligned layouts.
 
     Items are always aligned relative to the cross axis, and justified relative
     to the main axis.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction)
+    See `flex-direction <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction>`_ on MDN for more information.
     """
 
     ROW = 0
@@ -235,14 +244,15 @@ class FlexDirection(IntEnum):
 
 
 class GridAutoFlow(IntEnum):
-    """
-    Controls whether grid items are placed row-wise or column-wise, and whether
-    the sparse or dense packing algorithm is used. The "dense" packing algorithm
+    """Controls whether grid items are placed row-wise or column-wise, and whether
+    the sparse or dense packing algorithm is used.
+
+    The "dense" packing algorithm
     attempts to fill in holes earlier in the grid, if smaller items come up
     later. This may cause items to appear out-of-order, when doing so would fill
     in holes left by larger items.
 
-    [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow)
+    See `grid-auto-flow <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>`_ on MDN for more information.
     """
 
     ROW = 0

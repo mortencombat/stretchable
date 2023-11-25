@@ -1,36 +1,55 @@
 # stretchable
 
 [![PyPI - Version](https://img.shields.io/pypi/v/stretchable)](https://pypi.org/project/stretchable/)
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
+[![Python Versions]](https://img.shields.io/pypi/pyversions/stretchable)
+[![License]](https://img.shields.io/github/license/mortencombat/stretchable?color=blue)
 [![GitHub issues](https://img.shields.io/github/issues/mortencombat/stretchable?logo=github)](https://github.com/mortencombat/stretchable/issues)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
 [![Documentation Status](https://readthedocs.org/projects/stretchable/badge/?version=latest)](https://stretchable.readthedocs.io/en/latest/?badge=latest)
-[![pytest - results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
+[![Test results](https://gist.github.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 [![Test coverage](https://gist.github.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 
-**stretchable** is a layout library for Python that enables context-agnostic layout operations using CSS Grid and Flexbox. Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
+**stretchable** is a layout library for Python that enables context-agnostic layout operations using [CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) and [Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/). Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
 
-It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Grid/Flexbox written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy.
+It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Grid/Flexbox written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy. It is multi-platform and there are distributions available for Windows, Linux and macOS.
 
 ## Getting Started
 
-Helpful resources to getting started with layouts using CSS Grid and Flexbox are listed below.
+**stretchable** is a Python package [hosted on PyPI](https://pypi.org/project/stretchable/). It can be installed using [pip](https://pip.pypa.io/en/stable/):
 
-### Flexbox
+```console
+python -m pip install attrs
+```
 
-- [Flexbox Froggy](https://flexboxfroggy.com/). This is an interactive tutorial/game that allows you to learn the essential parts of Flexbox in a fun engaging way.
-- [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
-- [Yoga Playground](https://yogalayout.com/playground)
+Building a tree of nodes and calculating the layout is as simple as:
 
-### CSS Grid
+```python
+from stretchable import Edge, Node
+from stretchable.style import AUTO, PCT
 
-- [CSS Grid Garden](https://cssgridgarden.com/). This is an interactive tutorial/game that allows you to learn the essential parts of CSS Grid in a fun engaging way.
-- [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different CSS Grid properties and how they work.
+# Build node tree
+root = Node(
+    margin=20,
+    size=(500, 300),
+).add(
+    Node(border=5, size=(50 * PCT, AUTO)),
+    Node(key="child", padding=10 * PCT, size=50 * PCT),
+)
 
-## Usage
+# Compute layout
+root.compute_layout()
 
-See [demos](https://github.com/mortencombat/stretchable/tree/main/demos) for examples of basic usage.
+# Get the second child node
+child_node = root.find("/child")
+content_box = child_node.get_box(Edge.CONTENT)
+print(content_box)
+# Box(x=300.0, y=50.0, width=150.0, height=50.0)
 
-## Contribute
+```
+
+For more information and details, see the [documentation](https://stretchable.readthedocs.io/).
+
+## Contributing
 
 Contributions are welcomed. Please open an issue to clarify/plan implementation details prior to starting the work.
 
@@ -38,9 +57,15 @@ Contributions are welcomed. Please open an issue to clarify/plan implementation 
 
 Install Rust with [rustup](https://rustup.rs/) and use `maturin develop` for development and `maturin build [--release]` to build.
 
+### Documentation
+
+To build documentation use `make html` (in `docs/` folder) or, to use live reloading: `sphinx-autobuild docs/source docs/build/html`
+
+NOTE: Sometimes, you may need to run `make clean html` (in `docs/` folder) to ensure that all changes are included in the built html.
+
 ### Testing
 
-Install test dependencies and invoke `pytest`. Note that there are ~450 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~10 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
+Install test dependencies and invoke `pytest`. Note that there are ~650 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~20 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
 
 ## License
 

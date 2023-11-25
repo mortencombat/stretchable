@@ -60,8 +60,19 @@ class SizeBase(Generic[T]):
     def default(cls) -> Self:
         raise NotImplementedError
 
+    def _str(
+        self, width: str = "width", height: str = "height", include_class: bool = True
+    ) -> str:
+        v = "; ".join(
+            f"{label}: {value}"
+            for label, value in ((width, self.width), (height, self.height))
+        )
+        if include_class:
+            v = f"Size({v})"
+        return v
+
     def __str__(self) -> str:
-        return f"Size(width={str(self.width)}, height={str(self.height)})"
+        return self._str()
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, SizeBase):

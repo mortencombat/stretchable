@@ -9,6 +9,8 @@ NAN = float("nan")
 
 
 class Scale(IntEnum):
+    """All available length scales/settings (support is context-dependent)."""
+
     AUTO = 0
     POINTS = 1
     PERCENT = 2
@@ -220,8 +222,20 @@ class LengthAvailableSpace(LengthBase[AvailableSpace]):
 
 
 class LengthPoints(LengthBase[Points]):
+    """
+    A length in :py:obj:`Scale.POINTS <Scale>`.
+
+    Parameters
+    ----------
+    scale : Points
+    value : float
+
+    """
+
     @staticmethod
-    def points(value: float | Length = None) -> Self:
+    def points(value: float | Length = None) -> LengthPoints:
+        """Returns length using :py:obj:`Scale.POINTS <Scale>`."""
+
         if value is None:
             value = NAN
         elif issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
@@ -229,7 +243,7 @@ class LengthPoints(LengthBase[Points]):
         return LengthPointsPercent(PointsPercent.POINTS, value)
 
     @staticmethod
-    def default() -> Self:
+    def default() -> LengthPoints:
         return LengthPoints()
 
 

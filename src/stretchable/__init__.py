@@ -8,12 +8,14 @@
 # from .node import Box, Layout, Node, reset
 # from .style import Rect, Size, Style
 
-from .node import Box, Layout, Node
+from .node import Box, Edge, Node
+from .style import Style
 
 __all__ = [
     "Node",
+    "Edge",
     "Box",
-    "Layout",
+    "Style",
 ]
 
 

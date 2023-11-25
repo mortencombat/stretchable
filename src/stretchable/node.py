@@ -32,34 +32,55 @@ MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 USE_ROOT_CONTAINER: bool = False
 
 
-class Box(StrEnum):
-    CONTENT = auto()  # Innermost box, corresponding to inside of padding
-    PADDING = auto()  # Outside of padding / inside of border
-    BORDER = auto()  # Outside of border
-    MARGIN = auto()  # Outside of margin
+"""
+    
+"""
+
+
+class Edge(StrEnum):
+    """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
+
+    CONTENT = auto()
+    PADDING = auto()
+    BORDER = auto()
+    MARGIN = auto()
 
 
 @define(frozen=True)
-class Layout:
+class Box:
+    """Represents a rectangle with a position and size.
+
+    Parameters
+    ----------
+    x : float
+        The horizontal position of the left edge of the box
+    y : float
+        The vertical position of the top (default) or bottom (if using ``flip_y = True`` in :py:obj:`Node.get_box()`) edge of the box
+    width : float
+        The width of the box
+    height : float
+        The height of the box
+    """
+
     x: float
     y: float
     width: float
     height: float
 
-    def scale(
+    def _offset(
         self,
         offsets: Rect,
-        container: Layout = None,
+        container: Box = None,
         *,
         factor: float = 1,
-    ) -> Layout:
+    ) -> Box:
         """
-        Adjusts layout by the provided offsets.
+        Returns a copy of the frame offset by the specified ``offsets``.
 
         :param offsets: The offsets to use (typically margin, border or padding)
         :type offsets: Rect
         :param container: The container to use in case of percentage offsets, defaults to None
-        :type container: Layout, optional
+        :type container: Frame, optional
         :param factor: The factor to apply to offsets (positive value expands, negative value contracts), defaults to 1
         :type factor: float
         :return: Adjusted layout
@@ -72,7 +93,7 @@ class Layout:
         top = offsets.top.to_pts(container)
         bottom = offsets.bottom.to_pts(container)
 
-        return Layout(
+        return Box(
             self.x - factor * left,
             self.y - factor * top,
             self.width + factor * (left + right),
@@ -81,12 +102,31 @@ class Layout:
 
 
 class Node(list["Node"]):
+    """A node in a layout.
+
+    Parameters
+    ----------
+    *children
+        Any child nodes to add to this node, optional
+    key
+        Node identifier that can be used to locate the node in the node tree, optional
+    measure
+        A method that is able to measure and return the size of the node
+        during computation of layout, optional
+    style
+        The style to apply to the node, optional
+    **kwargs
+        If the ``style`` parameter is not provided, any additional keyword arguments are passed
+        to a new instance of :py:obj:`Style` which is assigned to this node, optional
+
+    """
+
     __slots__ = (
         "_key",
         "_style",
         "_children",
         "_measure",
-        "_layout",
+        "_box",
         "_container",
         "_view",
         "_zorder",
@@ -96,19 +136,12 @@ class Node(list["Node"]):
 
     def __init__(
         self,
-        *children,
+        *children: Node,
         key: str = None,
-        measure: MeasureFunc = None,
+        measure: Callable[[SizePoints, SizeAvailableSpace], SizePoints] = None,
         style: Style = None,
-        **style_args,
+        **kwargs,
     ):
-        """
-        ...
-
-        Arguments:
-            measure:    a callable that takes (available_space: Size[AvailableSpace], known_dimensions: Size[float]) and returns Size[float]
-        """
-
         self.__ptr = None
         if not taffy._ptr:
             raise TaffyUnavailableError
@@ -120,7 +153,7 @@ class Node(list["Node"]):
             raise ValueError("The given `key` is not valid")
         self._key = key
 
-        self._layout = None
+        self._box: dict[Edge, Box] = None
         self._zorder = None
         self._parent = None
         self._container: Node = None
@@ -128,8 +161,8 @@ class Node(list["Node"]):
 
         # Style
         if not style:
-            style = Style(**style_args)
-        elif style_args:
+            style = Style(**kwargs)
+        elif kwargs:
             raise ValueError("Provide only `style` or style attributes, not both")
         self._style = style
 
@@ -164,26 +197,31 @@ class Node(list["Node"]):
     # region Children
 
     @property
-    def parent(self) -> "Node":
+    def parent(self) -> Node | None:
+        """The parent :py:obj:`Node` of this node, or :py:obj:`None` if it does not have a parent node."""
         return self._parent
 
     @parent.setter
-    def parent(self, value: "Node") -> None:
+    def parent(self, value: Node) -> None:
         self._parent = value
 
     @property
-    def root(self) -> "Node":
+    def root(self) -> Node:
+        """The root :py:obj:`Node` of the node tree with which this node is associated."""
         return self if self.is_root else self.parent.root
 
     @property
     def is_root(self) -> bool:
+        """``True`` if this node is the root node, ``False`` otherwise."""
         return self.parent is None
 
-    def add(self, *children) -> Self:
+    def add(self, *children: Node) -> Node:
+        """Add one or more child nodes and return the node itself (enables chaining of node instantiation, see :ref:`Building Node Trees`)."""
         self.extend(children)
         return self
 
-    def append(self, node: "Node"):
+    def append(self, node: Node):
+        """Add a child node."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         if not isinstance(node, Node):
@@ -200,11 +238,13 @@ class Node(list["Node"]):
         node.parent = self
         super().append(node)
 
-    def extend(self, __iterable: Iterable["Node"]) -> None:
+    def extend(self, __iterable: Iterable[Node]) -> None:
+        """Add one or more child nodes."""
         for child in __iterable:
             self.append(child)
 
-    def remove(self, node: "Node") -> None:
+    def remove(self, node: Node) -> None:
+        """Remove child `Node`."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         taffylib.node_remove_child(taffy._ptr, self._ptr, node._ptr)
@@ -261,8 +301,7 @@ class Node(list["Node"]):
     @property
     def address(self) -> str:
         """
-        The address of this node, relative to farthest parent node
-        or root if associated with a tree.
+        The address of this node, relative to the root node.
         """
         if not self.parent:
             return "/"
@@ -288,37 +327,23 @@ class Node(list["Node"]):
 
         return addr
 
-    def find(self, address: str) -> Self:
-        """
-        Returns the node at the specified address.
+    def find(self, address: str) -> Node:
+        """Returns the node at the specified address.
 
-        Nodes can be identified either by the node id (str) if it is defined,
-        or the 0-based node index.
+        Node addresses use a syntax similar to file paths, eg. a leading ``/``
+        starts from the root of the node tree, ``./`` indicates the current
+        location and ``../`` steps up a level.
 
-        Example tree:
-            tree
-            - 'header'
-            - 'body'
-              - 'left'
-              - 'center'
-                - 'title'
-                - 'content'
-              - 'right'
-            - 'footer'
+        Nodes can be identified either by the :py:attr:`Node.key` (optional), or
+        the 0-based node index.
 
-        Absolute address examples (start with a leading /, nodes must be
-        associated with a tree, which is the root):
-            /body/center/title -> 'title' node
-            /1/1/0 -> 'title' node
-            /2 -> 'footer' node
+        See :ref:`Locating Nodes` for some examples of how to locate nodes using
+        this method.
 
-        Relative address examples, using find() on the 'body' node:
-            center/title -> 'title' node
-            ./center/title -> 'title' node
-            1/1 -> 'content' node
-            ../footer -> 'footer' node
-
-
+        Parameters
+        ----------
+        address
+            The address of the node to find
         """
 
         addr = address.strip()
@@ -358,7 +383,8 @@ class Node(list["Node"]):
             return child.find(post) if post else child
 
     @property
-    def key(self) -> str:
+    def key(self) -> str | None:
+        """Node identifier."""
         return self._key
 
     # endregion
@@ -369,17 +395,21 @@ class Node(list["Node"]):
 
     @property
     def is_dirty(self) -> bool:
+        """``True`` if the layout needs to be (re)computed to get the layout of this node, ``False`` otherwise."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         return taffylib.node_dirty(taffy._ptr, self._ptr)
 
-    def mark_dirty(self) -> None:
+    def mark_dirty(self):
+        """Marks this node as `dirty` meaning that the layout needs to be recomputed."""
         if not taffy._ptr:
             raise TaffyUnavailableError
         taffylib.node_mark_dirty(taffy._ptr, self._ptr)
 
     @property
     def is_visible(self) -> bool:
+        """Whether the node is visible."""
+
         if self.parent and not self.parent.is_visible:
             return False
         if self.style.display == Display.NONE:
@@ -389,15 +419,15 @@ class Node(list["Node"]):
                 "Cannot determine if node is visible, layout is not computed"
             )
         if (
-            (self._layout.width <= 0 or self._layout.height <= 0)
+            (self._box[Edge.BORDER].width <= 0 or self._box[Edge.BORDER].height <= 0)
             and len(self) == 0
             and not self.is_root
         ):
             # Box is zero-sized with no children
             return False
         if (
-            self._layout.y + self._layout.height < 0
-            or self._layout.x + self._layout.width < 0
+            self._box[Edge.BORDER].y + self._box[Edge.BORDER].height < 0
+            or self._box[Edge.BORDER].x + self._box[Edge.BORDER].width < 0
         ):
             # Box is outside canvas
             return False
@@ -431,6 +461,7 @@ class Node(list["Node"]):
 
     @property
     def measure(self) -> MeasureFunc:
+        """Method invoked to measure the node size during computation of layout."""
         return self._measure
 
     @measure.setter
@@ -456,6 +487,25 @@ class Node(list["Node"]):
         *,
         use_rounding: bool = False,
     ) -> bool:
+        """Computes the layout for this node and any child nodes.
+
+        Parameters
+        ----------
+        available_space
+            The available space for the layout. It may be provided as :py:obj:`SizeAvailableSpace`, as a :py:obj:`tuple` of width and height, or omitted
+        use_rounding
+            If ``True``, all positions and dimensions will be rounded to integers.
+
+        Returns
+        -------
+        ``True`` if layout was computed successfully, ``False`` otherwise.
+
+        Notes
+        -----
+
+        Depending on the nodes, the resulting layout may extend outside ``available_space``.
+        """
+
         if not taffy._ptr:
             raise TaffyUnavailableError
 
@@ -495,19 +545,21 @@ class Node(list["Node"]):
             raise LayoutNotComputedError
 
         layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
-        self._layout = Layout(
-            layout["left"], layout["top"], layout["width"], layout["height"]
-        )
+
+        # Update the border box and clear cached boxes for other edges
+        box = Box(layout["left"], layout["top"], layout["width"], layout["height"])
+        self._box = {Edge.BORDER: box}
         self._zorder = layout["order"]
+
         logger.debug(
             "node_get_layout(taffy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
             taffy._ptr,
             self._ptr,
             self._zorder,
-            self._layout.x,
-            self._layout.y,
-            self._layout.width,
-            self._layout.height,
+            box.x,
+            box.y,
+            box.width,
+            box.height,
         )
 
         if self.is_visible:
@@ -526,41 +578,40 @@ class Node(list["Node"]):
         )
 
     @property
-    def layout(self) -> Layout:
+    def border_box(self) -> Box:
         """The computed layout (position and size) of the nodes `border` box relative to the parent."""
-        return self._layout
+        return self._box[Edge.BORDER]
 
-    def get_layout(
+    def get_box(
         self,
-        box: Box = Box.BORDER,
+        edge: Edge = Edge.BORDER,
         *,
         relative: bool = True,
         flip_y: bool = False,
-    ) -> Layout:
+    ) -> Box:
         """
         Get the computed layout (position and size) for the node.
 
-        For a description of the box model, see:
-        https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/The_box_model
+        See :term:`CSS box model` for more information.
 
-        :param box: The box/edge, defaults to Box.BORDER
-        :type box: Box, optional
-        :param relative: Determines if returned position is relative to parent
-            (True, the default) or relative to the root (False)
-        :type relative: bool, optional
-        :param flip_y: Determines if the vertical position (y) is measured from
-            the top (False, the default), or from the bottom (True)
-        :type flip_y: bool, optional
-        :raises ValueError: If box = Box.MARGIN is requested with AUTO margins,
-            since this is currently not supported
-        :raises LayoutNotComputedError: If the layout is not computed before
-            requesting the layout
-        :return: The computed layout
-        :rtype: Layout
+        Parameters
+        ----------
+        edge
+            The edge for which to get the corresponding :obj:`Box`
+        relative
+            Determines if returned position is relative to parent
+            (if ``True``) or relative to the root (if ``False``)
+        flip_y
+            Determines if the vertical position (y) is measured from
+            the top (if ``False``), or from the bottom (if ``True``)
+
+        Returns
+        -------
+        The :obj:`Box` corresponding to the provided arguments
         """
 
         if (
-            box == Box.MARGIN
+            edge == Edge.MARGIN
             and self.has_auto_margin
             and (not self.is_root or not USE_ROOT_CONTAINER)
         ):
@@ -571,56 +622,57 @@ class Node(list["Node"]):
         if self.is_dirty:
             raise LayoutNotComputedError
 
-        layout = self.layout
-        if box == Box.BORDER and relative and not flip_y:
-            return layout
+        box = self.border_box
+        if edge == Edge.BORDER and relative and not flip_y:
+            return box
 
-        # NOTE: Consider if/how box_parent can be reused in some scenarios and refactor
-        # Generally consider caching of layouts
-        # Remember to reset cache on compute_layout
+        # h = hash((edge, relative, flip_y))
 
-        if USE_ROOT_CONTAINER and self.is_root and box == Box.MARGIN:
-            layout = self._container.layout
-        elif box != Box.BORDER:
+        if USE_ROOT_CONTAINER and self.is_root and edge == Edge.MARGIN:
+            box = self._container.border_box
+        elif edge != Edge.BORDER:
             # Expand or contract:
-            #   Box.CONTENT: -border -padding
-            #   Box.PADDING: -border
-            #   Box.BORDER: (none)
-            #   Box.MARGIN: +margin
+            #   Edge.CONTENT: -border -padding
+            #   Edge.PADDING: -border
+            #   Edge.BORDER: (none)
+            #   Edge.MARGIN: +margin
             # Padding, border and margin are defined in Style.
 
-            if box == Box.CONTENT:
-                actions = (
-                    (self.style.border, -1),
-                    (self.style.padding, -1),
-                )
-            elif box == Box.PADDING:
-                actions = ((self.style.border, -1),)
-            elif box == Box.MARGIN:
-                actions = ((self.style.margin, 1),)
+            if edge in self._box:
+                box = self._box[edge]
+            else:
+                if edge == Edge.CONTENT:
+                    actions = (
+                        (self.style.border, -1),
+                        (self.style.padding, -1),
+                    )
+                elif edge == Edge.PADDING:
+                    actions = ((self.style.border, -1),)
+                elif edge == Edge.MARGIN:
+                    actions = ((self.style.margin, 1),)
 
-            box_parent = self._parent.get_layout(Box.BORDER) if self._parent else None
-            for offsets, factor in actions:
-                layout = layout.scale(offsets, box_parent, factor=factor)
+                box_parent = self._parent.get_box(Edge.BORDER) if self._parent else None
+                for offsets, factor in actions:
+                    box = box._offset(offsets, box_parent, factor=factor)
+
+                self._box[edge] = box
+
+        # TODO: Consider implementing a caching mechanism for relative and/or flip_y
 
         if not relative and self._parent:
-            box_parent = self._parent.get_layout(Box.BORDER, relative=False)
-            layout = attrs.evolve(
-                layout, x=layout.x + box_parent.x, y=layout.y + box_parent.y
-            )
+            box_parent = self._parent.get_box(Edge.BORDER, relative=False)
+            box = attrs.evolve(box, x=box.x + box_parent.x, y=box.y + box_parent.y)
 
         if flip_y:
             if relative:
-                layout_ref = self.parent.get_layout(Box.CONTENT)
+                layout_ref = self.parent.get_box(Edge.CONTENT)
             elif USE_ROOT_CONTAINER:
-                layout_ref = self.root._container.layout
+                layout_ref = self.root._container.border_box
             else:
-                layout_ref = self.root.layout
-            layout = attrs.evolve(
-                layout, y=layout_ref.height - layout.y - layout.height
-            )
+                layout_ref = self.root.border_box
+            box = attrs.evolve(box, y=layout_ref.height - box.y - box.height)
 
-        return layout
+        return box
 
     # endregion
 
@@ -648,6 +700,16 @@ class Node(list["Node"]):
         for child in element:
             node.add(Node._from_xml(child, customize))
         return node
+
+    def __str__(self) -> str:
+        try:
+            addr = self.address
+        except NodeLocatorError:
+            addr = "<unknown>"
+
+        children = len(self)
+        children = f"<{children}>" if children else ""
+        return f"Node('{addr}', children: [{children}], is_dirty: {self.is_dirty})"
 
 
 class Container:
@@ -694,8 +756,8 @@ class Container:
 
         # Expand box to contain the root node
         root_width = (
-            self._root.layout.x
-            + self._root.layout.width
+            self._root.border_box.x
+            + self._root.border_box.width
             + self._root.style.margin.right.to_pts(width)
             if width and self._root.style.margin.right.scale != Scale.AUTO
             else 0
@@ -703,19 +765,19 @@ class Container:
         if root_width > width:
             width = root_width
         root_height = (
-            self._root.layout.y
-            + self._root.layout.height
+            self._root.border_box.y
+            + self._root.border_box.height
             + self._root.style.margin.bottom.to_pts(width)
             if width and self._root.style.margin.bottom.scale != Scale.AUTO
             else 0
         )
         if root_height > height:
             height = root_height
-        self._layout = Layout(x, y, width, height)
+        self._layout = Box(x, y, width, height)
         logger.debug("container dimensions: %s x %s", root_width, root_height)
 
     @property
-    def layout(self) -> Layout:
+    def layout(self) -> Box:
         return self._layout
 
     @property
