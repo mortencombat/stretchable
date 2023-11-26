@@ -1,4 +1,4 @@
-# stretchable &middot; <em>layout library for Python</em>
+# stretchable
 
 [![PyPI - Version](https://img.shields.io/pypi/v/stretchable)](https://pypi.org/project/stretchable/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/stretchable)](https://www.python.org)
