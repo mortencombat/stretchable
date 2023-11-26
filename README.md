@@ -1,4 +1,8 @@
-# stretchable &middot; <span style="font-weight:normal;">layout library for Python</span>
+<style>
+span.custom-subtitle { font-weight: normal; }
+</style>
+
+# stretchable &middot; <span class="custom-subtitle">layout library for Python</span>
 
 [![PyPI - Version](https://img.shields.io/pypi/v/stretchable)](https://pypi.org/project/stretchable/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/stretchable)](https://www.python.org)
