@@ -55,15 +55,30 @@ class DeclarationStore:
     ) -> None:
         """
 
-        For specificity, prepend inline:
-        inline - ID - CLASS - TYPE
-        Calculate a corresponding single integer (using bitwise arithmetic?)
-        where the highest value takes precedence if the same CSS attribute is
-        specified in more than one declaration.
+        The `specificity` arg is (id, class, type) selectors
+
+        The total specificity score is assigned as the sum of the following
+            !important      10000
+            inline          1000
+            ID selector     100     (per selector)
+            CLASS selector  10      (per selector)
+            TYPE selector   1       (per selector)
 
         """
 
-        ...
+        s = 0
+        if inline:
+            s += 1000
+        if specificity is not None:
+            s += specificity[0] * 100 + specificity[1] * 10 + specificity[2]
+
+        if not isinstance(declaration, (list, tuple, set)):
+            declaration = [declaration]
+        for decl in declaration:
+            sc = s
+            if decl.important:
+                sc += 10000
+            # TODO: add to store
 
 
 class NodeFactory(Protocol):
@@ -346,12 +361,12 @@ def loads(
         # Create style
         matches = matcher.match(element)
         declarations = DeclarationStore()
-        for match in matches:
-            # meaning of 'order' and 'pseudo' is unclear, they are presently discarded
-            specificity, order, pseudo, decls = match
+        # meaning of 'order' (1) is unclear, and 'pseudo' (2) is not supported,
+        # they are presently discarded
+        for specificity, _, _, decls in matches:
             declarations.add(decls, specificity=specificity)
 
-        # get additional (overriding) styles from style attrib (if present)
+        # get additional styles from style attrib (if present)
         style = element.etree_element.get("style", None)
         if style:
             declarations.add(
