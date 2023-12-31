@@ -8,6 +8,7 @@ from typing import Callable, Iterable, Optional, Protocol
 
 import cssselect2
 import tinycss2
+from attrs import define
 from lxml import etree
 
 from .node import Node
@@ -34,6 +35,37 @@ class ElementType(Enum):
     UNSUPPORTED = auto()
 
 
+@define
+class DeclarationStore:
+    """
+    The DeclarationStore manages storing of CSS declarations (along with
+    specificity) and listing and retrieval of applicable CSS attributes.
+
+    Consider read-only dictionary-type access (mapping?)
+
+    """
+
+    def add(
+        self,
+        declaration: tinycss2.parser.Declaration
+        | Iterable[tinycss2.parser.Declaration],
+        *,
+        inline: bool = False,
+        specificity: Optional[tuple[int, int, int]] = None,
+    ) -> None:
+        """
+
+        For specificity, prepend inline:
+        inline - ID - CLASS - TYPE
+        Calculate a corresponding single integer (using bitwise arithmetic?)
+        where the highest value takes precedence if the same CSS attribute is
+        specified in more than one declaration.
+
+        """
+
+        ...
+
+
 class NodeFactory(Protocol):
     def get_type(self, element: etree.Element) -> ElementType:
         """Return the type of the element.
@@ -42,10 +74,18 @@ class NodeFactory(Protocol):
         ignored.
         """
 
-    def process_element(
-        self, element: etree.Element, fileprovider: FileProvider
-    ) -> None:
-        """Processes the element, optionally modifying or removing it from the tree."""
+    def process_element_tree(
+        self, root: etree.Element, fileprovider: FileProvider
+    ) -> tuple[
+        etree.Element, Iterable[tinycss2.parser.AtRule | tinycss2.parser.QualifiedRule]
+    ]:
+        """Processes the element tree, returns the root element and any style rules."""
+        ...
+
+    # def process_element(
+    #     self, element: etree.Element, fileprovider: FileProvider
+    # ) -> None:
+    #     """Processes the element, optionally modifying or removing it from the tree."""
 
     def get_styles(
         self,
@@ -59,7 +99,12 @@ class NodeFactory(Protocol):
         """
 
     def get_node(
-        self, tag: str, style: Style, children: list[Node], content: str, **attributes
+        self,
+        tag: str,
+        style: Style,
+        children: list[Node],
+        content: str,
+        attributes: dict[str, str | int | None],
     ) -> Node:
         """Return a Node instance if possible, otherwise raise UnsupportedElementError."""
         ...
@@ -83,11 +128,47 @@ class HTMLNodeFactory:
     <style> elements and <link ... />, and nodes from <body> and <div> elements
     with no content."""
 
-    def process_element(
-        self, element: etree.Element, fileprovider: FileProvider
-    ) -> None:
-        """Processes the element, optionally modifying or removing it from the tree."""
-        ...
+    def process_element_tree(
+        self, root: etree.Element, fileprovider: FileProvider
+    ) -> tuple[
+        etree.Element, Iterable[tinycss2.parser.AtRule | tinycss2.parser.QualifiedRule]
+    ]:
+        """Processes the element tree, returns the root element (<body>) and any style rules."""
+
+        # Iterate over the tree and:
+        # - record the root element (<body>)
+        # - Obtain style rules from any style elements
+        # - Within the root element tree, discard any elements which are not type ElementType.CHILD
+
+        def process_element(
+            element: etree.Element, *, in_root_tree: bool = False
+        ) -> bool:
+            """Return True if element should be removed from tree"""
+            t = self.get_type(element)
+
+            if t == ElementType.STYLES:
+                nonlocal rules
+                rules.extend(self.get_styles(element, fileprovider))
+
+            if t == ElementType.ROOT:
+                nonlocal root_element
+                if root_element is not None:
+                    raise Exception("Multiple root elements not supported")
+                root_element = element
+
+            for child in element:
+                rm = process_element(
+                    child, in_root_tree=in_root_tree or t == ElementType.ROOT
+                )
+                if rm:
+                    element.remove(child)
+
+            return in_root_tree and t not in (ElementType.ROOT, ElementType.CHILD)
+
+        root_element = None
+        rules: list[tinycss2.parser.AtRule | tinycss2.parser.QualifiedRule] = []
+        process_element(root)
+        return root_element, rules
 
     def get_type(self, element: etree.Element) -> ElementType:
         # Supported style elements
@@ -116,15 +197,33 @@ class HTMLNodeFactory:
     ) -> Iterable[tinycss2.parser.AtRule | tinycss2.parser.QualifiedRule]:
         """Return the style rules from the element."""
 
-        raise NotImplementedError
+        if element.tag == "style":
+            return tinycss2.parse_stylesheet(
+                element.text, skip_comments=True, skip_whitespace=True
+            )
+
+        if element.tag == "link":
+            # Verify attributes and read/parse stylesheet from linked file
+            ...
+            return []
+
+        raise Exception("Element does not contain styles")
 
     def get_node(
-        self, tag: str, style: Style, children: list[Node], content: str, **attributes
+        self,
+        tag: str,
+        style: Style,
+        children: list[Node],
+        content: str,
+        attributes: dict[str, str | int | None],
     ) -> Node:
         if tag not in ("body", "div"):
             raise UnsupportedElementError(
                 "Only <body> and <div> elements are supported"
             )
+
+        if content is not None:
+            content = content.strip()
         if content:
             raise UnsupportedElementError("Elements containing text are not supported")
         for attr, value in attributes.items():
@@ -168,12 +267,12 @@ def loads(
 ) -> Node:
     """Parse a string, bytes array or stream of an HTML/XML document into a node tree."""
 
-    def iterup(element: etree.Element, method: Callable[[etree.Element], None]):
-        """Walks the tree and applies `method` to all elements starting with the
-        deepest elements and walking up the tree."""
-        for e in element:
-            iterup(e, method)
-        method(element)
+    # def iterup(element: etree.Element, method: Callable[[etree.Element], None]):
+    #     """Walks the tree and applies `method` to all elements starting with the
+    #     deepest elements and walking up the tree."""
+    #     for e in element:
+    #         iterup(e, method)
+    #     method(element)
 
     # TODO: Determine if content is XML/XHTML or HTML.
     is_HTML = True
@@ -183,116 +282,99 @@ def loads(
             raise ValueError("`nodefactory` is required for parsing XML")
         nodefactory = HTMLNodeFactory()
 
+    """
+    Process:
+
+    - Parse XML/HTML to element tree
+    - Preprocess elements:
+        - Locate root element (there must be one and only one root element) and make a note of it
+        - Assemble style rules
+        - Modify/remove elements within root element tree that are not applicable/relevant
+    - Create ElementWrapper from root element
+    - Create nodes from root element and child elements
+
+    """
+
     # Parse tree
     parser = etree.HTMLParser() if is_HTML else None
     tree = etree.parse(content, parser)
-    root = tree.getroot()
 
-    # Process elements using the nodefactory
-    # TODO: should process_element be able to register styles?
-    # TODO: How to handle elements that should be skipped but their children should not?
-    #       Fx. <html> should not create a node but the contained <body> element should
-    #       If there is no parent node, a skipped element will still parse child elements?
-    iterup(root, lambda e: nodefactory.process_element(e, fileprovider))
-
-    # Check for any ElementType.STYLE and assemble style rules
-    rules = []
+    # Process element tree using NodeFactory, get root element and style rules
+    root, rules = nodefactory.process_element_tree(tree.getroot(), fileprovider)
+    if root is None:
+        raise Exception("Root element is required")
 
     # Build CSS matcher
     matcher = cssselect2.Matcher()
     for rule in rules:
         selectors = cssselect2.compile_selector_list(rule.prelude)
-        payload = (rule.prelude, rule.content)
+        declarations = tinycss2.parse_declaration_list(
+            rule.content, skip_comments=True, skip_whitespace=True
+        )
         for selector in selectors:
-            matcher.add_selector(selector, payload)
+            matcher.add_selector(selector, declarations)
 
-    def element_to_node(element: etree.Element, has_root: bool) -> Node | None:
-        print("tag", element.tag)
+    # Create element wrapper for selector matching
+    tree = (
+        cssselect2.ElementWrapper.from_html_root
+        if is_HTML
+        else cssselect2.ElementWrapper.from_xml_root
+    )(root)
 
+    # Create nodes
+    def get_node(
+        element: cssselect2.ElementWrapper, *, is_root: bool = False
+    ) -> Node | None:
         # Check element type
-        t = nodefactory.get_type(element)
-        if t == ElementType.UNSUPPORTED:
+        t = nodefactory.get_type(element.etree_element)
+        if t == ElementType.UNSUPPORTED or t == ElementType.STYLES:
             raise UnsupportedElementError
-        if t == ElementType.STYLES:
-            return None
-        if t == ElementType.SKIP and has_root:
-            return None
-        if t == ElementType.ROOT and has_root:
+        if t == ElementType.SKIP and is_root:
+            raise Exception("Cannot skip the root node")
+        if t == ElementType.ROOT and not is_root:
             raise Exception("There can only be a single root node")
-        if t == ElementType.CHILD and not has_root:
-            raise Exception("Cannot add child nodes without a root node")
-
-        # if t == ElementType.STYLES or t == ElementType.SKIP:
-        #     return None
-        # elif t == ElementType.UNSUPPORTED:
-        #     raise UnsupportedElementError
-        # elif t == ElementType.ROOT and has_root:
-        #     raise Exception("There can only be a single root node")
-        # elif t == ElementType.CHILD and not has_root:
-        #     raise Exception("Cannot add child nodes without a root node")
-
-        if t == ElementType.ROOT:
-            has_root = True
+        if t == ElementType.CHILD and is_root:
+            raise Exception("Element is not a root node")
 
         children = []
-        for child in element:
-            node = element_to_node(child, has_root)
+        for child in element.iter_children():
+            node = get_node(child)
             if node is None:
                 continue
             children.append(node)
 
         # Create style
+        matches = matcher.match(element)
+        declarations = DeclarationStore()
+        for match in matches:
+            # meaning of 'order' and 'pseudo' is unclear, they are presently discarded
+            specificity, order, pseudo, decls = match
+            declarations.add(decls, specificity=specificity)
+
+        # get additional (overriding) styles from style attrib (if present)
+        style = element.etree_element.get("style", None)
+        if style:
+            declarations.add(
+                tinycss2.parse_declaration_list(
+                    style, skip_comments=True, skip_whitespace=True
+                ),
+                inline=True,
+            )
+            del element.etree_element.attrib["style"]
+
+        # for s in styles:
+        #     print(s)
+
+        # TODO: Style.from_declarations(declarations)
         style = None
 
         # Create node
-        node = nodefactory.get_node(
-            element.tag, style, children, element.text, **element.attrib
+        return nodefactory.get_node(
+            element.etree_element.tag,
+            style,
+            children,
+            element.etree_element.text,
+            element.etree_element.attrib,
         )
-        print("node", node)
-        return node
 
-    # has_root = False
-    root_node = element_to_node(root, False)
-
-    # Walk the tree to create the nodes.
-    # get_wrapper = (
-    #     cssselect2.ElementWrapper.from_html_root
-    #     if is_HTML
-    #     else cssselect2.ElementWrapper.from_xml_root
-    # )
-    # for element in get_wrapper(tree).iter_subtree():
-    #     tag = element.etree_element.tag.split("}")[-1]
-    #     print('Found tag "{}"'.format(tag))
-
-    #     # Check element type (only include ElementType.NODE)
-    #     match nodefactory.get_type(element):
-    #         case ElementType.STYLES | ElementType.SKIP:
-    #             continue
-    #         case ElementType.UNSUPPORTED:
-    #             raise UnsupportedElementError
-    #         case ElementType.ROOT:
-    #             # TODO: If root/parent node is already created, raise error, there cannot be multiple root nodes
-    #             ...
-
-    #     matches = matcher.match(element)
-    #     if matches:
-    #         for match in matches:
-    #             specificity, order, pseudo, (prelude, content) = match
-    #             print(
-    #                 'Matching selector "{}" ({})'.format(
-    #                     tinycss2.serialize(prelude), tinycss2.serialize(content)
-    #                 )
-    #             )
-    #     else:
-    #         print("No rule matching this tag")
-
-    #     # Create style
-    #     style = ...
-
-    #     # Create node
-    #     node = nodefactory.get_node(
-    #         tag, style, [], element.etree_element.text, **element.etree_element.attrib
-    #     )
-    #     ...
-
-    return root_node
+    return get_node(tree, is_root=True)
