@@ -9,9 +9,9 @@
 [![Test results](https://gist.githubusercontent.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/5aa957027330c7ea739a97ee1319226883ed0734/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 [![Test coverage](https://gist.githubusercontent.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/c1e5ec0253129c9f25ba2ba76c79ce5557fdbad3/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 
-**stretchable** is a layout library for Python that enables context-agnostic layout operations using [CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) and [Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/). Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
+**stretchable** is a cross-platform layout library for Python that enables context-agnostic layout operations using [CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) and [Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/). Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
 
-It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Grid/Flexbox written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy. It is multi-platform and there are distributions available for Windows, Linux and macOS.
+It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Flexbox and CSS Grid written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy.
 
 ## Getting Started
 
@@ -39,7 +39,7 @@ root = Node(
 # Compute layout
 root.compute_layout()
 
-# Get the second child node
+# Get the second of the child nodes
 child_node = root.find("/child")
 content_box = child_node.get_box(Edge.CONTENT)
 print(content_box)

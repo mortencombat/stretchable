@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from enum import StrEnum, auto
-from typing import Callable, Iterable, Optional, Self, SupportsIndex
+from typing import Callable, Iterable, Optional, Self, SupportsIndex, Protocol
 from xml.etree import ElementTree
 
 import attrs
@@ -30,11 +30,6 @@ _valid_key = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9
 MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
 
 USE_ROOT_CONTAINER: bool = False
-
-
-"""
-    
-"""
 
 
 class Edge(StrEnum):
