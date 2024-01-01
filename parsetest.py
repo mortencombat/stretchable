@@ -1,11 +1,16 @@
-from stretchable.parser import loads
+from stretchable.parser import StandardFileProvider, load
 
 filepath = "test.html"
 
-root = loads(filepath)
-print(root)
-for e in root:
-    print(e)
+
+def print_nodes(node, level: int = 0):
+    print(" " * level * 2, node)
+    for e in node:
+        print_nodes(e, level + 1)
+
+
+root = load(filepath, fileprovider=StandardFileProvider(filepath))
+print_nodes(root)
 
 # from lxml import etree
 
