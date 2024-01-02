@@ -5,10 +5,11 @@ import logging
 from collections.abc import Mapping
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Optional, Protocol
+from typing import Any, Callable, Iterable, Iterator, Optional, Protocol
 
 import cssselect2
 import tinycss2
+import tinycss2.ast as ast
 from lxml import etree
 
 from .node import Node
@@ -33,6 +34,54 @@ class ElementType(Enum):
     SKIP = auto()
     # The element is unsupported
     UNSUPPORTED = auto()
+
+
+def _inset(
+    declaration: tinycss2.parser.Declaration,
+) -> list[tuple[str, list[ast.Node] | None]]:
+    values = split(declaration.value)
+    match len(values):
+        case 1:
+            top = right = bottom = left = values[0]
+        case 2:
+            top = bottom = values[0]
+            left = right = values[1]
+        case 3:
+            top = values[0]
+            left = right = values[1]
+            bottom = values[2]
+        case 4:
+            top, right, bottom, left = values
+        case _:
+            raise ValueError(f"Unrecognized value: {declaration.serialize()}")
+    return [("top", top), ("right", right), ("bottom", bottom), ("left", left)]
+
+
+DeclarationHandler = Callable[
+    [tinycss2.parser.Declaration], list[tuple[str, list[ast.Node] | None]]
+]
+
+
+def split(value: list[ast.Node], sep: ast.Node = ast.WhitespaceToken):
+    """Equivalent to str.strip() except it takes a single list and returns the
+    list split into multiple lists by a specified (or default) separator."""
+    r = []
+    cur = []
+    for v in value:
+        if isinstance(v, sep):
+            if cur:
+                r.append(cur)
+                cur = []
+            continue
+        cur.append(v)
+    if cur:
+        r.append(cur)
+    return r
+
+
+def strip(value: list[ast.Node]) -> list[ast.Node]:
+    """Strips any leading and trailing WhitespaceToken from the value."""
+    return [v for v in value if not isinstance(v, ast.WhitespaceToken)]
 
 
 class Styles(Mapping):
@@ -69,9 +118,12 @@ class Styles(Mapping):
 
     Devise a system to facilitate parsing shorthand declarations into their corresponding individual properties.
 
+    This class does not by default process property values other than splitting of shorthands where appropriate.
+    Property values are therefore given as a list of tokens.
+
     """
 
-    __slots__ = ("_values", "_S")
+    __slots__ = ("_values", "_S", "_handlers", "_default_handler")
 
     def __init__(self) -> None:
         # NOTE: a property may be in _S but not in _values, if the value is
@@ -79,6 +131,13 @@ class Styles(Mapping):
         # tracking the specificity of property values, set or unset alike.
         self._values: dict[str, Any] = dict()
         self._S: dict[str, int] = dict()
+        # TODO: support custom handler for shorthands + custom default handler?
+        self._handlers: dict[str, DeclarationHandler] = {
+            "inset": _inset,
+        }
+        self._default_handler: DeclarationHandler = lambda d: [
+            (d.lower_name, strip(d.value))
+        ]
 
     def __getitem__(self, __key: Any) -> Any:
         if __key not in self._values:
@@ -125,16 +184,23 @@ class Styles(Mapping):
             if decl.important:
                 sc += 10000
 
-            # TODO: Parse declaration into individual properties and associated values
+            # Parse declaration into individual properties and associated values
             # Store properties and their values along with the corresponding specificity S.
             # If properties are already set, only update the value if S >= S0.
             # Property values are stored in _values. If a value is unset, remove entry in _values.
             # S values are stored in _S. These are never removed in the lifetime of the store.
-
-            # name = decl.lower_name
-            # if name not in self._decl:
-            #     self._decl[name] = []
-            # self._decl[name].append((decl, sc))
+            for name, value in (
+                self._handlers[decl.lower_name](decl)
+                if decl.lower_name in self._handlers
+                else self._default_handler(decl)
+            ):
+                if name in self._S and sc < self._S[name]:
+                    continue
+                self._S[name] = sc
+                if value is not None:
+                    self._values[name] = value
+                elif name in self._values:
+                    del self._values[name]
 
 
 class NodeFactory(Protocol):
@@ -336,6 +402,11 @@ class HTMLNodeFactory:
                         attr,
                         value,
                     )
+
+        print("get node for", element.tag)
+        if styles:
+            for name, value in styles.items():
+                print(name, "=", value)
 
         # TODO: Create style
         # style = Style.from_props(styles)
