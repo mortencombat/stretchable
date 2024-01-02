@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import io
 import logging
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from enum import Enum, auto
+from enum import Enum, IntEnum, auto
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Optional, Protocol
 
@@ -12,8 +13,8 @@ import tinycss2
 import tinycss2.ast as ast
 from lxml import etree
 
+from . import style as stl
 from .node import Node
-from .style import Style
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
@@ -34,6 +35,14 @@ class ElementType(Enum):
     SKIP = auto()
     # The element is unsupported
     UNSUPPORTED = auto()
+
+
+"""
+TODO:
+- Streamline declaration handlers
+- Implement factory/DI pattern for handler specification (support user-defined handlers)
+- Implement Style.from_props(...), which uses Styles class and recognizes/parses tinycss2 tokens
+"""
 
 
 def _inset(
@@ -57,17 +66,14 @@ def _inset(
     return [("top", top), ("right", right), ("bottom", bottom), ("left", left)]
 
 
-DeclarationHandler = Callable[
-    [tinycss2.parser.Declaration], list[tuple[str, list[ast.Node] | None]]
-]
-
-
-def split(value: list[ast.Node], sep: ast.Node = ast.WhitespaceToken):
+def split(
+    nodes: list[ast.Node], sep: ast.Node = ast.WhitespaceToken
+) -> list[list[ast.Node]]:
     """Equivalent to str.strip() except it takes a single list and returns the
     list split into multiple lists by a specified (or default) separator."""
     r = []
     cur = []
-    for v in value:
+    for v in nodes:
         if isinstance(v, sep):
             if cur:
                 r.append(cur)
@@ -79,65 +85,61 @@ def split(value: list[ast.Node], sep: ast.Node = ast.WhitespaceToken):
     return r
 
 
-def strip(value: list[ast.Node]) -> list[ast.Node]:
-    """Strips any leading and trailing WhitespaceToken from the value."""
-    return [v for v in value if not isinstance(v, ast.WhitespaceToken)]
+def strip(nodes: list[ast.Node]) -> list[ast.Node]:
+    """Strips any leading and trailing WhitespaceTokens from the nodes."""
+    return [v for v in nodes if not isinstance(v, ast.WhitespaceToken)]
 
 
-class Styles(Mapping):
+class StyleProvider(ABC, Mapping):
     """
-    Manages storing of CSS style declarations (considering specificity) and
-    listing and retrieval of corresponding, effective CSS properties.
+    Manages/determines the effective applied style for an element.
 
-    WORKING NOTES:
-
-    Consider the following approach:
-    - Shorthand properties are resolved to all of the individual properties which are then set
-    - A property is overrided only if the specificity score of another value is higher
-
-    Requirements:
-    - Must be able to track which properties have been set
-
-    Possible drawbacks:
-    - When creating the style, it is necessary to have both properties which have been set as well as properties that have their default values.
-      And the default values should probably be able to be user-specified?
-
-    Based on the above, DeclarationStore should just manage set properties. If a
-    shorthand is used and any of the values are omitted, the corresponding
-    individual properties should be considered "unset" (tells the consumer to
-    supply a desired default value).
-
-    Property states:
-        1) Use default value, not specified
-        2) Use default value, set with specificity S (if a shorthand has been used but this property value was omitted)
-        3) Specified value, set with specificity S
-
-    Note that from the consumers point of view, 1) and 2) are identical ("unset"). These
-    are only used by DeclarationStore to keep track of the specificity with
-    which a "default value is set".
-
-    Devise a system to facilitate parsing shorthand declarations into their corresponding individual properties.
-
-    This class does not by default process property values other than splitting of shorthands where appropriate.
-    Property values are therefore given as a list of tokens.
-
+    Add style declarations using the `add()` method and retrieve style
+    properties using the Mapping protocol.
     """
 
-    __slots__ = ("_values", "_S", "_handlers", "_default_handler")
+    @abstractmethod
+    def add(
+        self,
+        declarations: tinycss2.parser.Declaration
+        | Iterable[tinycss2.parser.Declaration],
+        *,
+        inline: bool = False,
+        specificity: Optional[tuple[int, int, int]] = None,
+    ) -> None:
+        """Add declarations to be applied to the element styling."""
+
+    @abstractmethod
+    def get_style(self) -> stl.Style:
+        """Returns a Style instance corresponding to the effective applied style."""
+
+
+DeclarationHandler = Callable[
+    [tinycss2.parser.Declaration], list[tuple[str, list[ast.Node] | None]]
+]
+
+
+class StandardStyleProvider(StyleProvider):
+    """
+    Manages/determines the effective applied style for an element.
+
+    Add style declarations using the `add()` method and retrieve style
+    properties using the Mapping protocol.
+
+    Only properties that are set with the added declarations will be listed. The
+    property values will provided as unprocessed token(s).
+    """
+
+    __slots__ = ("_values", "_S")
+
+    DEFAULT_HANDLER: DeclarationHandler = lambda d: [(d.lower_name, strip(d.value))]
+    HANDLERS: dict[str, DeclarationHandler] = {
+        "inset": _inset,
+    }
 
     def __init__(self) -> None:
-        # NOTE: a property may be in _S but not in _values, if the value is
-        # "unset" by a shorthand. _S is completely internal, used only for
-        # tracking the specificity of property values, set or unset alike.
         self._values: dict[str, Any] = dict()
         self._S: dict[str, int] = dict()
-        # TODO: support custom handler for shorthands + custom default handler?
-        self._handlers: dict[str, DeclarationHandler] = {
-            "inset": _inset,
-        }
-        self._default_handler: DeclarationHandler = lambda d: [
-            (d.lower_name, strip(d.value))
-        ]
 
     def __getitem__(self, __key: Any) -> Any:
         if __key not in self._values:
@@ -158,17 +160,16 @@ class Styles(Mapping):
         inline: bool = False,
         specificity: Optional[tuple[int, int, int]] = None,
     ) -> None:
-        """
+        """Add declarations to be applied to the element styling.
 
-        The `specificity` arg is (id, class, type) selectors
+        The `specificity` arg is (ID, CLASS, TYPE) selectors.
 
         The total specificity score is assigned as the sum of the following
-            !important      10000
-            inline          1000
-            ID selector     100     (per selector)
-            CLASS selector  10      (per selector)
-            TYPE selector   1       (per selector)
-
+            !important      +10000
+            inline           +1000
+            ID selector       +100 (per selector)
+            CLASS selector     +10 (per selector)
+            TYPE selector       +1 (per selector)
         """
 
         s = 0
@@ -190,9 +191,9 @@ class Styles(Mapping):
             # Property values are stored in _values. If a value is unset, remove entry in _values.
             # S values are stored in _S. These are never removed in the lifetime of the store.
             for name, value in (
-                self._handlers[decl.lower_name](decl)
-                if decl.lower_name in self._handlers
-                else self._default_handler(decl)
+                StandardStyleProvider.HANDLERS[decl.lower_name](decl)
+                if decl.lower_name in StandardStyleProvider.HANDLERS
+                else StandardStyleProvider.DEFAULT_HANDLER(decl)
             ):
                 if name in self._S and sc < self._S[name]:
                     continue
@@ -202,8 +203,71 @@ class Styles(Mapping):
                 elif name in self._values:
                     del self._values[name]
 
+    def get_style(self) -> stl.Style:
+        """Returns a Style instance corresponding to the effective applied style."""
+        return StandardStyleProvider._get_style(self)
+
+    MAP_ENUMS: dict[str, IntEnum] = {
+        "display": stl.Display,
+        "flex-direction": stl.FlexDirection,
+        "flex-wrap": stl.FlexWrap,
+        "overflow": stl.Overflow,
+        "align-items": stl.AlignItems,
+        "align-self": stl.AlignSelf,
+        "align-content": stl.AlignContent,
+        "justify-items": stl.JustifyItems,
+        "justify-self": stl.JustifySelf,
+        "justify-content": stl.JustifyContent,
+        "position": stl.Position,
+        "grid-auto-flow": stl.GridAutoFlow,
+    }
+
+    @staticmethod
+    def _get_style(props: Mapping[str, list[ast.Node]]) -> stl.Style:
+        """The actual implementation, invoked by the instance variation of this
+        method."""
+
+        def get_enums():
+            for key, enum in StandardStyleProvider.MAP_ENUMS.items():
+                if key not in keys:
+                    continue
+                keys.remove(key)
+                v = props[key]
+                # v should be a list with a single IdentToken, the value of which is
+                # the property value (str).
+                if (
+                    not isinstance(v, list)
+                    or len(v) != 1
+                    or not isinstance(v[0], ast.IdentToken)
+                ):
+                    raise TypeError(f"Invalid value for {key}: {v}")
+
+                args[key.replace("-", "_")] = enum[
+                    v[0].value.strip().upper().replace("-", "_")
+                ]
+
+        # props is immutable. To track which properties have been used, create a
+        # set with property names ('keys').
+        args = dict()
+        keys = set(props.keys())
+
+        get_enums()
+        # TODO: process remaining (supported) props
+
+        if keys:
+            logger.warning(
+                f"Style properties not recognized or supported: {', '.join(keys)}"
+            )
+
+        print(args)
+
+        return stl.Style(**args)
+
 
 class NodeFactory(Protocol):
+    def get_styleprovider(self) -> StyleProvider:
+        """Return a new instance of the StyleProvider implementation to be used."""
+
     def get_type(self, element: etree.Element) -> ElementType:
         """Return the type of the element.
 
@@ -233,7 +297,7 @@ class NodeFactory(Protocol):
     def get_node(
         self,
         element: etree.Element,
-        styles: Optional[Styles] = None,
+        styles: Optional[StyleProvider] = None,
         children: Optional[list[Node]] = None,
     ) -> Node:
         """Return a Node instance if possible, otherwise raise UnsupportedElementError."""
@@ -268,6 +332,9 @@ class HTMLNodeFactory:
     """A basic implementation of NodeFactory that supports styles from
     <style> elements and <link ... />, and nodes from <body> and <div> elements
     with no content."""
+
+    def get_styleprovider(self) -> StyleProvider:
+        return StandardStyleProvider()
 
     def process_element_tree(
         self, root: etree.Element, fileprovider: FileProvider
@@ -368,7 +435,7 @@ class HTMLNodeFactory:
     def get_node(
         self,
         element: etree.Element,
-        styles: Optional[Styles] = None,
+        styles: Optional[StyleProvider] = None,
         children: Optional[list[Node]] = None,
     ) -> Node:
         if element.tag not in ("body", "div"):
@@ -387,7 +454,7 @@ class HTMLNodeFactory:
             match attr:
                 case "style":
                     if styles is None:
-                        styles = Styles()
+                        styles = self.get_styleprovider()
                     styles.add(
                         tinycss2.parse_declaration_list(
                             value, skip_comments=True, skip_whitespace=True
@@ -408,12 +475,9 @@ class HTMLNodeFactory:
             for name, value in styles.items():
                 print(name, "=", value)
 
-        # TODO: Create style
-        # style = Style.from_props(styles)
-        style = None
         if children is None:
             children = []
-        return Node(*children, key=key, style=style)
+        return Node(*children, key=key, style=styles.get_style() if styles else None)
 
 
 class StandardFileProvider:
@@ -578,7 +642,7 @@ def load(
         # Get matching style declarations
         matches = matcher.match(element)
         if matches:
-            styles = Styles()
+            styles = nodefactory.get_styleprovider()
             # 'order' (1) and 'pseudo' (2) are not supported, they are
             # ignored/discarded
             for specificity, _, _, decls in matches:
