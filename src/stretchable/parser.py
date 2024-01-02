@@ -223,7 +223,9 @@ class StandardStyleProvider(StyleProvider):
     }
 
     @staticmethod
-    def _get_style(props: Mapping[str, list[ast.Node]]) -> stl.Style:
+    def _get_style(
+        props: Mapping[str, list[ast.Node]], *, ignore_unused_props: bool = False
+    ) -> stl.Style:
         """The actual implementation, invoked by the instance variation of this
         method."""
 
@@ -254,7 +256,7 @@ class StandardStyleProvider(StyleProvider):
         get_enums()
         # TODO: process remaining (supported) props
 
-        if keys:
+        if not ignore_unused_props and keys:
             logger.warning(
                 f"Style properties not recognized or supported: {', '.join(keys)}"
             )
