@@ -45,7 +45,7 @@ TODO:
 """
 
 
-def _inset(
+def _handle_rect(
     declaration: tinycss2.parser.Declaration,
 ) -> list[tuple[str, list[ast.Node] | None]]:
     values = split(declaration.value)
@@ -134,7 +134,11 @@ class StandardStyleProvider(StyleProvider):
 
     DEFAULT_HANDLER: DeclarationHandler = lambda d: [(d.lower_name, strip(d.value))]
     HANDLERS: dict[str, DeclarationHandler] = {
-        "inset": _inset,
+        "inset": _handle_rect,
+        "padding": _handle_rect,
+        "margin": _handle_rect,
+        # "border": ...,  # this is more completed because it can contain border-style and border-color as well
+        "border-width": _handle_rect,
     }
 
     def __init__(self) -> None:
@@ -229,12 +233,75 @@ class StandardStyleProvider(StyleProvider):
         """The actual implementation, invoked by the instance variation of this
         method."""
 
+        def get_length(
+            node: ast.PercentageToken | ast.DimensionToken | ast.IdentToken,
+        ) -> stl.Length:
+            match node.type:
+                case "percentage":
+                    return stl.geometry.LengthPointsPercentAuto.percent(
+                        float(node.representation) / 100
+                    )
+                case "dimension":
+                    if node.lower_unit == "px":
+                        return stl.geometry.LengthPointsPercentAuto.points(
+                            float(node.representation)
+                        )
+                case "ident":
+                    if node.lower_value == "auto":
+                        return stl.geometry.LengthPointsPercentAuto.auto()
+
+            raise ValueError(f"Unsupported or unrecognized value for length: {node}")
+
+        def get_rects():
+            for arg, prefix, suffix, default in (
+                ("inset", "", "", stl.AUTO),
+                ("padding", "padding-", "", 0),
+                ("margin", "margin-", "", 0),
+                ("border", "border-", "-width", 0),
+            ):
+                values = [default] * 4
+                not_present = True
+                for i, edge in enumerate(("top", "right", "bottom", "left")):
+                    key = prefix + edge + suffix
+                    if key not in keys:
+                        continue
+                    keys.remove(key)
+                    v = strip(props[key])
+                    if len(v) != 1:
+                        raise ValueError(f"Invalid value for {key}: {v}")
+                    values[i] = get_length(v[0])
+                    not_present = False
+                if not_present:
+                    continue
+                args[arg] = stl.Rect(*values)
+                print(str(args[arg]))
+
+        def get_sizes():
+            for prefix in (None, "min", "max"):
+                values = [stl.AUTO] * 2
+                not_present = True
+                for i, dim in enumerate(("width", "height")):
+                    key = prefix + "-" + dim if prefix else dim
+                    if key not in keys:
+                        continue
+                    keys.remove(key)
+                    v = strip(props[key])
+                    if len(v) != 1:
+                        raise ValueError(f"Invalid value for {key}: {v}")
+                    values[i] = get_length(v[0])
+                    not_present = False
+                if not_present:
+                    continue
+                key = prefix + "-size" if prefix else "size"
+                args[key] = stl.Size(*values)
+                print(str(args[key]))
+
         def get_enums():
             for key, enum in StandardStyleProvider.MAP_ENUMS.items():
                 if key not in keys:
                     continue
                 keys.remove(key)
-                v = props[key]
+                v = strip(props[key])
                 # v should be a list with a single IdentToken, the value of which is
                 # the property value (str).
                 if (
@@ -242,18 +309,44 @@ class StandardStyleProvider(StyleProvider):
                     or len(v) != 1
                     or not isinstance(v[0], ast.IdentToken)
                 ):
-                    raise TypeError(f"Invalid value for {key}: {v}")
+                    raise ValueError(f"Invalid value for {key}: {v}")
 
                 args[key.replace("-", "_")] = enum[
                     v[0].value.strip().upper().replace("-", "_")
                 ]
+
+        def get_floats():
+            for key in ("flex-basis", "flex-grow", "flex-shrink", "aspect-ratio"):
+                if key not in keys:
+                    continue
+                keys.remove(key)
+                v = strip(props[key])
+                if (
+                    key == "aspect-ratio"
+                    and len(v) == 3
+                    and isinstance(v[0], ast.NumberToken)
+                    and isinstance(v[1], ast.LiteralToken)
+                    and v[1].value == "/"
+                    and isinstance(v[2], ast.NumberToken)
+                    and float(v[2].value) > 0
+                ):
+                    # aspect-ratio on the form: width / height
+                    v = float(v[0].value) / float(v[2].value)
+                elif len(v) == 1 and isinstance(v[0], ast.NumberToken):
+                    v = float(v[0].value)
+                else:
+                    raise ValueError(f"Invalid value for {key}: {v}")
+                args[key.replace("-", "_")] = v
 
         # props is immutable. To track which properties have been used, create a
         # set with property names ('keys').
         args = dict()
         keys = set(props.keys())
 
+        get_rects()
+        get_sizes()
         get_enums()
+        get_floats()
         # TODO: process remaining (supported) props
 
         if not ignore_unused_props and keys:
