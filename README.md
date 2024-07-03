@@ -18,7 +18,7 @@ It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), 
 **stretchable** is a Python package [hosted on PyPI](https://pypi.org/project/stretchable/). It can be installed using [pip](https://pip.pypa.io/en/stable/):
 
 ```console
-python -m pip install attrs
+python -m pip install stretchable
 ```
 
 Building a tree of nodes and calculating the layout is as simple as:
