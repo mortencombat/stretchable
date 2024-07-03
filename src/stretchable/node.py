@@ -157,7 +157,6 @@ class Node(list["Node"]):
         self._zorder = None
         self._parent = None
         self._container: Node = None
-        self._measure = measure
 
         # Style
         if not style:
@@ -179,6 +178,11 @@ class Node(list["Node"]):
         # Children
         self._children = []
         self.add(*children)
+
+        if measure is None:
+            self._measure = None
+        else:
+            self.measure = measure
 
     @property
     def _ptr(self) -> int:
