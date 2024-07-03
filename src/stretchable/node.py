@@ -453,7 +453,7 @@ class Node(list["Node"]):
         )
         result = node.measure(known_dimensions, available_space)
         assert isinstance(result, SizePoints)
-        print(result)
+        logger.debug("node_measure_callback() -> %s", result)
         return (
             result.width.value if result.width else NAN,
             result.height.value if result.height else NAN,
