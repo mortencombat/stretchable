@@ -288,7 +288,7 @@ class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
 
     @staticmethod
     def auto() -> Self:
-        return LengthPointsPercentAuto(PointsPercent.AUTO)
+        return LengthPointsPercentAuto(PointsPercentAuto.AUTO)
 
     @staticmethod
     def default() -> Self:

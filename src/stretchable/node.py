@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from enum import StrEnum, auto
-from typing import Callable, Iterable, Optional, Self, SupportsIndex
+from typing import Callable, Iterable, Optional, Self, SupportsIndex, Protocol
 from xml.etree import ElementTree
 
 import attrs
@@ -60,7 +60,6 @@ def _measure_callback(
         result.width.value if result.width else NAN,
         result.height.value if result.height else NAN,
     )
-
 
 class Edge(StrEnum):
     """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""

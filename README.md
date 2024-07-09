@@ -39,7 +39,7 @@ root = Node(
 # Compute layout
 root.compute_layout()
 
-# Get the second child node
+# Get the second of the child nodes
 child_node = root.find("/child")
 content_box = child_node.get_box(Edge.CONTENT)
 print(content_box)
