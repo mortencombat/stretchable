@@ -4,9 +4,17 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from demos.example import print_layout
 from stretchable.node import Edge, Node
 from tests.test_fixtures import apply_node_measure, get_layout_expected, get_xml
+
+
+def print_layout(node: Node, index: int = 0):
+    print(" " * index + f"is_visible: {node.is_visible}")
+    for box in Edge:
+        layout = node.get_box(box)
+        print(" " * index + box._name_ + ": " + str(layout))
+    for child in node:
+        print_layout(child, index=index + 2)
 
 
 def print_chrome_layout(node: WebElement, index: int = 0):
@@ -33,7 +41,7 @@ filepath = Path(
     # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/max_height_overrides_height_on_root.html"
     # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/min_height_overrides_height_on_root.html"
     # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/undefined_height_with_min_max.html"
-    "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/flex/min_width_overrides_max_width.html"
+    "/Users/kenneth/Code/Personal/stretchable/tests/fixtures/block/block_overflow_scrollbars_overridden_by_available_space.html"
 )
 
 # Get layout using taffy
