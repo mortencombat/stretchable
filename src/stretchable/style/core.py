@@ -414,7 +414,9 @@ class Style:
             if prop in keys:
                 keys.remove(prop)
                 enum = prop_to_enum(prop)
-                return enum[props[prop].strip().upper().replace("-", "_")]
+                return enum[
+                    props[prop].strip().upper().replace("-", "_").replace(" ", "_")
+                ]
 
         def to_float(prop: str) -> float:
             if prop in keys:
