@@ -786,59 +786,6 @@ fn node_get_layout(taffy_ptr: usize, node_ptr: usize) -> PyLayout {
     layout
 }
 
-// create_exception!(
-//     taffylib,
-//     NodeMeasureError,
-//     PyException,
-//     "Raised when the `measure` method assigned to a node failed."
-// );
-
-// impl FromPyMeasure<MeasureFunc> for MeasureFunc {
-//     fn from_py(node: PyObject, measure: PyObject) -> MeasureFunc {
-//         MeasureFunc::Boxed(Box::new(
-//             move |known_dimensions: Size<Option<f32>>,
-//                   available_space: Size<AvailableSpace>|
-//                   -> Size<f32> {
-//                 // acquire lock
-//                 let size = Python::with_gil(|py| -> Vec<f32> {
-//                     // call function
-//                     let available_width: PyLength = available_space.width.into();
-//                     let available_height: PyLength = available_space.height.into();
-//                     let args = (
-//                         &node,
-//                         known_dimensions.width.unwrap_or(f32::NAN),
-//                         known_dimensions.height.unwrap_or(f32::NAN),
-//                         available_width,
-//                         available_height,
-//                     );
-//                     let result = measure.call1(py, args);
-
-//                     match result {
-//                         Ok(result) => result.extract(py).unwrap(),
-//                         Err(err) => {
-//                             let traceback = match err.traceback(py) {
-//                                 Some(value) => match value.format() {
-//                                     Ok(tb) => format!("{}\n", tb),
-//                                     Err(_) => String::new(),
-//                                 },
-//                                 None => String::new(),
-//                             };
-//                             error!(target: "stretchable.taffylib", "Error in node `measure` (used `NAN, NAN` in place):\n{}{}", traceback, err);
-//                             vec![f32::NAN, f32::NAN]
-//                         }
-//                     }
-//                 });
-
-//                 // return result
-//                 Size {
-//                     width: size[0],
-//                     height: size[1],
-//                 }
-//             },
-//         ))
-//     }
-// }
-
 // MODULE
 
 // for pyo3-pack, name must match module.
@@ -870,7 +817,6 @@ fn taffylib(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(node_set_context))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout_with_measure))?;
-    // m.add("NodeMeasureError", py.get_type::<NodeMeasureError>())?;
 
     Ok(())
 }
