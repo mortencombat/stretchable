@@ -50,6 +50,7 @@ class Display(IntEnum):
     NONE = 0
     FLEX = 1
     GRID = 2
+    BLOCK = 3
 
 
 class Overflow(IntEnum):
@@ -61,6 +62,7 @@ class Overflow(IntEnum):
     VISIBLE = 0
     HIDDEN = 1
     SCROLL = 2
+    CLIP = 3
 
 
 class Position(IntEnum):
@@ -514,9 +516,11 @@ class GridTrackSizing:
             )
 
         return dict(
-            repetition=self.repetition
-            if self.repetition != GridTrackRepetition.COUNT
-            else self.count,
+            repetition=(
+                self.repetition
+                if self.repetition != GridTrackRepetition.COUNT
+                else self.count
+            ),
             single=None,
             repeat=[t.to_dict() for t in self.tracks],
         )

@@ -86,6 +86,17 @@ class Style:
         validator=[validators.instance_of(Display)],
     )
 
+    # Overflow
+    overflow_x: Overflow = field(
+        default=Overflow.VISIBLE,
+        validator=[validators.instance_of(Overflow)],
+    )
+    overflow_y: Overflow = field(
+        default=Overflow.VISIBLE,
+        validator=[validators.instance_of(Overflow)],
+    )
+    scrollbar_width: float = 0.0
+
     # Position
     position: Position = field(
         default=Position.RELATIVE,
@@ -194,6 +205,10 @@ class Style:
         return (
             # Layout mode
             self.display,
+            # Overflow
+            self.overflow_x,
+            self.overflow_y,
+            self.scrollbar_width,
             # Position
             self.position,
             self.inset.to_dict(),
@@ -238,7 +253,7 @@ class Style:
         logger.debug("style_create() -> %s" % self.__ptr)
 
     def __del__(self) -> None:
-        if self.__ptr is None:
+        if not hasattr(self, "_Style__ptr") or self.__ptr is None:
             return
         taffylib.style_drop(self.__ptr)
         logger.debug("style_drop(ptr: %s)", self.__ptr)
@@ -371,6 +386,8 @@ class Style:
             match prop:
                 case "display":
                     return Display
+                case "overflow":
+                    return Overflow
                 case "justify-content":
                     return JustifyContent
                 case "justify-items":
@@ -385,8 +402,6 @@ class Style:
                     return AlignContent
                 case "flex-direction":
                     return FlexDirection
-                case "overflow":
-                    return Overflow
                 case "position":
                     return Position
                 case "flex-wrap":
@@ -399,7 +414,9 @@ class Style:
             if prop in keys:
                 keys.remove(prop)
                 enum = prop_to_enum(prop)
-                return enum[props[prop].strip().upper().replace("-", "_")]
+                return enum[
+                    props[prop].strip().upper().replace("-", "_").replace(" ", "_")
+                ]
 
         def to_float(prop: str) -> float:
             if prop in keys:
@@ -422,6 +439,37 @@ class Style:
                 flex_shrink=values[1] if n >= 2 else 1,
                 flex_basis=values[2] if n >= 3 else 0,
             )
+
+        def to_overflow() -> dict[str, Any]:
+            values = [None, None]
+
+            # First look for 'overflow' which can be a single value (overflow-x == overflow_y) or two values
+            if "overflow" in keys:
+                value = props["overflow"].strip()
+                values = value.split(" ")
+                n = len(values)
+                if n == 1:
+                    values = values * 2
+                elif n > 2:
+                    logger.warning(
+                        f"Style property overflow: {value} could not be parsed"
+                    )
+                keys.remove("overflow")
+
+            # Then look for 'overflow-x' and 'overflow-y' (eg. these will override if overflow is also present)
+            for i, prop in enumerate(("overflow-x", "overflow-y")):
+                if prop not in keys:
+                    continue
+                values[i] = props[prop]
+                keys.remove(prop)
+
+            # Translate str values into corresponding enums and insert into dictionary
+            r = dict()
+            for prop, value in zip(("overflow_x", "overflow_y"), values):
+                if not value:
+                    continue
+                r[prop] = Overflow[value.strip().upper()]
+            return r
 
         def to_grid() -> dict[str, Any]:
             def split_parts(value: str) -> list[str]:
@@ -538,7 +586,6 @@ class Style:
             "display",
             "flex-direction",
             "flex-wrap",
-            "overflow",
             "align-items",
             "align-self",
             "align-content",
@@ -554,13 +601,24 @@ class Style:
 
         # float and Dim entries:
         #   flex-basis, flex-grow, flex-shrink, aspect-ratio
-        for prop in ("flex-basis", "flex-grow", "flex-shrink", "aspect-ratio"):
+        for prop in (
+            "flex-basis",
+            "flex-grow",
+            "flex-shrink",
+            "aspect-ratio",
+            "scrollbar-width",
+        ):
             v = to_float(prop)
             if v is not None:
                 args[prop.replace("-", "_")] = v
 
         # Special handling for flex property
         v = to_flex()
+        if v:
+            args.update(**v)
+
+        # Special handling for overflow/overflow-x/overflow-y properties
+        v = to_overflow()
         if v:
             args.update(**v)
 
