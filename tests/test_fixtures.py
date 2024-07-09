@@ -48,7 +48,7 @@ Date        Failed      Passes      Remarks
 def get_fixtures(max_count: int = None) -> dict[str, list]:
     fixtures = []
     folders = [
-        # "tests/fixtures/grid/*.html",
+        # "tests/fixtures/block/*.html",
         "tests/fixtures/**/*.html",
     ]
     files = [
@@ -243,7 +243,7 @@ def apply_node_measure(node: Node, element: ElementTree.Element) -> Node:
         )
     else:
         writing_mode = WritingMode.HORIZONTAL
-    node.measure = lambda known_dims, available_space: measure_standard_text(
+    node.measure = lambda _self, known_dims, available_space: measure_standard_text(
         available_space,
         text,
         writing_mode,

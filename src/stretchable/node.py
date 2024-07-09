@@ -26,14 +26,82 @@ logger = logging.getLogger(__name__)
 
 _valid_key = re.compile(r"^[-_!:;()\]\[a-zA-Z0-9]*[a-zA-Z]+[-_!:;()\]\[a-zA-Z0-9]*$")
 
-
-MeasureFunc = Callable[[SizePoints, SizeAvailableSpace], SizePoints]
+MeasureFunc = Callable[["Node", SizePoints, SizeAvailableSpace], SizePoints]
 
 USE_ROOT_CONTAINER: bool = False
 
+_node_refs: dict[int, Node] = dict()
+
+
+def _measure_callback(
+    nodes: dict[int, Node],
+    known_width: float,
+    known_height: float,
+    available_width: dict[int, float],
+    available_height: dict[int, float],
+    context: int,
+) -> tuple[float, float]:
+    """This function is a wrapper for the user-supplied measure function,
+    converting arguments into and results from the call by Taffy."""
+    if not context or context not in nodes:
+        return SizePoints((0, 0))
+
+    node = nodes[context]
+
+    known_dimensions = SizePoints(width=known_width, height=known_height)
+    available_space = SizeAvailableSpace(
+        LengthAvailableSpace.from_dict(available_width),
+        LengthAvailableSpace.from_dict(available_height),
+    )
+    result = node.measure(node, known_dimensions, available_space)
+    assert isinstance(result, SizePoints)
+    logger.debug("node_measure_callback(node: %s) -> %s", context, result)
+    return (
+        result.width.value if result.width else NAN,
+        result.height.value if result.height else NAN,
+    )
+
 
 """
-    
+NODE MEASURE
+
+CURRENT PROCESS
+---------------
+
+1) A specific measure function Callable[[SizePoints, SizeAvailableSpace], SizePoints] is stored on the node
+   Any additional information (such as text/font, image dimensions, etc.) needed by the function must be stored in the function
+
+2) This function is invoked during the layout computation process
+
+FUTURE/SUGGESTED PROCESS
+------------------------
+
+1) A global measure function is used when computing layout
+
+2) Each node can be provided with NodeContext, which is passed to the global measure function
+
+NodeContext in Python must be converted to Rust, to be able to be passed in to
+Taffy. This may complicate user-defined contexts?
+
+Consider instead in NodeContext passing the ptr, and then use the ptr to
+identify the Python node instance and pass that to the global measure function.
+Any necessary context could then be stored on the node.
+
+Another option would be to stick with node-specific measure functions, but use
+the procedure described above to retrieve the node instance, and then invoke the
+node measure function with the node (self) available as context.
+
+TODO:
+    - Nodes should be created with context if a measure function is provided,
+      and the context should be a unique identifier that can be used to identify and retrieve the node instance
+      Don't use NodeContext, instead use NodeId ?
+    - A global measure function should be created, which:
+        1) Retrieves the node instance from node context (identifier)
+        2) If node has a measure function assigned, invoke it and return the result
+
+
+When measure property is changed on a node, set NodeContext in taffy, and keep a dict[ptr, node] of all nodes with measure properties set
+
 """
 
 
@@ -138,7 +206,7 @@ class Node(list["Node"]):
         self,
         *children: Node,
         key: str = None,
-        measure: Callable[[SizePoints, SizeAvailableSpace], SizePoints] = None,
+        measure: Callable[["Node", SizePoints, SizeAvailableSpace], SizePoints] = None,
         style: Style = None,
         **kwargs,
     ):
@@ -475,15 +543,23 @@ class Node(list["Node"]):
         if not taffy._ptr:
             raise TaffyUnavailableError
         if value is None:
-            taffylib.node_remove_measure(taffy._ptr, self._ptr)
+            taffylib.node_set_context(taffy._ptr, self._ptr, None)
+            if self._ptr in _node_refs:
+                del _node_refs[self._ptr]
             logger.debug(
-                "node_remove_measure(taffy: %s, node: %s)", taffy._ptr, self._ptr
+                "node_set_context(taffy: %s, node: %s, context: None)",
+                taffy._ptr,
+                self._ptr,
             )
         else:
-            taffylib.node_set_measure(
-                taffy._ptr, self._ptr, self, Node._measure_callback
+            taffylib.node_set_context(taffy._ptr, self._ptr, self._ptr)
+            _node_refs[self._ptr] = self
+            logger.debug(
+                "node_set_context(taffy: %s, node: %s, context: %s)",
+                taffy._ptr,
+                self._ptr,
+                self._ptr,
             )
-            logger.debug("node_set_measure(taffy: %s, node: %s)", taffy._ptr, self._ptr)
 
     def compute_layout(
         self,
@@ -531,8 +607,18 @@ class Node(list["Node"]):
             ptr = self._ptr
 
         taffy.use_rounding = use_rounding
-        result = taffylib.node_compute_layout(
-            taffy._ptr, ptr, available_space.to_dict()
+        result = taffylib.node_compute_layout_with_measure(
+            taffy._ptr,
+            ptr,
+            available_space.to_dict(),
+            lambda known_width, known_height, available_width, available_height, context: _measure_callback(
+                _node_refs,
+                known_width,
+                known_height,
+                available_width,
+                available_height,
+                context,
+            ),
         )
         if not result:
             return False
@@ -556,7 +642,7 @@ class Node(list["Node"]):
         self._zorder = layout["order"]
 
         logger.debug(
-            "node_get_layout(taffy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
+            "node_get_layout(t)affy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
             taffy._ptr,
             self._ptr,
             self._zorder,
