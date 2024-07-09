@@ -6,8 +6,8 @@
 [![GitHub issues](https://img.shields.io/github/issues/mortencombat/stretchable?logo=github)](https://github.com/mortencombat/stretchable/issues)
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/mortencombat/stretchable/build-publish.yml?logo=github)](https://github.com/mortencombat/stretchable/actions/workflows/build-publish.yml)
 [![Documentation Status](https://readthedocs.org/projects/stretchable/badge/?version=latest)](https://stretchable.readthedocs.io/en/latest/?badge=latest)
-[![Test results](https://gist.githubusercontent.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/5aa957027330c7ea739a97ee1319226883ed0734/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
-[![Test coverage](https://gist.githubusercontent.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/c1e5ec0253129c9f25ba2ba76c79ce5557fdbad3/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
+[![Test results](https://gist.githubusercontent.com/mortencombat/901f1f1190ba5aff13164ede9d4c249f/raw/stretchable-tests.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
+[![Test coverage](https://gist.githubusercontent.com/mortencombat/b121474745d15f92a295a0bdd7497529/raw/stretchable-coverage.svg)](https://github.com/mortencombat/stretchable/actions/workflows/test.yml)
 
 **stretchable** is a cross-platform layout library for Python that enables context-agnostic layout operations using [CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) and [Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/). Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
 
