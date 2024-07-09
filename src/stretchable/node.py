@@ -62,49 +62,6 @@ def _measure_callback(
     )
 
 
-"""
-NODE MEASURE
-
-CURRENT PROCESS
----------------
-
-1) A specific measure function Callable[[SizePoints, SizeAvailableSpace], SizePoints] is stored on the node
-   Any additional information (such as text/font, image dimensions, etc.) needed by the function must be stored in the function
-
-2) This function is invoked during the layout computation process
-
-FUTURE/SUGGESTED PROCESS
-------------------------
-
-1) A global measure function is used when computing layout
-
-2) Each node can be provided with NodeContext, which is passed to the global measure function
-
-NodeContext in Python must be converted to Rust, to be able to be passed in to
-Taffy. This may complicate user-defined contexts?
-
-Consider instead in NodeContext passing the ptr, and then use the ptr to
-identify the Python node instance and pass that to the global measure function.
-Any necessary context could then be stored on the node.
-
-Another option would be to stick with node-specific measure functions, but use
-the procedure described above to retrieve the node instance, and then invoke the
-node measure function with the node (self) available as context.
-
-TODO:
-    - Nodes should be created with context if a measure function is provided,
-      and the context should be a unique identifier that can be used to identify and retrieve the node instance
-      Don't use NodeContext, instead use NodeId ?
-    - A global measure function should be created, which:
-        1) Retrieves the node instance from node context (identifier)
-        2) If node has a measure function assigned, invoke it and return the result
-
-
-When measure property is changed on a node, set NodeContext in taffy, and keep a dict[ptr, node] of all nodes with measure properties set
-
-"""
-
-
 class Edge(StrEnum):
     """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
 
