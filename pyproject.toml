@@ -42,9 +42,6 @@ test = [
     "pytest-html",
     "hypothesis",
     "selenium",
-    "lxml",
-    "tinycss2",
-    "cssselect2",
     ]
 docs = [
     "sphinx",
@@ -56,11 +53,6 @@ docs = [
     "sphinx-autodoc-typehints",
     "sphinx_design>=0.5,<1.0",
     "sphinxcontrib-mermaid>=0.9.2,<1.0",
-]
-parser = [
-    "lxml",
-    "tinycss2",
-    "cssselect2",
 ]
 
 [project.urls]
