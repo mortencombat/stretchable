@@ -65,7 +65,7 @@ NOTE: Sometimes, you may need to run `make clean html` (in `docs/` folder) to en
 
 ### Testing
 
-Install test dependencies and invoke `pytest`. Note that there are ~650 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~20 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
+Install test dependencies and invoke `pytest`. Note that there are ~900 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~20 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
 
 ## License
 
