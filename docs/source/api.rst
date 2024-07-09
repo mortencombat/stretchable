@@ -30,10 +30,20 @@ Styles
 
         Used to control node visibility and layout strategy.
 
-    .. property:: overflow
+    .. property:: overflow_x
         :type: Overflow
 
-        Controls the desired behavior when content does not fit inside the parent node.
+        Controls the desired behavior when content does not fit horizontally inside the parent node.
+
+    .. property:: overflow_y
+        :type: Overflow
+
+        Controls the desired behavior when content does not fit vertically inside the parent node.
+
+    .. property:: scrollbar_width
+        :type: float
+
+        How much space (in points) should be reserved for the scrollbars of `Overflow.SCROLL` nodes.
 
     .. property:: position
         :type: Position

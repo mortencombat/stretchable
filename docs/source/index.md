@@ -4,16 +4,16 @@ hide-toc: true
 
 # stretchable
 
-**stretchable** is a layout library for Python that enables context-agnostic layout operations using [CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) and [Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/). Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
+**stretchable** is a layout library for Python that enables context-agnostic layout operations using CSS Block, [CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) and [Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/). Possible uses include UI layouts, page layouts for reports, complex plotting layouts, etc.
 
-It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of Grid/Flexbox written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy. It is multi-platform and there are distributions available for Windows, Linux and macOS.
+It implements Python bindings for [Taffy](https://github.com/dioxuslabs/taffy), an implementation of **CSS Block**, **Flexbox** and **CSS Grid** layout algorithms written in [Rust](https://www.rust-lang.org/). It was originally based on [Stretch](https://vislyhq.github.io/stretch/) (hence the name), but has since migrated to use Taffy. It is multi-platform and there are distributions available for Windows, Linux and macOS.
 
 ## Getting Started
 
 **stretchable** is a Python package [hosted on PyPI](https://pypi.org/project/stretchable/). It can be installed using [pip](https://pip.pypa.io/en/stable/):
 
 ```console
-$ python -m pip install attrs
+$ python -m pip install stretchable
 ```
 
 These next steps will help you get started:
