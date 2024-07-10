@@ -29,6 +29,7 @@ H_HEIGHT: float = 10.0
 ZERO_WIDTH_SPACE: str = "\u200b"
 XML_REPLACE = (("&ZeroWidthSpace;", ZERO_WIDTH_SPACE),)
 USE_ROUNDING: bool = False
+NUM_DECIMALS: int = 0
 
 """
 DEBUGGING NOTES:
@@ -116,7 +117,7 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
         node,
         node_expected,
         filepath.stem,
-        num_decimals=0 if USE_ROUNDING else 1,
+        num_decimals=0 if USE_ROUNDING else NUM_DECIMALS,
     )
 
 
