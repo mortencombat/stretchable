@@ -700,7 +700,7 @@ class Node(list["Node"]):
         elif edge == Edge.MARGIN and Edge.MARGIN not in self._box:
             # Taffy does not provide margin box, calculate it
             box_parent = self._parent.get_box(Edge.BORDER) if self._parent else None
-            box = box._offset(self.style.margin, box_parent)
+            box = self.border_box._offset(self.style.margin, box_parent)
             self._box[Edge.MARGIN] = box
         else:
             box = self._box[edge]

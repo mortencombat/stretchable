@@ -28,6 +28,7 @@ H_WIDTH: float = 10.0
 H_HEIGHT: float = 10.0
 ZERO_WIDTH_SPACE: str = "\u200b"
 XML_REPLACE = (("&ZeroWidthSpace;", ZERO_WIDTH_SPACE),)
+USE_ROUNDING: bool = False
 
 """
 DEBUGGING NOTES:
@@ -103,7 +104,7 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
     req_measure = requires_measure(ElementTree.fromstring(xml))
     node = Node.from_xml(xml, apply_node_measure) if req_measure else Node.from_xml(xml)
-    node.compute_layout()
+    node.compute_layout(use_rounding=USE_ROUNDING)
 
     # Render html with Chrome
     driver.get("file://" + str(filepath))
@@ -111,7 +112,12 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     node_expected = driver.find_element(by=By.ID, value="test-root")
 
     # Compare rect of Chrome render with stretchable computed layout.
-    assert_node_layout(node, node_expected, filepath.stem)
+    assert_node_layout(
+        node,
+        node_expected,
+        filepath.stem,
+        num_decimals=0 if USE_ROUNDING else 1,
+    )
 
 
 def get_xml(filepath: Path) -> str:
@@ -177,6 +183,8 @@ def assert_node_layout(
     node_actual: Node,
     node_expected: WebElement,
     fixture: str,
+    *,
+    num_decimals: int = 1,
 ) -> None:
     visible = node_expected.is_displayed()
     assert (
@@ -196,9 +204,9 @@ def assert_node_layout(
             for param in ("x", "y", "width", "height"):
                 v_act = round(
                     getattr(rect_actual, param),
-                    1 if param == "x" or param == "y" else 0,
+                    num_decimals if (param == "x" or param == "y") else 0,
                 )
-                v_exp = round(getattr(rect_expected, param), 1)
+                v_exp = round(getattr(rect_expected, param), num_decimals)
 
                 assert (
                     v_act == v_exp
@@ -215,7 +223,9 @@ def assert_node_layout(
         assert (
             child_expected.tag_name == "div"
         ), "Only <div> elements are supported in test fixtures"
-        assert_node_layout(child_actual, child_expected, f"{fixture}/{i}")
+        assert_node_layout(
+            child_actual, child_expected, f"{fixture}/{i}", num_decimals=num_decimals
+        )
 
 
 def requires_measure(element: ElementTree.Element) -> bool:
