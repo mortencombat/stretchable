@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from enum import StrEnum, auto
-from typing import Callable, Iterable, Optional, Self, SupportsIndex, Protocol
+from typing import Callable, Iterable, Optional, Protocol, Self, SupportsIndex
 from xml.etree import ElementTree
 
 import attrs
@@ -44,7 +44,7 @@ def _measure_callback(
     """This function is a wrapper for the user-supplied measure function,
     converting arguments into and results from the call by Taffy."""
     if not context or context not in nodes:
-        return SizePoints((0, 0))
+        return (0, 0)
 
     node = nodes[context]
 
@@ -60,6 +60,7 @@ def _measure_callback(
         result.width.value if result.width else NAN,
         result.height.value if result.height else NAN,
     )
+
 
 class Edge(StrEnum):
     """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
@@ -90,6 +91,18 @@ class Box:
     y: float
     width: float
     height: float
+
+    def _inset(self, insets: tuple[float, float, float, float]) -> Box:
+        """
+        Returns a copy of the frame inset by the specified ``insets`` which must
+        be absolute values (floats).
+        """
+        return Box(
+            self.x + insets[3],
+            self.y + insets[0],
+            self.width - insets[1] - insets[3],
+            self.height - insets[0] - insets[2],
+        )
 
     def _offset(
         self,
@@ -592,20 +605,28 @@ class Node(list["Node"]):
 
         layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
 
-        # Update the border box and clear cached boxes for other edges
-        box = Box(layout["left"], layout["top"], layout["width"], layout["height"])
-        self._box = {Edge.BORDER: box}
         self._zorder = layout["order"]
 
+        # Border box
+        box = Box(*layout["location"], *layout["size"])
+        self._box = {Edge.BORDER: box}
+
+        # Padding box (border box inset by borders)
+        box = box._inset(layout["border"])
+        self._box[Edge.PADDING] = box
+
+        # Content box (padding box inset by padding)
+        box = box._inset(layout["padding"])
+        self._box[Edge.CONTENT] = box
+
         logger.debug(
-            "node_get_layout(t)affy: %s, node: %s) -> (order: %s, left: %s, top: %s, width: %s, height: %s)",
+            "node_get_layout(taffy: %s, node: %s) -> %s, border: %s, padding: %s, content: %s",
             taffy._ptr,
             self._ptr,
-            self._zorder,
-            box.x,
-            box.y,
-            box.width,
-            box.height,
+            layout,
+            self._box[Edge.BORDER],
+            self._box[Edge.PADDING],
+            self._box[Edge.CONTENT],
         )
 
         if self.is_visible:
@@ -668,42 +689,21 @@ class Node(list["Node"]):
         if self.is_dirty:
             raise LayoutNotComputedError
 
-        box = self.border_box
-        if edge == Edge.BORDER and relative and not flip_y:
-            return box
+        if relative and not flip_y and edge in self._box:
+            return self._box[edge]
 
+        # TODO: Consider implementing a caching mechanism for relative and/or flip_y
         # h = hash((edge, relative, flip_y))
 
         if USE_ROOT_CONTAINER and self.is_root and edge == Edge.MARGIN:
             box = self._container.border_box
-        elif edge != Edge.BORDER:
-            # Expand or contract:
-            #   Edge.CONTENT: -border -padding
-            #   Edge.PADDING: -border
-            #   Edge.BORDER: (none)
-            #   Edge.MARGIN: +margin
-            # Padding, border and margin are defined in Style.
-
-            if edge in self._box:
-                box = self._box[edge]
-            else:
-                if edge == Edge.CONTENT:
-                    actions = (
-                        (self.style.border, -1),
-                        (self.style.padding, -1),
-                    )
-                elif edge == Edge.PADDING:
-                    actions = ((self.style.border, -1),)
-                elif edge == Edge.MARGIN:
-                    actions = ((self.style.margin, 1),)
-
-                box_parent = self._parent.get_box(Edge.BORDER) if self._parent else None
-                for offsets, factor in actions:
-                    box = box._offset(offsets, box_parent, factor=factor)
-
-                self._box[edge] = box
-
-        # TODO: Consider implementing a caching mechanism for relative and/or flip_y
+        elif edge == Edge.MARGIN and Edge.MARGIN not in self._box:
+            # Taffy does not provide margin box, calculate it
+            box_parent = self._parent.get_box(Edge.BORDER) if self._parent else None
+            box = box._offset(self.style.margin, box_parent)
+            self._box[Edge.MARGIN] = box
+        else:
+            box = self._box[edge]
 
         if not relative and self._parent:
             box_parent = self._parent.get_box(Edge.BORDER, relative=False)
@@ -786,10 +786,8 @@ class Container:
         # NOTE: Since this container node has no margins, border and padding, this layout corresponds to all the boxes.
 
         layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
-        x = layout["left"]
-        y = layout["top"]
-        width = layout["width"]
-        height = layout["height"]
+        x, y = layout["location"]
+        width, height = layout["size"]
         logger.debug(
             "node_get_layout(taffy: %s, node: %s [container]) -> (left: %s, top: %s, width: %s, height: %s)",
             taffy._ptr,
