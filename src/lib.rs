@@ -756,20 +756,59 @@ fn node_compute_layout_with_measure(taffy: usize, node: usize, available_space: 
 #[derive(FromPyObject, IntoPyObject)]
 pub struct PyLayout {
     order: i64,
-    left: f32,
-    top: f32,
-    width: f32,
-    height: f32,
+    location: Vec<f32>,
+    size: Vec<f32>,
+    content_size: Vec<f32>,
+    scrollbar_size: Vec<f32>,
+    border: Vec<f32>,
+    padding: Vec<f32>,
+    // margin: Vec<f32>,
 }
+
+trait FromPoint<T> {
+    fn from_point(value: taffy::geometry::Point<T>) -> Vec<T>;
+}
+
+impl<T> FromPoint<T> for Vec<T> {
+    fn from_point(value: taffy::geometry::Point<T>) -> Self {
+        vec![ value.x, value.y ]
+    }
+}
+
+
+trait FromSize<T> {
+    fn from_size(value: taffy::geometry::Size<T>) -> Vec<T>;
+}
+
+impl<T> FromSize<T> for Vec<T> {
+    fn from_size(value: taffy::geometry::Size<T>) -> Self {
+        vec![ value.width, value.height ]
+    }
+}
+
+
+trait FromRect<T> {
+    fn from_rect(value: taffy::geometry::Rect<T>) -> Vec<T>;
+}
+
+impl<T> FromRect<T> for Vec<T> {
+    fn from_rect(value: taffy::geometry::Rect<T>) -> Self {
+        vec![ value.top, value.right, value.bottom, value.left ]
+    }
+}
+
 
 impl From<Layout> for PyLayout {
     fn from(layout: Layout) -> Self {
         PyLayout {
             order: layout.order as i64,
-            left: layout.location.x,
-            top: layout.location.y,
-            width: layout.size.width,
-            height: layout.size.height,
+            location: Vec::from_point(layout.location),            
+            size: Vec::from_size(layout.size),            
+            content_size: Vec::from_size(layout.content_size),            
+            scrollbar_size: Vec::from_size(layout.scrollbar_size),
+            border: Vec::from_rect(layout.border),  
+            padding: Vec::from_rect(layout.padding),  
+            // margin: Vec::from_rect(layout.margin),  
         }
     }
 }

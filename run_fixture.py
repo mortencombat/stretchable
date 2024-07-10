@@ -33,16 +33,9 @@ In this file, percentage margins are calculated as a percentage of the elements 
 """
 
 filepath = Path(
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/flex/percentage_moderate_complexity.html"
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/grid/grid_margins_percent_start.html"
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/grid/grid_max_content_single_item_span_2_gap_fixed.html"
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/flex/gap_percentage_row_gap_wrapping.html"
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/flex/percentage_padding_should_calculate_based_only_on_width.html"
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/max_height_overrides_height_on_root.html"
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/min_height_overrides_height_on_root.html"
-    # "/Users/kenneth/Code/Personal/Python/stretchable/tests/fixtures/taffy/undefined_height_with_min_max.html"
-    "/Users/kenneth/Code/Personal/stretchable/tests/fixtures/block/block_overflow_scrollbars_overridden_by_available_space.html"
-)
+    "./tests/fixtures/flex/percentage_padding_should_calculate_based_only_on_width.html"
+    # "./tests/fixtures/block/block_overflow_scrollbars_overridden_by_available_space.html"
+).resolve()
 
 # Get layout using taffy
 xml = get_xml(filepath)
@@ -54,7 +47,7 @@ print_layout(node)
 
 # Get layout using Chrome
 driver = webdriver.Chrome()
-driver.get("file://" + str(filepath))
+driver.get(f"file://{filepath}")
 driver.implicitly_wait(0.5)
 node_expected = driver.find_element(by=By.ID, value="test-root")
 print("*** EXPECTED ***")
