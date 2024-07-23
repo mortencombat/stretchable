@@ -4,15 +4,17 @@ import math
 import os
 from enum import IntEnum
 from pathlib import Path
-from xml.etree import ElementTree
+from typing import Optional
 
 import pytest
+from lxml import etree
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from stretchable.node import Box, Edge, Node
+from stretchable.parser import ElementType, HTMLNodeFactory, StyleProvider, load
 from stretchable.style.geometry.length import LengthAvailableSpace, Scale
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
@@ -23,26 +25,55 @@ fileHandler = logging.FileHandler("debug.log")
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
 
-
 H_WIDTH: float = 10.0
 H_HEIGHT: float = 10.0
 ZERO_WIDTH_SPACE: str = "\u200b"
 XML_REPLACE = (("&ZeroWidthSpace;", ZERO_WIDTH_SPACE),)
 
-"""
-DEBUGGING NOTES:
 
-Date        Failed      Passes      Remarks
-2023.11.05  41          406         Taffy tests only
-            45          643         Taffy+Stretch tests
-            14          674         Added support for 'gap' in Style.from_inline(...)
-            11          674         Fixed `measure_standard_text` function
-            7           677         Fixed error in bevy_issue_8017*.html,
-                                    border_center_child.html and
-                                    percentage_sizes_should_not_prevent_flex_shrinking.html fixtures
-            3           678         Removed 4 duplicate fixtures (which were all failing)
-            1           683         The last failing test is related to is_visible. Seems more like a Selenium/Chrome inconsistency.
-"""
+class TestFixtureNodeFactory(HTMLNodeFactory):
+    def get_node(
+        self,
+        element: etree.Element,
+        *,
+        styles: Optional[StyleProvider] = None,
+        children: Optional[list[Node]] = None,
+        ignore_unsupported_content: bool = False,
+    ) -> Node:
+        node = super().get_node(
+            element, styles=styles, children=children, ignore_unsupported_content=True
+        )
+
+        text = element.text
+        if text is not None:
+            text = text.strip()
+        if text:
+            if "style" in element.attrib:
+                style = element.attrib["style"].replace(" ", "").casefold()
+                writing_mode = (
+                    WritingMode.VERTICAL
+                    if "writing-mode:vertical" in style
+                    else WritingMode.HORIZONTAL
+                )
+            else:
+                writing_mode = WritingMode.HORIZONTAL
+            node.measure = (
+                lambda _self, known_dims, available_space: measure_standard_text(
+                    available_space,
+                    text,
+                    writing_mode,
+                    known_dims,
+                    node.style.aspect_ratio,
+                )
+            )
+
+            logger.debug("Set node.measure for '%s'.", text)
+        return node
+
+    def get_type(self, element: etree.Element) -> ElementType:
+        if element.tag == "link":
+            return ElementType.SKIP
+        return super().get_type(element)
 
 
 def get_fixtures(max_count: int = None) -> dict[str, list]:
@@ -98,11 +129,8 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     # Read html file, extract content between <body> and </body> and convert <div> to <node>
     logger.debug("Fixture: %s", filepath.stem)
 
-    xml = get_xml(filepath)
-
     # Use Node.from_xml() to turn into node instances and compute layout with stretchable.
-    req_measure = requires_measure(ElementTree.fromstring(xml))
-    node = Node.from_xml(xml, apply_node_measure) if req_measure else Node.from_xml(xml)
+    node = load(filepath, nodefactory=TestFixtureNodeFactory())
     node.compute_layout()
 
     # Render html with Chrome
@@ -111,29 +139,7 @@ def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     node_expected = driver.find_element(by=By.ID, value="test-root")
 
     # Compare rect of Chrome render with stretchable computed layout.
-    assert_node_layout(node, node_expected, filepath.stem)
-
-
-def get_xml(filepath: Path) -> str:
-    """From HTML with <body>...</body> containing only <div> elements, return
-    the <div> elements renamed to <node>"""
-    with open(filepath, "r") as f:
-        in_body = False
-        xml = ""
-        for line in f.readlines():
-            c = line.strip()
-            if not c:
-                continue
-            if c == "</body>":
-                break
-            if in_body:
-                xml += line
-            if c == "<body>":
-                in_body = True
-        xml = xml.replace("<div", "<node").replace("</div>", "</node>")
-    for token, repl in XML_REPLACE:
-        xml = xml.replace(token, repl)
-    return xml
+    assert_node_layout(node[0], node_expected, filepath.stem)
 
 
 def get_css_values(node: WebElement, prop: str) -> tuple[float, float, float, float]:
@@ -218,7 +224,7 @@ def assert_node_layout(
         assert_node_layout(child_actual, child_expected, f"{fixture}/{i}")
 
 
-def requires_measure(element: ElementTree.Element) -> bool:
+def requires_measure(element: etree.ElementTree.Element) -> bool:
     if any(requires_measure(child) for child in element):
         return True
     if not element.text or not element.text.strip():
@@ -226,7 +232,7 @@ def requires_measure(element: ElementTree.Element) -> bool:
     return True
 
 
-def apply_node_measure(node: Node, element: ElementTree.Element) -> Node:
+def apply_node_measure(node: Node, element: etree.ElementTree.Element) -> Node:
     if not element.text:
         return node
 
