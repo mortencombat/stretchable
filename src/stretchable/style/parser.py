@@ -25,19 +25,17 @@ def strip(
     j, k = None, None
     for i, v in enumerate(s):
         if v:
-            if k is None:
-                k = i
-        else:
-            if j is None:
-                j = i - 1
-            k = None
+            continue
+        if j is None:
+            j = i
+        k = i
 
     return [
         node
         for i, node in enumerate(nodes)
         if (
-            (not leading or i > j)
-            and (not trailing or k is None or i < k)
+            (not leading or j is None or i >= j)
+            and (not trailing or k is None or i <= k)
             and (not internal or not s[i])
         )
     ]
