@@ -1,12 +1,9 @@
 import tinycss2
 
-from stretchable.style.parser import strip
+from stretchable.style.parser import lstrip, rstrip, strip
 
 
 def test_strip():
-    def is_stripped(node: tinycss2.ast.Node) -> bool:
-        return node and isinstance(node, tinycss2.ast.WhitespaceToken)
-
     css: str = " grid-column: 3 / 2 "
     fixtures = [
         (True, False, False, css, css.lstrip()),
@@ -20,10 +17,24 @@ def test_strip():
         actual = tinycss2.serialize(
             strip(
                 nodes,
-                predicate=is_stripped,
                 leading=leading,
                 internal=internal,
                 trailing=trailing,
             )
         )
         assert actual == expected
+
+
+def test_lrstrip():
+    source = "  left: 10px;  "
+    nodes = tinycss2.parse_component_value_list(source, skip_comments=True)
+
+    # lstrip()
+    actual = tinycss2.serialize(lstrip(nodes))
+    expected = source.lstrip()
+    assert actual == expected
+
+    # rstrip()
+    actual = tinycss2.serialize(rstrip(nodes))
+    expected = source.rstrip()
+    assert actual == expected
