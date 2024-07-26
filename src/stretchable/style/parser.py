@@ -21,6 +21,9 @@ def strip(
     (default: WhitespaceTokens) from the given list of nodes.
     """
 
+    if not leading and not internal and not trailing:
+        return nodes.copy()
+
     s = [predicate(node) for node in nodes]
     j, k = None, None
     for i, v in enumerate(s):
@@ -30,15 +33,31 @@ def strip(
             j = i
         k = i
 
-    return [
-        node
-        for i, node in enumerate(nodes)
-        if (
-            (not leading or j is None or i >= j)
-            and (not trailing or k is None or i <= k)
-            and (not internal or not s[i])
-        )
-    ]
+    def include(i: int) -> bool:
+        if i < j:
+            if leading:
+                return False
+        elif i > k:
+            if trailing:
+                return False
+        else:
+            if internal and s[i]:
+                return False
+        return True
+
+    if j is None:
+        return []
+    return [node for i, node in enumerate(nodes) if include(i)]
+
+
+def lstrip(nodes: list[tinycss2.ast.Node]) -> list[tinycss2.ast.Node]:
+    """Strips whitespace from the beginning of a list of nodes."""
+    return strip(nodes, trailing=False)
+
+
+def rstrip(nodes: list[tinycss2.ast.Node]) -> list[tinycss2.ast.Node]:
+    """Strips whitespace from the end of a list of nodes."""
+    return strip(nodes, leading=False)
 
 
 def split(
