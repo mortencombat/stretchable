@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from enum import StrEnum, auto
-from typing import Callable, Iterable, Optional, Protocol, Self, SupportsIndex
+from typing import Callable, Iterable, Optional, Self, SupportsIndex
 from xml.etree import ElementTree
 
 import attrs
@@ -433,7 +433,7 @@ class Node(list["Node"]):
     @property
     def style(self) -> Style:
         return self._style
-    
+
     @style.setter
     def style(self, style: Style) -> None:
         if not style._ptr:
