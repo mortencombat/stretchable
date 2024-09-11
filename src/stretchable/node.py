@@ -433,6 +433,14 @@ class Node(list["Node"]):
     @property
     def style(self) -> Style:
         return self._style
+    
+    @style.setter
+    def style(self, style: Style) -> None:
+        if not style._ptr:
+            raise TaffyUnavailableError
+
+        self._style = style
+        taffylib.node_set_style(taffy._ptr, self._ptr, style._ptr)
 
     @property
     def is_dirty(self) -> bool:
