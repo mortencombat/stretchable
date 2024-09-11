@@ -6,6 +6,7 @@ from .core import (
     FlexDirection,
     FlexWrap,
     GridAutoFlow,
+    GridIndex,
     GridIndexType,
     GridPlacement,
     GridTrackSize,

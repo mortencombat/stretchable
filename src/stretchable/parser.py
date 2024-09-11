@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from enum import Enum, IntEnum, auto
+from os.path import isfile
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Optional, Protocol
 
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class UnsupportedElementError(Exception):
-    ...
+    pass
 
 
 class ElementType(Enum):
@@ -66,30 +68,6 @@ def _handle_rect(
     return [("top", top), ("right", right), ("bottom", bottom), ("left", left)]
 
 
-def split(
-    nodes: list[ast.Node], sep: ast.Node = ast.WhitespaceToken
-) -> list[list[ast.Node]]:
-    """Equivalent to str.strip() except it takes a single list and returns the
-    list split into multiple lists by a specified (or default) separator."""
-    r = []
-    cur = []
-    for v in nodes:
-        if isinstance(v, sep):
-            if cur:
-                r.append(cur)
-                cur = []
-            continue
-        cur.append(v)
-    if cur:
-        r.append(cur)
-    return r
-
-
-def strip(nodes: list[ast.Node]) -> list[ast.Node]:
-    """Strips any leading and trailing WhitespaceTokens from the nodes."""
-    return [v for v in nodes if not isinstance(v, ast.WhitespaceToken)]
-
-
 class StyleProvider(ABC, Mapping):
     """
     Manages/determines the effective applied style for an element.
@@ -101,8 +79,9 @@ class StyleProvider(ABC, Mapping):
     @abstractmethod
     def add(
         self,
-        declarations: tinycss2.parser.Declaration
-        | Iterable[tinycss2.parser.Declaration],
+        declarations: (
+            tinycss2.parser.Declaration | Iterable[tinycss2.parser.Declaration]
+        ),
         *,
         inline: bool = False,
         specificity: Optional[tuple[int, int, int]] = None,
@@ -158,8 +137,9 @@ class StandardStyleProvider(StyleProvider):
 
     def add(
         self,
-        declarations: tinycss2.parser.Declaration
-        | Iterable[tinycss2.parser.Declaration],
+        declarations: (
+            tinycss2.parser.Declaration | Iterable[tinycss2.parser.Declaration]
+        ),
         *,
         inline: bool = False,
         specificity: Optional[tuple[int, int, int]] = None,
@@ -234,13 +214,21 @@ class StandardStyleProvider(StyleProvider):
         method."""
 
         def get_length(
-            node: ast.PercentageToken | ast.DimensionToken | ast.IdentToken,
+            node: (
+                ast.PercentageToken
+                | ast.DimensionToken
+                | ast.NumberToken
+                | ast.IdentToken
+            ),
         ) -> stl.Length:
             match node.type:
                 case "percentage":
                     return stl.geometry.LengthPointsPercentAuto.percent(
                         float(node.representation) / 100
                     )
+                case "number":
+                    if node.value == 0:
+                        return stl.geometry.LengthPointsPercentAuto.points(float(0))
                 case "dimension":
                     if node.lower_unit == "px":
                         return stl.geometry.LengthPointsPercentAuto.points(
@@ -273,8 +261,7 @@ class StandardStyleProvider(StyleProvider):
                     not_present = False
                 if not_present:
                     continue
-                args[arg] = stl.Rect(*values)
-                print(str(args[arg]))
+                args[arg.replace("-", "_")] = stl.Rect(*values)
 
         def get_sizes():
             for prefix in (None, "min", "max"):
@@ -293,8 +280,7 @@ class StandardStyleProvider(StyleProvider):
                 if not_present:
                     continue
                 key = prefix + "-size" if prefix else "size"
-                args[key] = stl.Size(*values)
-                print(str(args[key]))
+                args[key.replace("-", "_")] = stl.Size(*values)
 
         def get_enums():
             for key, enum in StandardStyleProvider.MAP_ENUMS.items():
@@ -314,6 +300,13 @@ class StandardStyleProvider(StyleProvider):
                 args[key.replace("-", "_")] = enum[
                     v[0].value.strip().upper().replace("-", "_")
                 ]
+
+            if "overflow" in args:
+                if "overflow_x" not in args:
+                    args["overflow_x"] = args["overflow"]
+                if "overflow_y" not in args:
+                    args["overflow_y"] = args["overflow"]
+                del args["overflow"]
 
         def get_floats():
             for key in ("flex-basis", "flex-grow", "flex-shrink", "aspect-ratio"):
@@ -338,6 +331,50 @@ class StandardStyleProvider(StyleProvider):
                     raise ValueError(f"Invalid value for {key}: {v}")
                 args[key.replace("-", "_")] = v
 
+        def get_grid():
+            def split_parts(value: str) -> list[str]:
+                # Remove any spaces trailing the separator
+                value = value.strip().replace(", ", ",")
+                # Split into parts
+                return re.split(" (?![^(,]*\\))", value)
+
+            args = dict()
+            for suffix in ("row", "column"):
+                # grid-template-rows/columns
+                prop = f"grid-template-{suffix}s"
+                if prop in keys:
+                    try:
+                        args[prop.replace("-", "_")] = _parse_grid_track_sizing(
+                            props[prop]
+                        )
+                        keys.remove(prop)
+                    except ValueError:
+                        logger.warning(f"Style property {prop} could not be parsed")
+
+                # grid-auto-rows/columns
+                prop = f"grid-auto-{suffix}s"
+                if prop in keys:
+                    try:
+                        args[prop.replace("-", "_")] = _parse_grid_track_size(
+                            props[prop]
+                        )
+                        keys.remove(prop)
+                    except ValueError:
+                        logger.warning(f"Style property {prop} could not be parsed")
+
+                # grid-row/column
+                prop = f"grid-{suffix}"
+                if prop in keys:
+                    try:
+                        args[prop.replace("-", "_")] = _parse_grid_placement(
+                            props[prop]
+                        )
+                        keys.remove(prop)
+                    except ValueError:
+                        logger.warning(f"Style property {prop} could not be parsed")
+
+            return args
+
         # props is immutable. To track which properties have been used, create a
         # set with property names ('keys').
         args = dict()
@@ -347,6 +384,7 @@ class StandardStyleProvider(StyleProvider):
         get_sizes()
         get_enums()
         get_floats()
+        get_grid()
         # TODO: process remaining (supported) props
 
         if not ignore_unused_props and keys:
@@ -354,7 +392,9 @@ class StandardStyleProvider(StyleProvider):
                 f"Style properties not recognized or supported: {', '.join(keys)}"
             )
 
-        print(args)
+        logger.debug("Applied style properties:")
+        for name, value in args.items():
+            logger.debug("%s = %s", name, value)
 
         return stl.Style(**args)
 
@@ -392,8 +432,10 @@ class NodeFactory(Protocol):
     def get_node(
         self,
         element: etree.Element,
+        *,
         styles: Optional[StyleProvider] = None,
         children: Optional[list[Node]] = None,
+        ignore_unsupported_content: bool = False,
     ) -> Node:
         """Return a Node instance if possible, otherwise raise UnsupportedElementError."""
         ...
@@ -503,6 +545,66 @@ class HTMLNodeFactory:
 
         return ElementType.SKIP
 
+    @staticmethod
+    def get_styles_from_bytes(
+        content: bytes,
+    ) -> Iterable[tinycss2.parser.AtRule | tinycss2.parser.QualifiedRule]:
+        rules, encoding = tinycss2.parse_stylesheet_bytes(
+            content, skip_comments=True, skip_whitespace=True
+        )
+        return rules
+
+    @staticmethod
+    def preprocess_rules(
+        rules: Iterable[tinycss2.parser.AtRule | tinycss2.parser.QualifiedRule],
+        fileprovider: FileProvider,
+    ) -> Iterable[tinycss2.parser.AtRule | tinycss2.parser.QualifiedRule]:
+
+        processed = []
+
+        for rule in rules:
+            if rule.type == "qualified-rule":
+                processed.append(rule)
+                continue
+
+            if rule.type != "at-rule":
+                logger.warn(
+                    "Rule on line %s is unsupported and will be ignored",
+                    rule.source_line,
+                )
+            if rule.lower_at_keyword != "import":
+                logger.warn(
+                    "@%s on line %s is unsupported and will be ignored",
+                    rule.at_keyword,
+                    rule.source_line,
+                )
+
+            # Only
+            #   @import "path/to/css";
+            # is supported (eg. not url(...) function blocks)
+            for token in rule.prelude:
+                if token.type == "whitespace":
+                    continue
+                if token.type == "string":
+                    logger.debug("@import from %s", token.value)
+                    # This should be done in a recursive import instead, to support multiple nested @import rules
+                    processed.extend(
+                        HTMLNodeFactory.preprocess_rules(
+                            HTMLNodeFactory.get_styles_from_bytes(
+                                fileprovider.read_bytes(token.value)
+                            ),
+                            fileprovider,
+                        )
+                    )
+                    break
+                logger.warn(
+                    "@import on line %s is on an unsupported form and will be ignored",
+                    rule.source_line,
+                )
+                break
+
+        return processed
+
     def get_styles(
         self,
         element: etree.Element,
@@ -514,24 +616,29 @@ class HTMLNodeFactory:
             raise UnsupportedElementError("Element does not contain styles")
 
         if element.tag == "style":
+            logger.debug("Get styles from <style>: %s", element.text)
             styles = element.text
+            rules = tinycss2.parse_stylesheet(
+                styles, skip_comments=True, skip_whitespace=True
+            )
         elif element.tag == "link":
             path = fileprovider.get_path(element.attrib["href"])
             if fileprovider.get_type(path) != FileType.CSS:
                 return []
-            styles = fileprovider.read_str(path)
+            logger.debug("Get styles from linked stylesheet: %s", path)
+            rules = HTMLNodeFactory.get_styles_from_bytes(fileprovider.read_bytes(path))
         else:
-            return []
+            rules = []
 
-        return tinycss2.parse_stylesheet(
-            styles, skip_comments=True, skip_whitespace=True
-        )
+        return HTMLNodeFactory.preprocess_rules(rules, fileprovider)
 
     def get_node(
         self,
         element: etree.Element,
+        *,
         styles: Optional[StyleProvider] = None,
         children: Optional[list[Node]] = None,
+        ignore_unsupported_content: bool = False,
     ) -> Node:
         if element.tag not in ("body", "div"):
             raise UnsupportedElementError(
@@ -541,7 +648,7 @@ class HTMLNodeFactory:
         content = element.text
         if content is not None:
             content = content.strip()
-        if content:
+        if content and not ignore_unsupported_content:
             raise UnsupportedElementError("Elements containing text are not supported")
 
         key = None
@@ -565,10 +672,10 @@ class HTMLNodeFactory:
                         value,
                     )
 
-        print("get node for", element.tag)
+        logger.debug("Get node for <%s>", element.tag)
         if styles:
             for name, value in styles.items():
-                print(name, "=", value)
+                logger.debug("%s = %s", name, value)
 
         if children is None:
             children = []
@@ -623,19 +730,21 @@ class StandardFileProvider:
         if not isinstance(path, Path):
             path = Path(path)
         match path.suffix.casefold():
-            case "xml":
+            case ".xml":
                 return FileType.XML
-            case "xhtml":
+            case ".xhtml":
                 return FileType.XHTML
-            case "html":
+            case ".html":
                 return FileType.HTML
-            case "css":
+            case ".css":
                 return FileType.CSS
             case _:
                 return None
 
     def read_bytes(self, path: str | Path) -> bytes:
-        raise NotImplementedError
+        with open(path, "rb") as f:
+            content = f.read()
+        return content
 
     def read_str(self, path: str | Path) -> str:
         with open(path, "r") as f:
@@ -667,7 +776,7 @@ def load(
             content
             if (
                 isinstance(content, Path)
-                or (isinstance(content, str) and Path.is_file(content))
+                or (isinstance(content, str) and isfile(content))
             )
             else None
         )
@@ -698,6 +807,12 @@ def load(
     # Build CSS matcher
     matcher = cssselect2.Matcher()
     for rule in rules:
+        if rule.type != "qualified-rule":
+            continue
+
+        if rule.prelude[0].value == "body":
+            logger.debug(rule.content)
+
         selectors = cssselect2.compile_selector_list(rule.prelude)
         declarations = tinycss2.parse_declaration_list(
             rule.content, skip_comments=True, skip_whitespace=True
@@ -748,8 +863,8 @@ def load(
         # Create node
         return nodefactory.get_node(
             element.etree_element,
-            styles,
-            children,
+            styles=styles,
+            children=children,
         )
 
     return get_node(tree, is_root=True)

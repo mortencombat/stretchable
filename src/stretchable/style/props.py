@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import logging
 import re
 from enum import IntEnum
 from typing import Any, Optional, Self
 
+import tinycss2
 from attrs import define, field, validators
 
 from .geometry import length
+from .parser import get_prop_values, map_rules, parse_rules, split
+
+logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
+logger = logging.getLogger(__name__)
 
 
 def parse_value(
@@ -423,12 +429,6 @@ class GridTrackRepetition(IntEnum):
     COUNT = 1  # repeat_count
 
 
-# class GridTrackSizing(ABC):
-#     @abstractmethod
-#     def to_dict(self) -> dict:
-#         ...
-
-
 @define(frozen=True)
 class GridTrackSizing:
     tracks: list[GridTrackSize]
@@ -552,19 +552,50 @@ class GridIndex:
 
     @staticmethod
     def from_inline(value: str) -> GridIndex:
-        value = value.strip()
-        if value.startswith("span"):
-            value = value.removeprefix("span").strip()
-            try:
-                return GridIndex.from_span(int(value))
-            except TypeError:
-                raise ValueError(
-                    f"'{value}' is not a recognized as a valid grid-* value"
-                )
-        try:
-            return GridIndex.from_index(int(value))
-        except TypeError:
-            raise ValueError(f"'{value}' is not a recognized as a valid grid-* value")
+        """Parses inline css and returns the corresponding GridIndex instance."""
+        return GridIndex._from_tokens(
+            tinycss2.parse_component_value_list(value, skip_comments=True)
+        )
+
+    @staticmethod
+    def _from_tokens(
+        tokens: list[tinycss2.ast.Node],
+    ) -> GridIndex:
+        """
+        Processes the provided tokens and returns the corresponding GridIndex instance.
+
+        Supported formats:
+            auto
+            span <n>
+            <n>
+
+        """
+
+        auto, span, n = False, False, None
+        for token in tokens:
+            if token.type == "ident":
+                if token.value == "auto":
+                    auto = True
+                elif token.value == "span":
+                    span = True
+                else:
+                    logger.warn("Unsupported value %s in grid property", token.value)
+            elif token.type == "number":
+                try:
+                    n = int(token.value)
+                except ValueError:
+                    logger.warn("Unsupported value %s in grid property", token.value)
+        if n:
+            if span:
+                if auto:
+                    logger.warn(
+                        "auto cannot be used along with 'span <n>', will be ignored"
+                    )
+                return GridIndex.from_span(n)
+            else:
+                return GridIndex.from_index(n)
+
+        return GridIndex.auto()
 
     @staticmethod
     def from_any(value: object) -> GridIndex:
@@ -608,23 +639,113 @@ class GridPlacement:
     )
 
     @staticmethod
-    def from_inline(value: str) -> GridPlacement:
-        if "/" in value:
-            start, _, end = value.partition("/")
-        else:
-            start, end = value, None
-        return GridPlacement(start, end)
+    def from_inline(
+        value: str, *, axis: str = None
+    ) -> dict[str, GridPlacement] | GridPlacement:
+        """
+        Parses grid placement from inline CSS provided as a string.
+        Supported properties:
+            grid-column
+            grid-column-start
+            grid-column-end
+            grid-row
+            grid-row-start
+            grid-row-end
+
+        If `axis` is given ('row' or 'column'), a single GridPlacement instance is returned.
+
+        If `axis` is omitted, returns a dictionary with the argument identifier (grid_column or
+        grid_row) as the key and the corresponding GridPlacement instance as the
+        value.
+        """
+
+        return GridPlacement._from_declarations(
+            map_rules(
+                parse_rules(value),
+                (
+                    "grid-column",
+                    "grid-column-start",
+                    "grid-column-end",
+                    "grid-row",
+                    "grid-row-start",
+                    "grid-row-end",
+                ),
+            ),
+            axis=axis,
+        )
 
     @staticmethod
-    def from_any(value: object) -> GridPlacement:
-        # TODO: support more types of values?
-        if value is None:
-            return GridPlacement()
+    def _grid_to_grid_start_end(
+        value: list[tinycss2.ast.Node],
+        prefix: str,
+    ) -> dict[str, list[tinycss2.ast.Node]]:
+        values = split(value, "/", maxsplit=1)
+        return {
+            f"{prefix}start": values[0],
+            f"{prefix}end": values[1] if len(values) == 2 else None,
+        }
+
+    @staticmethod
+    def _from_declarations(
+        declarations: dict[str, tinycss2.ast.Declaration],
+        *,
+        axis: str = None,
+        remove_consumed: bool = True,
+    ) -> tuple[GridPlacement, GridPlacement] | GridPlacement:
+        if axis and axis != "row" and axis != "column":
+            raise ValueError("axis must be either None, 'row' or 'column'")
+
+        parsed = dict(grid_row=GridPlacement(), grid_column=GridPlacement())
+        for ax in ("row", "column"):
+            if axis and axis != ax:
+                continue
+
+            start, end = get_prop_values(
+                declarations,
+                (f"grid-{ax}-start", f"grid-{ax}-end"),
+                {
+                    f"grid-{ax}": lambda v: GridPlacement._grid_to_grid_start_end(
+                        v, f"grid-{ax}-"
+                    )
+                },
+                remove_consumed_from_source=remove_consumed,
+            )
+            parsed[f"grid_{ax}"] = GridPlacement._from_tokens(start, end)
+
+        return parsed[f"grid_{axis}"] if axis else parsed
+
+    @staticmethod
+    def _from_tokens(
+        start: list[tinycss2.ast.Node], end: list[tinycss2.ast.Node]
+    ) -> GridPlacement:
+        return GridPlacement(
+            GridIndex._from_tokens(start) if start else GridIndex.auto(),
+            GridIndex._from_tokens(end) if end else GridIndex.auto(),
+        )
+
+    @staticmethod
+    def from_any(
+        value: object, *, axis: str = None
+    ) -> dict[str, GridPlacement] | GridPlacement:
+        if axis and axis != "row" and axis != "column":
+            raise ValueError("axis must be either None, 'row' or 'column'")
+
         if isinstance(value, str):
-            return GridPlacement.from_inline(value)
+            return GridPlacement.from_inline(value, axis=axis)
+
+        if value is None:
+            value = GridPlacement()
         if isinstance(value, GridPlacement):
-            return value
-        raise TypeError("Unsupported value type")
+            return (
+                dict(
+                    grid_row=value,
+                    grid_column=value,
+                )
+                if not axis
+                else value
+            )
+        else:
+            raise TypeError("Unsupported value type")
 
     def to_dict(self) -> dict[str, int]:
         return dict(

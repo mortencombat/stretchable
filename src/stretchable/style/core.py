@@ -18,6 +18,7 @@ from .props import (
     FlexDirection,
     FlexWrap,
     GridAutoFlow,
+    GridIndex,
     GridIndexType,
     GridPlacement,
     GridTrackSize,
@@ -193,10 +194,12 @@ class Style:
 
     # Grid child
     grid_row: GridPlacement = field(
-        factory=GridPlacement, converter=GridPlacement.from_any
+        factory=GridPlacement,
+        converter=lambda value: GridPlacement.from_any(value, axis="row"),
     )
     grid_column: GridPlacement = field(
-        factory=GridPlacement, converter=GridPlacement.from_any
+        factory=GridPlacement,
+        converter=lambda value: GridPlacement.from_any(value, axis="column"),
     )
 
     __ptr: int = field(init=False, default=None)

@@ -1,0 +1,7 @@
+
+@import "tests/fixtures/base_style.css";
+
+body {
+    padding: 33px;
+    margin: 37px;
+}
