@@ -33,7 +33,9 @@ fn init() -> usize {
 
 #[pyfunction]
 fn free(taffy_ptr: usize) {
-    let _ = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
+    unsafe {
+        drop(Box::from_raw(taffy_ptr as *mut TaffyTree<NodeContext>));
+    }
 }
 
 #[pyfunction]
