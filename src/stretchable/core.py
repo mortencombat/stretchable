@@ -12,22 +12,9 @@ class Taffy:
         logger.debug("init() -> %s", self.__ptr)
         self._use_rounding: bool = True
 
-        # These are used to track pointers and verify that unreferenced nodes and styles are also dropped in Taffy
-        # self._nodes: set[int] = set()
-        # self._styles: set[int] = set()
-
     def __del__(self) -> None:
         if self.__ptr is None:
             return
-
-        # taffylib.node_drop_all(self._ptr)
-        # for ptr in self._styles:
-        #     logger.warn("style_drop(%s)", ptr)
-        #     taffylib.style_drop(ptr)
-        # for ptr in self._nodes:
-        #     logger.warn("node_drop(%s)", ptr)
-        #     taffylib.node_drop(self._ptr, ptr)
-
         taffylib.free(self.__ptr)
         logger.debug("free(ptr: %s)", self.__ptr)
         self.__ptr = None
@@ -42,8 +29,6 @@ class Taffy:
 
     @use_rounding.setter
     def use_rounding(self, value: bool) -> None:
-        # if value == self._use_rounding:
-        #     return
         if value:
             taffylib.enable_rounding(self._ptr)
         else:
