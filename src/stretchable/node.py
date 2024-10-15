@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
-from enum import StrEnum, auto
-from typing import Callable, Iterable, Optional, Self, SupportsIndex
+from enum import Enum, auto
+from typing import Callable, Iterable, Optional, SupportsIndex
 from xml.etree import ElementTree
 
 import attrs
@@ -62,7 +62,7 @@ def _measure_callback(
     )
 
 
-class Edge(StrEnum):
+class Edge(Enum):
     """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
 
     CONTENT = auto()
@@ -487,7 +487,7 @@ class Node(list["Node"]):
 
     @staticmethod
     def _measure_callback(
-        node: Self,
+        node: Node,
         known_width: float,
         known_height: float,
         available_width: dict[int, float],
@@ -732,8 +732,8 @@ class Node(list["Node"]):
 
     @classmethod
     def from_xml(
-        cls, xml: str, customize: Callable[[Self, ElementTree.Element], Self] = None
-    ) -> Self:
+        cls, xml: str, customize: Callable[[Node, ElementTree.Element], Node] = None
+    ) -> Node:
         root = ElementTree.fromstring(xml)  # , parser=_xml_parser)
         return cls._from_xml(root, customize)
 
@@ -741,8 +741,8 @@ class Node(list["Node"]):
     def _from_xml(
         cls,
         element: ElementTree.Element,
-        customize: Callable[[Self, ElementTree.Element], Self] = None,
-    ) -> Self:
+        customize: Callable[[Node, ElementTree.Element], Node] = None,
+    ) -> Node:
         args = dict()
         if "key" in element.attrib:
             args["key"] = element.attrib["key"]

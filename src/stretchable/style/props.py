@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum
-from typing import Any, Optional, Self
+from typing import Any, Optional
 
 from attrs import define, field, validators
 
@@ -539,7 +539,7 @@ class GridIndex:
     # TODO: add validator: index can be != 0, span > 0
 
     @staticmethod
-    def auto() -> Self:
+    def auto() -> GridIndex:
         return GridIndex()
 
     @staticmethod

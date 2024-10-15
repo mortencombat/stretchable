@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import isnan
-from typing import Any, Generic, Optional, Self, TypeVar, get_args
+from typing import Any, Generic, Optional, TypeVar, get_args
 
 T = TypeVar("T")
 NAN = float("nan")
@@ -119,11 +119,11 @@ class LengthBase(Generic[T]):
                 return "None"
 
     @staticmethod
-    def default() -> Self:
+    def default() -> LengthBase:
         raise NotImplementedError
 
     @classmethod
-    def from_any(cls, value: Any = None) -> Self:
+    def from_any(cls, value: Any = None) -> LengthBase:
         """
         Scenarios:
           - If value is None, get the default value for cls.
@@ -181,13 +181,13 @@ class Length(LengthBase[Scale]):
     __rmul__ = __mul__
 
     @staticmethod
-    def default() -> Self:
+    def default() -> Length:
         return Length(Scale.AUTO)
 
 
 class LengthAvailableSpace(LengthBase[AvailableSpace]):
     @staticmethod
-    def definite(value: float | Length) -> Self:
+    def definite(value: float | Length) -> LengthAvailableSpace:
         if value is None:
             raise TypeError("None value is not supported in this context")
         if issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
@@ -195,19 +195,19 @@ class LengthAvailableSpace(LengthBase[AvailableSpace]):
         return LengthAvailableSpace(AvailableSpace.DEFINITE, value)
 
     @staticmethod
-    def min_content() -> Self:
+    def min_content() -> LengthAvailableSpace:
         return LengthAvailableSpace(AvailableSpace.MIN_CONTENT)
 
     @staticmethod
-    def max_content() -> Self:
+    def max_content() -> LengthAvailableSpace:
         return LengthAvailableSpace(AvailableSpace.MAX_CONTENT)
 
     @staticmethod
-    def default() -> Self:
+    def default() -> LengthAvailableSpace:
         return LengthAvailableSpace(AvailableSpace.MAX_CONTENT)
 
     @staticmethod
-    def from_dict(value: dict[int, float]) -> Self:
+    def from_dict(value: dict[int, float]) -> LengthAvailableSpace:
         match value["dim"]:
             case Scale.POINTS:
                 return LengthAvailableSpace.definite(value["value"])
@@ -249,7 +249,7 @@ class LengthPoints(LengthBase[Points]):
 
 class LengthPointsPercent(LengthBase[PointsPercent]):
     @staticmethod
-    def points(value: float | Length) -> Self:
+    def points(value: float | Length) -> LengthPointsPercent:
         if value is None:
             value = NAN
         elif issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
@@ -257,7 +257,7 @@ class LengthPointsPercent(LengthBase[PointsPercent]):
         return LengthPointsPercent(PointsPercent.POINTS, value)
 
     @staticmethod
-    def percent(value: float | Length) -> Self:
+    def percent(value: float | Length) -> LengthPointsPercent:
         if value is None:
             value = NAN
         elif issubclass(type(value), LengthBase) and value.scale != Scale.PERCENT:
@@ -265,13 +265,13 @@ class LengthPointsPercent(LengthBase[PointsPercent]):
         return LengthPointsPercent(PointsPercent.PERCENT, value)
 
     @staticmethod
-    def default() -> Self:
+    def default() -> LengthPointsPercent:
         return LengthPointsPercent(PointsPercent.POINTS)
 
 
 class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
     @staticmethod
-    def points(value: float | Length) -> Self:
+    def points(value: float | Length) -> LengthPointsPercentAuto:
         if value is None:
             value = NAN
         elif issubclass(type(value), LengthBase) and value.scale != Scale.POINTS:
@@ -279,7 +279,7 @@ class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
         return LengthPointsPercentAuto(PointsPercent.POINTS, value)
 
     @staticmethod
-    def percent(value: float | Length) -> Self:
+    def percent(value: float | Length) -> LengthPointsPercentAuto:
         if value is None:
             value = NAN
         elif issubclass(type(value), LengthBase) and value.scale != Scale.PERCENT:
@@ -287,11 +287,11 @@ class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
         return LengthPointsPercentAuto(PointsPercent.PERCENT, value)
 
     @staticmethod
-    def auto() -> Self:
+    def auto() -> LengthPointsPercentAuto:
         return LengthPointsPercentAuto(PointsPercentAuto.AUTO)
 
     @staticmethod
-    def default() -> Self:
+    def default() -> LengthPointsPercentAuto:
         return LengthPointsPercentAuto(PointsPercentAuto.AUTO, NAN)
 
 
@@ -301,7 +301,7 @@ class LengthMinTrackSize(LengthBase[MinTrackSize]):
 
 class LengthMaxTrackSize(LengthBase[MaxTrackSize]):
     @staticmethod
-    def flex(value: float | Length) -> Self:
+    def flex(value: float | Length) -> LengthMaxTrackSize:
         if value is None:
             value = NAN
         elif issubclass(type(value), LengthBase) and value.scale != Scale.FLEX:
