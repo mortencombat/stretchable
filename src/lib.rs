@@ -764,7 +764,7 @@ pub struct PyLayout {
     scrollbar_size: Vec<f32>,
     border: Vec<f32>,
     padding: Vec<f32>,
-    // margin: Vec<f32>,
+    margin: Vec<f32>,
 }
 
 trait FromPoint<T> {
@@ -810,7 +810,7 @@ impl From<Layout> for PyLayout {
             scrollbar_size: Vec::from_size(layout.scrollbar_size),
             border: Vec::from_rect(layout.border),  
             padding: Vec::from_rect(layout.padding),  
-            // margin: Vec::from_rect(layout.margin),  
+            margin: Vec::from_rect(layout.margin),  
         }
     }
 }
