@@ -4,7 +4,7 @@ version = "1.0.0-a1"
 edition = "2021"
 authors = ["Kenneth Trelborg Vestergaard"]
 description = "Layout library for Python (based on Taffy, a rust-powered implementation of CSS Grid/Flexbox)"
-rust-version = "1.70"
+rust-version = "1.81"
 
 [lib]
 name = "stretchable"
