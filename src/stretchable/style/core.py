@@ -383,31 +383,30 @@ class Style:
             )
 
         def prop_to_enum(prop: str) -> IntEnum:
-            match prop:
-                case "display":
-                    return Display
-                case "overflow":
-                    return Overflow
-                case "justify-content":
-                    return JustifyContent
-                case "justify-items":
-                    return JustifyItems
-                case "justify-self":
-                    return JustifySelf
-                case "align-items":
-                    return AlignItems
-                case "align-self":
-                    return AlignSelf
-                case "align-content":
-                    return AlignContent
-                case "flex-direction":
-                    return FlexDirection
-                case "position":
-                    return Position
-                case "flex-wrap":
-                    return FlexWrap
-                case "grid-auto-flow":
-                    return GridAutoFlow
+            if prop == "display":
+                return Display
+            elif prop == "overflow":
+                return Overflow
+            elif prop == "justify-content":
+                return JustifyContent
+            elif prop == "justify-items":
+                return JustifyItems
+            elif prop == "justify-self":
+                return JustifySelf
+            elif prop == "align-items":
+                return AlignItems
+            elif prop == "align-self":
+                return AlignSelf
+            elif prop == "align-content":
+                return AlignContent
+            elif prop == "flex-direction":
+                return FlexDirection
+            elif prop == "position":
+                return Position
+            elif prop == "flex-wrap":
+                return FlexWrap
+            elif prop == "grid-auto-flow":
+                return GridAutoFlow
             raise ValueError(f"Unrecognized property '{prop}'")
 
         def to_enum(prop: str) -> IntEnum:

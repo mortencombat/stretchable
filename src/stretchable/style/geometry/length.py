@@ -96,27 +96,26 @@ class LengthBase(Generic[T]):
         self.value = value
 
     def __str__(self) -> str:
-        match self.scale:
-            case Scale.AUTO:
-                return "auto"
-            case Scale.POINTS:
-                return f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
-            case Scale.PERCENT:
-                return f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
-            case Scale.MIN_CONTENT:
-                return "min-content"
-            case Scale.MAX_CONTENT:
-                return "max-content"
-            case Scale.FIT_CONTENT_POINTS:
-                value = f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
-                return f"fit-content({value})"
-            case Scale.FIT_CONTENT_PERCENT:
-                value = f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
-                return f"fit-content({value})"
-            case Scale.FLEX:
-                return f"{self.value:.2f} fr" if not isnan(self.value) else "nan"
-            case _:
-                return "None"
+        if self.scale == Scale.AUTO:
+            return "auto"
+        elif self.scale == Scale.POINTS:
+            return f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
+        elif self.scale == Scale.PERCENT:
+            return f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
+        elif self.scale == Scale.MIN_CONTENT:
+            return "min-content"
+        elif self.scale == Scale.MAX_CONTENT:
+            return "max-content"
+        elif self.scale == Scale.FIT_CONTENT_POINTS:
+            value = f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
+            return f"fit-content({value})"
+        elif self.scale == Scale.FIT_CONTENT_PERCENT:
+            value = f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
+            return f"fit-content({value})"
+        elif self.scale == Scale.FLEX:
+            return f"{self.value:.2f} fr" if not isnan(self.value) else "nan"
+        else:
+            return "None"
 
     @staticmethod
     def default() -> LengthBase:
@@ -148,19 +147,18 @@ class LengthBase(Generic[T]):
         return dict(dim=self.scale.value, value=self.value)
 
     def to_pts(self, container: Optional[float] = None) -> float:
-        match self.scale:
-            case Scale.POINTS:
-                return self.value
-            case Scale.PERCENT:
-                if container is None:
-                    raise ValueError(
-                        "Length scale is PERCENT, `container` dimension must be provided"
-                    )
-                return self.value * container
-            case scale:
+        if self.scale == Scale.POINTS:
+            return self.value
+        elif self.scale == Scale.PERCENT:
+            if container is None:
                 raise ValueError(
-                    "Length with scale %s cannot be represented in PTS" % scale
+                    "Length scale is PERCENT, `container` dimension must be provided"
                 )
+            return self.value * container
+        else:
+            raise ValueError(
+                "Length with scale %s cannot be represented in PTS" % self.scale
+            )
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, LengthBase):
@@ -208,17 +206,15 @@ class LengthAvailableSpace(LengthBase[AvailableSpace]):
 
     @staticmethod
     def from_dict(value: dict[int, float]) -> LengthAvailableSpace:
-        match value["dim"]:
-            case Scale.POINTS:
-                return LengthAvailableSpace.definite(value["value"])
-            case Scale.MIN_CONTENT:
-                return LengthAvailableSpace.min_content()
-            case Scale.MAX_CONTENT:
-                return LengthAvailableSpace.max_content()
-            case _:
-                raise ValueError(
-                    f"Scale {value['dim']} is not supported in this context"
-                )
+        v = value["dim"]
+        if v == Scale.POINTS:
+            return LengthAvailableSpace.definite(value["value"])
+        elif v == Scale.MIN_CONTENT:
+            return LengthAvailableSpace.min_content()
+        elif v == Scale.MAX_CONTENT:
+            return LengthAvailableSpace.max_content()
+        else:
+            raise ValueError(f"Scale {v} is not supported in this context")
 
 
 class LengthPoints(LengthBase[Points]):
@@ -295,8 +291,7 @@ class LengthPointsPercentAuto(LengthBase[PointsPercentAuto]):
         return LengthPointsPercentAuto(PointsPercentAuto.AUTO, NAN)
 
 
-class LengthMinTrackSize(LengthBase[MinTrackSize]):
-    ...
+class LengthMinTrackSize(LengthBase[MinTrackSize]): ...
 
 
 class LengthMaxTrackSize(LengthBase[MaxTrackSize]):

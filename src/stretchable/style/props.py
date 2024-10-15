@@ -316,13 +316,12 @@ class GridTrackSize:
         # Appears to be a specific value (px, % or fr)
         value = parse_value(value)
         if isinstance(value, length.Length):
-            match value.scale:
-                case length.Scale.FLEX:
-                    return GridTrackSize.flex(value)
-                case length.Scale.POINTS:
-                    return GridTrackSize.points(value)
-                case length.Scale.PERCENT:
-                    return GridTrackSize.percent(value)
+            if value.scale == length.Scale.FLEX:
+                return GridTrackSize.flex(value)
+            elif value.scale == length.Scale.POINTS:
+                return GridTrackSize.points(value)
+            elif value.scale == length.Scale.PERCENT:
+                return GridTrackSize.percent(value)
 
         raise ValueError(f"'{value}' not recognized as a valid grid track size")
 
@@ -339,21 +338,23 @@ class GridTrackSize:
         if isinstance(value, (int, float)):
             return GridTrackSize.points(value)
         if isinstance(value, length.Length):
-            match value.scale:
-                case length.Scale.AUTO:
-                    return GridTrackSize.auto()
-                case length.Scale.MIN_CONTENT:
-                    return GridTrackSize.min_content()
-                case length.Scale.MAX_CONTENT:
-                    return GridTrackSize.max_content()
-                case length.Scale.FIT_CONTENT_PERCENT | length.Scale.FIT_CONTENT_POINTS:
-                    return GridTrackSize.fit_content(value)
-                case length.Scale.POINTS:
-                    return GridTrackSize.points(value)
-                case length.Scale.PERCENT:
-                    return GridTrackSize.percent(value)
-                case length.Scale.FLEX:
-                    return GridTrackSize.flex(value)
+            if value.scale == length.Scale.AUTO:
+                return GridTrackSize.auto()
+            elif value.scale == length.Scale.MIN_CONTENT:
+                return GridTrackSize.min_content()
+            elif value.scale == length.Scale.MAX_CONTENT:
+                return GridTrackSize.max_content()
+            elif (
+                value.scale
+                == length.Scale.FIT_CONTENT_PERCENT | length.Scale.FIT_CONTENT_POINTS
+            ):
+                return GridTrackSize.fit_content(value)
+            elif value.scale == length.Scale.POINTS:
+                return GridTrackSize.points(value)
+            elif value.scale == length.Scale.PERCENT:
+                return GridTrackSize.percent(value)
+            elif value.scale == length.Scale.FLEX:
+                return GridTrackSize.flex(value)
         raise ValueError(
             f"The value {value} could not be interpreted as a valid GridTrackSize"
         )
@@ -481,19 +482,19 @@ class GridTrackSizing:
 
         # Parse repetition, split tracks
         count = None
-        match repetition.strip():
-            case "auto-fill":
-                repetition = GridTrackRepetition.AUTO_FILL
-            case "auto-fit":
-                repetition = GridTrackRepetition.AUTO_FIT
-            case v:
-                try:
-                    repetition = GridTrackRepetition.COUNT
-                    count = int(v)
-                except TypeError:
-                    raise ValueError(
-                        f"`repetition` value '{v}' should be either 'auto-fill', 'auto-fit' or a positive integer"
-                    )
+        v = repetition.strip()
+        if v == "auto-fill":
+            repetition = GridTrackRepetition.AUTO_FILL
+        elif v == "auto-fit":
+            repetition = GridTrackRepetition.AUTO_FIT
+        else:
+            try:
+                repetition = GridTrackRepetition.COUNT
+                count = int(v)
+            except TypeError:
+                raise ValueError(
+                    f"`repetition` value '{v}' should be either 'auto-fill', 'auto-fit' or a positive integer"
+                )
         tracks = re.split(" (?![^(,]*\\))", tracks.replace(", ", ","))
         return GridTrackSizing.repeat(tracks, repetition=repetition, count=count)
 

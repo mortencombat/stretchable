@@ -138,7 +138,7 @@ class Box:
         )
 
 
-class Node(list["Node"]):
+class Node(list):
     """A node in a layout.
 
     Parameters
