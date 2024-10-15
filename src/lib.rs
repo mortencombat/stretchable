@@ -33,7 +33,9 @@ fn init() -> usize {
 
 #[pyfunction]
 fn free(taffy_ptr: usize) {
-    let _ = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
+    unsafe {
+        drop(Box::from_raw(taffy_ptr as *mut TaffyTree<NodeContext>));
+    }
 }
 
 #[pyfunction]
@@ -67,6 +69,16 @@ impl FromIndex<Display> for Display {
             1 => Display::Flex,
             2 => Display::Grid,
             3 => Display::Block,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
+
+impl FromIndex<BoxSizing> for BoxSizing {
+    fn from_index(index: i32) -> BoxSizing {
+        match index {
+            0 => BoxSizing::BorderBox,
+            1 => BoxSizing::ContentBox,
             _ => panic!("invalid index {}", index),
         }
     }
@@ -427,6 +439,7 @@ fn style_drop(style_ptr: usize) {
 fn style_create(
     // Layout mode/strategy
     display: i32,
+    box_sizing: i32,
     // Overflow
     overflow_x: i32,
     overflow_y: i32,
@@ -472,6 +485,7 @@ fn style_create(
     let style = Style {
         // Layout mode/strategy
         display: Display::from_index(display),
+        box_sizing: BoxSizing::from_index(box_sizing),
         // Overflow
         overflow: taffy::geometry::Point { x: Overflow::from_index(overflow_x), y: Overflow::from_index(overflow_y)},
         scrollbar_width: scrollbar_width,
@@ -762,7 +776,7 @@ pub struct PyLayout {
     scrollbar_size: Vec<f32>,
     border: Vec<f32>,
     padding: Vec<f32>,
-    // margin: Vec<f32>,
+    margin: Vec<f32>,
 }
 
 trait FromPoint<T> {
@@ -808,7 +822,7 @@ impl From<Layout> for PyLayout {
             scrollbar_size: Vec::from_size(layout.scrollbar_size),
             border: Vec::from_rect(layout.border),  
             padding: Vec::from_rect(layout.padding),  
-            // margin: Vec::from_rect(layout.margin),  
+            margin: Vec::from_rect(layout.margin),  
         }
     }
 }

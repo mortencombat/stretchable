@@ -1,4 +1,6 @@
-from typing import Any, Generic, Self, TypeVar, get_args
+from __future__ import annotations
+
+from typing import Any, Generic, TypeVar, get_args
 
 from .length import (
     MAX_CONTENT,
@@ -42,7 +44,7 @@ class SizeBase(Generic[T]):
         )
 
     @classmethod
-    def from_any(cls, value: Any = None) -> Self:
+    def from_any(cls, value: Any = None) -> SizeBase:
         if value is None:
             return cls()
         elif isinstance(value, cls):
@@ -57,7 +59,7 @@ class SizeBase(Generic[T]):
             return cls(value)
 
     @classmethod
-    def default(cls) -> Self:
+    def default(cls) -> SizeBase:
         raise NotImplementedError
 
     def _str(
@@ -98,5 +100,5 @@ class SizePointsPercentAuto(SizeBase[LengthPointsPercentAuto]):
 
 class SizeAvailableSpace(SizeBase[LengthAvailableSpace]):
     @classmethod
-    def default(cls) -> Self:
+    def default(cls) -> SizeAvailableSpace:
         return SizeAvailableSpace(MAX_CONTENT)

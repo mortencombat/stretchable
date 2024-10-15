@@ -33,14 +33,14 @@ In this file, percentage margins are calculated as a percentage of the elements 
 """
 
 filepath = Path(
-    "./tests/fixtures/flex/percentage_padding_should_calculate_based_only_on_width.html"
+    "./tests/fixtures/block/block_margin_auto_top.html"
     # "./tests/fixtures/block/block_overflow_scrollbars_overridden_by_available_space.html"
 ).resolve()
 
 # Get layout using taffy
 xml = get_xml(filepath)
 node = Node.from_xml(xml, apply_node_measure)
-node.compute_layout(use_rounding=False)
+node.compute_layout(use_rounding=True)
 print(str(node))
 print("*** ACTUAL ***")
 print_layout(node)

@@ -1,4 +1,6 @@
-from typing import Any, Generic, Self, TypeVar, get_args
+from __future__ import annotations
+
+from typing import Any, Generic, TypeVar, get_args
 
 from .length import Length, LengthPointsPercent, LengthPointsPercentAuto
 
@@ -53,7 +55,7 @@ class RectBase(Generic[T]):
         )
 
     @classmethod
-    def from_any(cls, value: Any = None) -> Self:
+    def from_any(cls, value: Any = None) -> RectBase:
         if value is None:
             return cls()
         elif isinstance(value, cls):

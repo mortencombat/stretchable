@@ -67,6 +67,8 @@ NOTE: Sometimes, you may need to run `make clean html` (in `docs/` folder) to en
 
 Install test dependencies and invoke `pytest`. Note that there are ~900 tests, the majority of which are run using Selenium with the Chrome WebDriver, and the complete test suite can take ~30 minutes to complete. Use `pytest --lf` to only run the last-failed tests.
 
+To run basic tests and ensure compatibility with a specific Python version, use Docker and the provided `Dockerfile`: `docker build . [--build-arg pyver=3.11]` (defaults to lowest supported Python version, currently 3.8).
+
 ## License
 
 This work is released under the MIT license. A copy of the license is provided in the [LICENSE](https://github.com/mortencombat/stretchable/blob/main/LICENSE) file.

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
-from enum import StrEnum, auto
-from typing import Callable, Iterable, Optional, Self, SupportsIndex
+from enum import Enum, auto
+from typing import Callable, Iterable, Optional, SupportsIndex
 from xml.etree import ElementTree
 
 import attrs
@@ -62,7 +62,7 @@ def _measure_callback(
     )
 
 
-class Edge(StrEnum):
+class Edge(Enum):
     """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
 
     CONTENT = auto()
@@ -92,16 +92,16 @@ class Box:
     width: float
     height: float
 
-    def _inset(self, insets: tuple[float, float, float, float]) -> Box:
+    def _inset(self, insets: tuple[float, float, float, float], k: float = 1) -> Box:
         """
         Returns a copy of the frame inset by the specified ``insets`` which must
         be absolute values (floats).
         """
         return Box(
-            self.x + insets[3],
-            self.y + insets[0],
-            self.width - insets[1] - insets[3],
-            self.height - insets[0] - insets[2],
+            self.x + k * insets[3],
+            self.y + k * insets[0],
+            self.width - k * (insets[1] + insets[3]),
+            self.height - k * (insets[0] + insets[2]),
         )
 
     def _offset(
@@ -138,7 +138,7 @@ class Box:
         )
 
 
-class Node(list["Node"]):
+class Node(list):
     """A node in a layout.
 
     Parameters
@@ -487,7 +487,7 @@ class Node(list["Node"]):
 
     @staticmethod
     def _measure_callback(
-        node: Self,
+        node: Node,
         known_width: float,
         known_height: float,
         available_width: dict[int, float],
@@ -619,6 +619,9 @@ class Node(list["Node"]):
         box = Box(*layout["location"], *layout["size"])
         self._box = {Edge.BORDER: box}
 
+        # Margin box (border box outset by margins)
+        self._box[Edge.MARGIN] = box._inset(layout["margin"], k=-1)
+
         # Padding box (border box inset by borders)
         box = box._inset(layout["border"])
         self._box[Edge.PADDING] = box
@@ -628,10 +631,11 @@ class Node(list["Node"]):
         self._box[Edge.CONTENT] = box
 
         logger.debug(
-            "node_get_layout(taffy: %s, node: %s) -> %s, border: %s, padding: %s, content: %s",
+            "node_get_layout(taffy: %s, node: %s) -> %s, margin: %s, border: %s, padding: %s, content: %s",
             taffy._ptr,
             self._ptr,
             layout,
+            self._box[Edge.MARGIN],
             self._box[Edge.BORDER],
             self._box[Edge.PADDING],
             self._box[Edge.CONTENT],
@@ -685,14 +689,14 @@ class Node(list["Node"]):
         The :obj:`Box` corresponding to the provided arguments
         """
 
-        if (
-            edge == Edge.MARGIN
-            and self.has_auto_margin
-            and (not self.is_root or not USE_ROOT_CONTAINER)
-        ):
-            raise ValueError(
-                "Calculating the layout for Box.MARGIN is not currently supported with AUTO margins"
-            )
+        # if (
+        #     edge == Edge.MARGIN
+        #     and self.has_auto_margin
+        #     and (not self.is_root or not USE_ROOT_CONTAINER)
+        # ):
+        #     raise ValueError(
+        #         "Calculating the layout for Box.MARGIN is not currently supported with AUTO margins"
+        #     )
 
         if self.is_dirty:
             raise LayoutNotComputedError
@@ -705,11 +709,6 @@ class Node(list["Node"]):
 
         if USE_ROOT_CONTAINER and self.is_root and edge == Edge.MARGIN:
             box = self._container.border_box
-        elif edge == Edge.MARGIN and Edge.MARGIN not in self._box:
-            # Taffy does not provide margin box, calculate it
-            box_parent = self._parent.get_box(Edge.BORDER) if self._parent else None
-            box = self.border_box._offset(self.style.margin, box_parent)
-            self._box[Edge.MARGIN] = box
         else:
             box = self._box[edge]
 
@@ -732,8 +731,8 @@ class Node(list["Node"]):
 
     @classmethod
     def from_xml(
-        cls, xml: str, customize: Callable[[Self, ElementTree.Element], Self] = None
-    ) -> Self:
+        cls, xml: str, customize: Callable[[Node, ElementTree.Element], Node] = None
+    ) -> Node:
         root = ElementTree.fromstring(xml)  # , parser=_xml_parser)
         return cls._from_xml(root, customize)
 
@@ -741,8 +740,8 @@ class Node(list["Node"]):
     def _from_xml(
         cls,
         element: ElementTree.Element,
-        customize: Callable[[Self, ElementTree.Element], Self] = None,
-    ) -> Self:
+        customize: Callable[[Node, ElementTree.Element], Node] = None,
+    ) -> Node:
         args = dict()
         if "key" in element.attrib:
             args["key"] = element.attrib["key"]
