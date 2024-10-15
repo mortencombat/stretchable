@@ -14,6 +14,7 @@ from .props import (
     AlignContent,
     AlignItems,
     AlignSelf,
+    BoxSizing,
     Display,
     FlexDirection,
     FlexWrap,
@@ -62,6 +63,8 @@ class Style:
     ----------
     display
         Visibility and layout strategy
+    boxsizing
+        Sizing style application
     position
         Positioning mode
     inset
@@ -84,6 +87,12 @@ class Style:
     display: Display = field(
         default=Display.FLEX,
         validator=[validators.instance_of(Display)],
+    )
+
+    # Sizing styles application
+    box_sizing: BoxSizing = field(
+        default=BoxSizing.BORDER,
+        validator=[validators.instance_of(BoxSizing)],
     )
 
     # Overflow
@@ -203,8 +212,9 @@ class Style:
 
     def to_args(self) -> tuple:
         return (
-            # Layout mode
+            # Layout/sizing mode
             self.display,
+            self.box_sizing,
             # Overflow
             self.overflow_x,
             self.overflow_y,
@@ -385,6 +395,8 @@ class Style:
         def prop_to_enum(prop: str) -> IntEnum:
             if prop == "display":
                 return Display
+            elif prop == "box-sizing":
+                return BoxSizing
             elif prop == "overflow":
                 return Overflow
             elif prop == "justify-content":
@@ -583,6 +595,7 @@ class Style:
         #   position (->position_type)
         for prop in (
             "display",
+            "box-sizing",
             "flex-direction",
             "flex-wrap",
             "align-items",

@@ -74,6 +74,16 @@ impl FromIndex<Display> for Display {
     }
 }
 
+impl FromIndex<BoxSizing> for BoxSizing {
+    fn from_index(index: i32) -> BoxSizing {
+        match index {
+            0 => BoxSizing::BorderBox,
+            1 => BoxSizing::ContentBox,
+            _ => panic!("invalid index {}", index),
+        }
+    }
+}
+
 impl FromIndex<Overflow> for Overflow {
     fn from_index(index: i32) -> Overflow {
         match index {
@@ -429,6 +439,7 @@ fn style_drop(style_ptr: usize) {
 fn style_create(
     // Layout mode/strategy
     display: i32,
+    box_sizing: i32,
     // Overflow
     overflow_x: i32,
     overflow_y: i32,
@@ -474,6 +485,7 @@ fn style_create(
     let style = Style {
         // Layout mode/strategy
         display: Display::from_index(display),
+        box_sizing: BoxSizing::from_index(box_sizing),
         // Overflow
         overflow: taffy::geometry::Point { x: Overflow::from_index(overflow_x), y: Overflow::from_index(overflow_y)},
         scrollbar_width: scrollbar_width,

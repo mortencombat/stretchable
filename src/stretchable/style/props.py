@@ -53,6 +53,17 @@ class Display(IntEnum):
     BLOCK = 3
 
 
+class BoxSizing(IntEnum):
+    """
+    Specifies whether size styles for are applied to the "content box" or the "border box".
+
+    See `box-sizing <https://developer.mozilla.org/en-US/docs/Web/CSS/box-sizing>`_ on MDN for more information.
+    """
+
+    BORDER = 0
+    CONTENT = 1
+
+
 class Overflow(IntEnum):
     """Controls the desired behavior when content does not fit inside the parent node.
 
