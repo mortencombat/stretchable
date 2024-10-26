@@ -4,7 +4,10 @@ version = "1.0.0-a1"
 edition = "2021"
 authors = ["Kenneth Trelborg Vestergaard"]
 description = "Layout library for Python (based on Taffy, a rust-powered implementation of CSS Grid/Flexbox)"
-rust-version = "1.80" # v1.81+ is not supported on musllinux_1_2
+# Notes on rust version:
+#   v1.80 is the latest version supported by musllinux 1.2
+#   v1.78 is the latest version currently supported by readthedocs
+rust-version = "1.78"
 
 [lib]
 name = "stretchable"
