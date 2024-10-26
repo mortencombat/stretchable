@@ -7,7 +7,6 @@ from typing import Any, Iterable, Optional
 
 from attrs import define, field, validators
 
-from .. import taffylib
 from .geometry import length, rect
 from .geometry import size as _size
 from .props import (
@@ -208,69 +207,55 @@ class Style:
         factory=GridPlacement, converter=GridPlacement.from_any
     )
 
-    __ptr: int = field(init=False, default=None)
+    # __ptr: int = field(init=False, default=None)
 
-    def to_args(self) -> tuple:
-        return (
+    def to_dict(self) -> dict[str, Any]:
+        return dict(
             # Layout/sizing mode
-            self.display,
-            self.box_sizing,
+            display=self.display,
+            box_sizing=self.box_sizing,
             # Overflow
-            self.overflow_x,
-            self.overflow_y,
-            self.scrollbar_width,
+            overflow_x=self.overflow_x,
+            overflow_y=self.overflow_y,
+            scrollbar_width=self.scrollbar_width,
             # Position
-            self.position,
-            self.inset.to_dict(),
+            position=self.position,
+            inset=self.inset.to_dict(),
             # Alignment
-            self.gap.to_dict(),
+            gap=self.gap.to_dict(),
             # Spacing
-            self.margin.to_dict(),
-            self.border.to_dict(),
-            self.padding.to_dict(),
+            margin=self.margin.to_dict(),
+            border=self.border.to_dict(),
+            padding=self.padding.to_dict(),
             # Size
-            self.size.to_dict(),
-            self.min_size.to_dict(),
-            self.max_size.to_dict(),
+            size=self.size.to_dict(),
+            min_size=self.min_size.to_dict(),
+            max_size=self.max_size.to_dict(),
             # Flex
-            self.flex_wrap,
-            self.flex_direction,
-            self.flex_grow,
-            self.flex_shrink,
-            self.flex_basis.to_dict(),
+            flex_wrap=self.flex_wrap,
+            flex_direction=self.flex_direction,
+            flex_grow=self.flex_grow,
+            flex_shrink=self.flex_shrink,
+            flex_basis=self.flex_basis.to_dict(),
             # Grid container
-            [e.to_dict() for e in self.grid_template_rows],
-            [e.to_dict() for e in self.grid_template_columns],
-            [e.to_dict() for e in self.grid_auto_rows],
-            [e.to_dict() for e in self.grid_auto_columns],
-            self.grid_auto_flow,
+            grid_template_rows=[e.to_dict() for e in self.grid_template_rows],
+            grid_template_columns=[e.to_dict() for e in self.grid_template_columns],
+            grid_auto_rows=[e.to_dict() for e in self.grid_auto_rows],
+            grid_auto_columns=[e.to_dict() for e in self.grid_auto_columns],
+            grid_auto_flow=self.grid_auto_flow,
             # Grid child
-            self.grid_row.to_dict(),
-            self.grid_column.to_dict(),
+            grid_row=self.grid_row.to_dict(),
+            grid_column=self.grid_column.to_dict(),
             # Size, optional
-            self.aspect_ratio,
+            aspect_ratio=self.aspect_ratio,
             # Alignment, optional
-            self.align_items,
-            self.justify_items,
-            self.align_self,
-            self.justify_self,
-            self.align_content,
-            self.justify_content,
+            align_items=self.align_items,
+            justify_items=self.justify_items,
+            align_self=self.align_self,
+            justify_self=self.justify_self,
+            align_content=self.align_content,
+            justify_content=self.justify_content,
         )
-
-    def __attrs_post_init__(self) -> None:
-        object.__setattr__(self, "_Style__ptr", taffylib.style_create(*self.to_args()))
-        logger.debug("style_create() -> %s" % self.__ptr)
-
-    def __del__(self) -> None:
-        if not hasattr(self, "_Style__ptr") or self.__ptr is None:
-            return
-        taffylib.style_drop(self.__ptr)
-        logger.debug("style_drop(ptr: %s)", self.__ptr)
-
-    @property
-    def _ptr(self) -> int:
-        return self.__ptr
 
     def _str(self, args: Optional[tuple[str]] = None) -> str:
         entries = []
