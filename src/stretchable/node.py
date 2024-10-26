@@ -43,7 +43,7 @@ def _measure_callback(
 ) -> tuple[float, float]:
     """This function is a wrapper for the user-supplied measure function,
     converting arguments into and results from the call by Taffy."""
-    if not context or context not in nodes:
+    if not context or context < 0 or context not in nodes:
         return (0, 0)
 
     node = nodes[context]
@@ -55,7 +55,7 @@ def _measure_callback(
     )
     result = node.measure(node, known_dimensions, available_space)
     assert isinstance(result, SizePoints)
-    logger.debug("node_measure_callback(node: %s) -> %s", context, result)
+    logger.debug("node_measure_callback(node_id: %s) -> %s", context, result)
     return (
         result.width.value if result.width else NAN,
         result.height.value if result.height else NAN,
@@ -168,7 +168,7 @@ class Node(list):
         "_view",
         "_zorder",
         "_parent",
-        "__ptr",
+        "__node_id",
     )
 
     def __init__(
@@ -179,7 +179,7 @@ class Node(list):
         style: Style = None,
         **kwargs,
     ):
-        self.__ptr = None
+        self.__node_id = None
         if not taffy._ptr:
             raise TaffyUnavailableError
 
@@ -203,13 +203,11 @@ class Node(list):
         self._style = style
 
         # Create node in taffy
-        self.__ptr = taffylib.node_create(taffy._ptr, style._ptr)
-        # taffy._nodes.add(self.__ptr)
+        self.__node_id = taffylib.node_create(taffy._ptr, self._style.to_dict())
         logger.debug(
-            "node_create(taffy: %s, style: %s) -> %s",
+            "node_create(taffy: %s) -> node_id: %s",
             taffy._ptr,
-            style._ptr,
-            self.__ptr,
+            self._node_id,
         )
 
         # Children
@@ -222,15 +220,15 @@ class Node(list):
             self.measure = measure
 
     @property
-    def _ptr(self) -> int:
-        return self.__ptr
+    def _node_id(self) -> int:
+        return self.__node_id
 
-    def __del__(self) -> None:
-        if self._ptr is None or not taffy._ptr:
-            return
-        taffylib.node_drop(taffy._ptr, self._ptr)
-        # taffy._nodes.remove(self._ptr)
-        logger.debug("node_drop(taffy: %s, node: %s)", taffy._ptr, self._ptr)
+    # def __del__(self) -> None:
+    #     if self._node_id is None or not taffy._ptr:
+    #         return
+    #     taffylib.node_drop(taffy._ptr, self._node_id)
+    #     # taffy._nodes.remove(self._ptr)
+    #     logger.debug("node_drop(taffy: %s, node: %s)", taffy._ptr, self._node_id)
 
     def __hash__(self) -> int:
         return id(self)
@@ -269,12 +267,12 @@ class Node(list):
             raise TypeError("Only nodes can be added")
         elif node.parent:
             raise Exception("Node is already associated with a parent node")
-        taffylib.node_add_child(taffy._ptr, self._ptr, node._ptr)
+        taffylib.node_add_child(taffy._ptr, self._node_id, node._node_id)
         logger.debug(
             "node_add_child(taffy: %s, parent: %s, child: %s)",
             taffy._ptr,
-            self._ptr,
-            node._ptr,
+            self._node_id,
+            node._node_id,
         )
         node.parent = self
         super().append(node)
@@ -288,12 +286,12 @@ class Node(list):
         """Remove child `Node`."""
         if not taffy._ptr:
             raise TaffyUnavailableError
-        taffylib.node_remove_child(taffy._ptr, self._ptr, node._ptr)
+        taffylib.node_remove_child(taffy._ptr, self._node_id, node._node_id)
         logger.debug(
             "node_remove_child(taffy: %s, parent: %s, child: %s)",
             taffy._ptr,
-            self._ptr,
-            node._ptr,
+            self._node_id,
+            node._node_id,
         )
         node.parent = None
         return super().remove(node)
@@ -306,11 +304,11 @@ class Node(list):
             if isinstance(__index, slice)
             else [__index]
         ):
-            taffylib.node_remove_child_at_index(taffy._ptr, self._ptr, index)
+            taffylib.node_remove_child_at_index(taffy._ptr, self._node_id, index)
             logger.debug(
                 "node_remove_child_at_index(taffy: %s, parent: %s, index: %s)",
                 taffy._ptr,
-                self._ptr,
+                self._node_id,
                 index,
             )
             self[index].parent = None
@@ -330,7 +328,7 @@ class Node(list):
         for index, node in items:
             self[index].parent = None
             taffylib.node_replace_child_at_index(
-                taffy._ptr, self._ptr, index, node._ptr
+                taffy._ptr, self._node_id, index, node._node_id
             )
             node.parent = self
             super().__setitem__(index, node)
@@ -436,24 +434,29 @@ class Node(list):
 
     @style.setter
     def style(self, style: Style) -> None:
-        if not style._ptr:
+        if not taffy._ptr:
             raise TaffyUnavailableError
 
         self._style = style
-        taffylib.node_set_style(taffy._ptr, self._ptr, style._ptr)
+        taffylib.node_set_style(taffy._ptr, self._node_id, style.to_dict())
+        logger.debug(
+            "node_set_style(taffy: %s, node_id: %s)",
+            taffy._ptr,
+            self._node_id,
+        )
 
     @property
     def is_dirty(self) -> bool:
         """``True`` if the layout needs to be (re)computed to get the layout of this node, ``False`` otherwise."""
         if not taffy._ptr:
             raise TaffyUnavailableError
-        return taffylib.node_dirty(taffy._ptr, self._ptr)
+        return taffylib.node_dirty(taffy._ptr, self._node_id)
 
     def mark_dirty(self):
         """Marks this node as `dirty` meaning that the layout needs to be recomputed."""
         if not taffy._ptr:
             raise TaffyUnavailableError
-        taffylib.node_mark_dirty(taffy._ptr, self._ptr)
+        taffylib.node_mark_dirty(taffy._ptr, self._node_id)
 
     @property
     def is_visible(self) -> bool:
@@ -520,22 +523,21 @@ class Node(list):
         if not taffy._ptr:
             raise TaffyUnavailableError
         if value is None:
-            taffylib.node_set_context(taffy._ptr, self._ptr, None)
-            if self._ptr in _node_refs:
-                del _node_refs[self._ptr]
+            taffylib.node_set_measure(taffy._ptr, self._node_id, False)
+            if self._node_id in _node_refs:
+                del _node_refs[self._node_id]
             logger.debug(
-                "node_set_context(taffy: %s, node: %s, context: None)",
+                "node_set_measure(taffy: %s, node_id: %s, measure: False)",
                 taffy._ptr,
-                self._ptr,
+                self._node_id,
             )
         else:
-            taffylib.node_set_context(taffy._ptr, self._ptr, self._ptr)
-            _node_refs[self._ptr] = self
+            taffylib.node_set_measure(taffy._ptr, self._node_id, True)
+            _node_refs[self._node_id] = self
             logger.debug(
-                "node_set_context(taffy: %s, node: %s, context: %s)",
+                "node_set_measure(taffy: %s, node_id: %s, measure: True)",
                 taffy._ptr,
-                self._ptr,
-                self._ptr,
+                self._node_id,
             )
 
     def compute_layout(
@@ -579,9 +581,9 @@ class Node(list):
                 self._container.size = available_space
             else:
                 self._container = Container(self, available_space)
-            ptr = self._container._ptr
+            ptr = self._container._node_id
         else:
-            ptr = self._ptr
+            ptr = self._node_id
 
         taffy.use_rounding = use_rounding
         result = taffylib.node_compute_layout_with_measure(
@@ -611,7 +613,7 @@ class Node(list):
         if self.is_dirty:
             raise LayoutNotComputedError
 
-        layout = taffylib.node_get_layout(taffy._ptr, self._ptr)
+        layout = taffylib.node_get_layout(taffy._ptr, self._node_id)
 
         self._zorder = layout["order"]
 
@@ -631,9 +633,9 @@ class Node(list):
         self._box[Edge.CONTENT] = box
 
         logger.debug(
-            "node_get_layout(taffy: %s, node: %s) -> %s, margin: %s, border: %s, padding: %s, content: %s",
+            "node_get_layout(taffy: %s, node_id: %s) -> %s, margin: %s, border: %s, padding: %s, content: %s",
             taffy._ptr,
-            self._ptr,
+            self._node_id,
             layout,
             self._box[Edge.MARGIN],
             self._box[Edge.BORDER],
@@ -779,7 +781,7 @@ class Container:
         self._root = root
 
         # Create node in taffy
-        self.__ptr = taffylib.node_create(taffy._ptr, self._style._ptr)
+        self.__node_id = taffylib.node_create(taffy._ptr, self._style.to_dict())
         logger.debug(
             "node_create(taffy: %s, style: %s) -> %s",
             taffy._ptr,
@@ -787,7 +789,7 @@ class Container:
             self.__ptr,
         )
         # Add root node as child of this node
-        taffylib.node_add_child(taffy._ptr, self._ptr, root._ptr)
+        taffylib.node_add_child(taffy._ptr, self._ptr, root._node_id)
 
     def _update_layout(self) -> None:
         # NOTE: Since this container node has no margins, border and padding, this layout corresponds to all the boxes.
@@ -796,7 +798,7 @@ class Container:
         x, y = layout["location"]
         width, height = layout["size"]
         logger.debug(
-            "node_get_layout(taffy: %s, node: %s [container]) -> (left: %s, top: %s, width: %s, height: %s)",
+            "node_get_layout(taffy: %s, node_id: %s [container]) -> (left: %s, top: %s, width: %s, height: %s)",
             taffy._ptr,
             self._ptr,
             x,

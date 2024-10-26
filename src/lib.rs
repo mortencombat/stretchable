@@ -2,7 +2,6 @@
 // #![feature(dec2flt)]
 
 use core::panic;
-// use std::fmt;
 use log::{error, LevelFilter};
 use taffy::Overflow;
 use std::f32;
@@ -11,8 +10,6 @@ extern crate dict_derive;
 use dict_derive::{FromPyObject, IntoPyObject};
 
 extern crate pyo3;
-// use pyo3::create_exception;
-// use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
@@ -20,7 +17,6 @@ extern crate pyo3_log;
 use pyo3_log::{Caching, Logger};
 
 extern crate taffy;
-// use taffy::node::MeasureFunc;
 use taffy::prelude::*;
 
 // MAIN
@@ -430,13 +426,8 @@ impl From<PyLength> for MaxTrackSizingFunction {
     }
 }
 
-#[pyfunction]
-fn style_drop(style_ptr: usize) {
-    let _style = unsafe { Box::from_raw(style_ptr as *mut Style) };
-}
-
-#[pyfunction]
-fn style_create(
+#[derive(FromPyObject, IntoPyObject)]
+pub struct PyStyle {
     // Layout mode/strategy
     display: i32,
     box_sizing: i32,
@@ -481,213 +472,213 @@ fn style_create(
     justify_self: Option<i32>,
     align_content: Option<i32>,
     justify_content: Option<i32>,
-) -> usize {
-    let style = Style {
-        // Layout mode/strategy
-        display: Display::from_index(display),
-        box_sizing: BoxSizing::from_index(box_sizing),
-        // Overflow
-        overflow: taffy::geometry::Point { x: Overflow::from_index(overflow_x), y: Overflow::from_index(overflow_y)},
-        scrollbar_width: scrollbar_width,
-        // Position
-        position: Position::from_index(position),
-        inset: Rect::from(inset) as Rect<LengthPercentageAuto>,
-        // Alignment
-        align_items: AlignItems::from_index(align_items),
-        justify_items: JustifyItems::from_index(justify_items),
-        align_self: AlignSelf::from_index(align_self),
-        justify_self: JustifySelf::from_index(justify_self),
-        align_content: AlignContent::from_index(align_content),
-        justify_content: JustifyContent::from_index(justify_content),
-        gap: Size::from(gap),
-        // Spacing
-        margin: Rect::from(margin),
-        border: Rect::from(border),
-        padding: Rect::from(padding),
-        // Size
-        size: Size::from(size),
-        min_size: Size::from(min_size),
-        max_size: Size::from(max_size),
-        aspect_ratio: aspect_ratio,
-        // Flex
-        flex_wrap: FlexWrap::from_index(flex_wrap),
-        flex_direction: FlexDirection::from_index(flex_direction),
-        flex_grow: flex_grow,
-        flex_shrink: flex_shrink,
-        flex_basis: Dimension::from(flex_basis),
-        // Grid container properties
-        grid_template_rows: grid_template_rows
-            .into_iter()
-            .map(|e| TrackSizingFunction::from(e))
-            .collect(),
-        grid_template_columns: grid_template_columns
-            .into_iter()
-            .map(|e| TrackSizingFunction::from(e))
-            .collect(),
-        grid_auto_rows: grid_auto_rows
-            .into_iter()
-            .map(|e| NonRepeatedTrackSizingFunction::from(e))
-            .collect(),
-        grid_auto_columns: grid_auto_columns
-            .into_iter()
-            .map(|e| NonRepeatedTrackSizingFunction::from(e))
-            .collect(),
-        grid_auto_flow: GridAutoFlow::from_index(grid_auto_flow),
-        // Grid child properties
-        grid_row: Line::from(grid_row),
-        grid_column: Line::from(grid_column),
-        ..Default::default()
-    };
-    Box::into_raw(Box::new(style)) as usize
+}
+
+impl From<PyStyle> for Style {
+    fn from(raw: PyStyle) -> Style {
+        Style {
+            // Layout mode/strategy
+            display: Display::from_index(raw.display),
+            box_sizing: BoxSizing::from_index(raw.box_sizing),
+            // Overflow
+            overflow: taffy::geometry::Point { x: Overflow::from_index(raw.overflow_x), y: Overflow::from_index(raw.overflow_y)},
+            scrollbar_width: raw.scrollbar_width,
+            // Position
+            position: Position::from_index(raw.position),
+            inset: Rect::from(raw.inset) as Rect<LengthPercentageAuto>,
+            // Alignment
+            align_items: AlignItems::from_index(raw.align_items),
+            justify_items: JustifyItems::from_index(raw.justify_items),
+            align_self: AlignSelf::from_index(raw.align_self),
+            justify_self: JustifySelf::from_index(raw.justify_self),
+            align_content: AlignContent::from_index(raw.align_content),
+            justify_content: JustifyContent::from_index(raw.justify_content),
+            gap: Size::from(raw.gap),
+            // Spacing
+            margin: Rect::from(raw.margin),
+            border: Rect::from(raw.border),
+            padding: Rect::from(raw.padding),
+            // Size
+            size: Size::from(raw.size),
+            min_size: Size::from(raw.min_size),
+            max_size: Size::from(raw.max_size),
+            aspect_ratio: raw.aspect_ratio,
+            // Flex
+            flex_wrap: FlexWrap::from_index(raw.flex_wrap),
+            flex_direction: FlexDirection::from_index(raw.flex_direction),
+            flex_grow: raw.flex_grow,
+            flex_shrink: raw.flex_shrink,
+            flex_basis: Dimension::from(raw.flex_basis),
+            // Grid container properties
+            grid_template_rows: raw.grid_template_rows
+                .into_iter()
+                .map(|e| TrackSizingFunction::from(e))
+                .collect(),
+            grid_template_columns: raw.grid_template_columns
+                .into_iter()
+                .map(|e| TrackSizingFunction::from(e))
+                .collect(),
+            grid_auto_rows: raw.grid_auto_rows
+                .into_iter()
+                .map(|e| NonRepeatedTrackSizingFunction::from(e))
+                .collect(),
+            grid_auto_columns: raw.grid_auto_columns
+                .into_iter()
+                .map(|e| NonRepeatedTrackSizingFunction::from(e))
+                .collect(),
+            grid_auto_flow: GridAutoFlow::from_index(raw.grid_auto_flow),
+            // Grid child properties
+            grid_row: Line::from(raw.grid_row),
+            grid_column: Line::from(raw.grid_column),
+            ..Default::default()
+        }
+    }
 }
 
 // NODES
 
 #[pyfunction]
-fn node_create(taffy_ptr: usize, style_ptr: usize) -> usize {
+fn node_create(taffy_ptr: usize, style: PyStyle) -> u64 {
+    // Create a single node
+
     let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree<NodeContext>) };
-    let style = unsafe { Box::from_raw(style_ptr as *mut Style) };
-    // let node = taffy.new_leaf(*style.clone()).unwrap();
-    let node = taffy.new_leaf_with_context(*style.clone(), NodeContext { node_id: 5 }).unwrap();
 
-    Box::leak(style);
+    // let node_id = match taffy.new_leaf_with_context(Style::from(style), NodeContext { node_id: None })
+    let node_id = match taffy.new_leaf(Style::from(style)) {
+        Ok(v) => v.into(),
+        Err(_) => 0,
+    };
+
     Box::leak(taffy);
 
-    Box::into_raw(Box::new(node)) as usize
+    node_id
 }
 
 #[pyfunction]
-unsafe fn node_add_child(taffy_ptr: usize, node_ptr: usize, child_ptr: usize) {
+unsafe fn node_add_child(taffy_ptr: usize, node_id: u64, child_node_id: u64) {
+    // Add an existing node as a child to another existing node
+
     let mut taffy = Box::from_raw(taffy_ptr as *mut TaffyTree);
-    let node = Box::from_raw(node_ptr as *mut NodeId);
-    let child = Box::from_raw(child_ptr as *mut NodeId);
 
-    taffy.add_child(*node, *child).unwrap();
+    let node = NodeId::from(node_id);
+    let child = NodeId::from(child_node_id);
+    taffy.add_child(node, child).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
-    Box::leak(child);
 }
 
 #[pyfunction]
-fn node_drop(taffy_ptr: usize, node_ptr: usize) {
+fn node_drop(taffy_ptr: usize, node_id: u64) {
     // Remove a specific node from the tree and drop it
-    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node_ptr as *mut NodeId) };
 
-    _ = taffy.remove(*node);
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
+
+    let node = NodeId::from(node_id);
+    taffy.remove(node).unwrap();
+
     Box::leak(taffy);
 }
 
 #[pyfunction]
 fn node_drop_all(taffy_ptr: usize) {
     // Drops all nodes in the tree
+
     let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
 
     taffy.clear();
+
     Box::leak(taffy);
 }
 
 #[pyfunction]
-fn node_replace_child_at_index(taffy_ptr: usize, node_ptr: usize, index: usize, child_ptr: usize) {
+fn node_replace_child_at_index(taffy_ptr: usize, node_id: u64, index: usize, child_node_id: u64) {
     let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node_ptr as *mut NodeId) };
-    let child = unsafe { Box::from_raw(child_ptr as *mut NodeId) };
 
-    taffy.replace_child_at_index(*node, index, *child).unwrap();
+    let node = NodeId::from(node_id);
+    let child = NodeId::from(child_node_id);
+    taffy.replace_child_at_index(node, index, child).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
-    Box::leak(child);
 }
 
 #[pyfunction]
-fn node_remove_child(taffy_ptr: usize, node_ptr: usize, child_ptr: usize) {
+fn node_remove_child(taffy_ptr: usize, node_id: u64, child_node_id: u64) {
     let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node_ptr as *mut NodeId) };
-    let child = unsafe { Box::from_raw(child_ptr as *mut NodeId) };
 
-    // TODO: this fails with an unknown error...
-    taffy.remove_child(*node, *child).unwrap();
+    let node = NodeId::from(node_id);
+    let child = NodeId::from(child_node_id);
+    taffy.remove_child(node, child).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
-    Box::leak(child);
 }
 
 #[pyfunction]
-fn node_remove_child_at_index(taffy_ptr: usize, node_ptr: usize, index: usize) {
+fn node_remove_child_at_index(taffy_ptr: usize, node_id: u64, index: usize) {
     let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node_ptr as *mut NodeId) };
 
-    taffy.remove_child_at_index(*node, index).unwrap();
+    let node = NodeId::from(node_id);
+
+    taffy.remove_child_at_index(node, index).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
 }
 
 #[pyfunction]
-fn node_dirty(taffy_ptr: usize, node_ptr: usize) -> bool {
+fn node_dirty(taffy_ptr: usize, node_id: u64) -> bool {
     let taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node_ptr as *mut NodeId) };
-    let dirty = taffy.dirty(*node).unwrap();
+
+    let node = NodeId::from(node_id);
+    let dirty = taffy.dirty(node).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
 
     dirty
 }
 
 #[pyfunction]
-fn node_mark_dirty(taffy_ptr: usize, node_ptr: usize) {
+fn node_mark_dirty(taffy_ptr: usize, node_id: u64) {
     let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node_ptr as *mut NodeId) };
-
-    taffy.mark_dirty(*node).unwrap();
+    
+    let node = NodeId::from(node_id);
+    taffy.mark_dirty(node).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
 }
 
 #[pyfunction]
-unsafe fn node_set_style(taffy: i64, node: i64, style: i64) {
-    let mut taffy = Box::from_raw(taffy as *mut TaffyTree<NodeContext>);
-    let node = Box::from_raw(node as *mut NodeId);
-    let style = Box::from_raw(style as *mut Style);
+unsafe fn node_set_style(taffy_ptr: usize, node_id: u64, style: PyStyle) {
+    let mut taffy = unsafe {Box::from_raw(taffy_ptr as *mut TaffyTree<NodeContext>) };
 
-    taffy.set_style(*node, *style).unwrap();
+    let node = NodeId::from(node_id);
+    taffy.set_style(node, Style::from(style)).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
-    // Box::leak(style);
 }
 
 #[pyfunction]
-unsafe fn node_set_context(taffy: i64, node: i64, context: Option<u64>) {
+unsafe fn node_set_measure(taffy: i64, node_id: u64, measure: bool) {
     let mut taffy = Box::from_raw(taffy as *mut TaffyTree<NodeContext>);
-    let node = Box::from_raw(node as *mut NodeId);
 
+    let node = NodeId::from(node_id);    
     taffy.set_node_context(
-        *node, 
-        match context {
-            None => None,
-            Some(context) => Some(NodeContext { node_id: context }),
+        node, 
+        match measure {
+            false => None,
+            true => Some(NodeContext { node_id: node_id }),
         }
     ).unwrap();
 
     Box::leak(taffy);
-    Box::leak(node);
 }
 
 #[pyfunction]
-fn node_compute_layout(taffy: usize, node: usize, available_space: PySize) -> bool {
+fn node_compute_layout(taffy: usize, node_id: u64, available_space: PySize) -> bool {
     let mut taffy = unsafe { Box::from_raw(taffy as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node as *mut NodeId) };
-    
-    let result = taffy.compute_layout(*node, Size::from(available_space));
+
+    let node = NodeId::from(node_id);    
+    let result = taffy.compute_layout(node, Size::from(available_space));
 
     Box::leak(taffy);
-    Box::leak(node);
 
     result.is_ok()
 }
@@ -700,7 +691,7 @@ fn measure_function(
     known_dimensions: taffy::geometry::Size<Option<f32>>,
     available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
     node_context: Option<&mut NodeContext>,
-    measure_callback: PyObject,
+    measure_callback: &PyObject,
 ) -> Size<f32> {
     if let Size { width: Some(width), height: Some(height) } = known_dimensions {
         return Size { width, height };
@@ -727,7 +718,7 @@ fn measure_function(
         match result {
             Ok(result) => result.extract(py).unwrap(),
             Err(err) => {
-                let traceback = match err.traceback(py) {
+                let traceback = match err.traceback_bound(py) {
                     Some(value) => match value.format() {
                         Ok(tb) => format!("{}\n", tb),
                         Err(_) => String::new(),
@@ -749,20 +740,19 @@ fn measure_function(
 }
 
 #[pyfunction]
-fn node_compute_layout_with_measure(taffy: usize, node: usize, available_space: PySize, measure: PyObject) -> bool {
+fn node_compute_layout_with_measure(taffy: usize, node_id: u64, available_space: PySize, measure_fn: PyObject) -> bool {
     let mut taffy = unsafe { Box::from_raw(taffy as *mut TaffyTree<NodeContext>) };
-    let node = unsafe { Box::from_raw(node as *mut NodeId) };
 
+    let node = NodeId::from(node_id);
     let result = taffy.compute_layout_with_measure(
-        *node, 
+        node, 
         Size::from(available_space), 
         |known_dimensions, available_space, _node_id, node_context, _style| {
-            measure_function(known_dimensions, available_space, node_context, measure.clone())
+            measure_function(known_dimensions, available_space, node_context, &measure_fn)
         },
     );
 
     Box::leak(taffy);
-    Box::leak(node);
 
     result.is_ok()
 }
@@ -828,13 +818,13 @@ impl From<Layout> for PyLayout {
 }
 
 #[pyfunction]
-fn node_get_layout(taffy_ptr: usize, node_ptr: usize) -> PyLayout {
+fn node_get_layout(taffy_ptr: usize, node_id: u64) -> PyLayout {
     let taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    let node = unsafe { Box::from_raw(node_ptr as *mut NodeId) };
-    let layout = PyLayout::from(*taffy.layout(*node).unwrap());
+
+    let node = NodeId::from(node_id);
+    let layout = PyLayout::from(*taffy.layout(node).unwrap());
 
     Box::leak(taffy);
-    Box::leak(node);
 
     layout
 }
@@ -843,7 +833,7 @@ fn node_get_layout(taffy_ptr: usize, node_ptr: usize) -> PyLayout {
 
 // for pyo3-pack, name must match module.
 #[pymodule]
-fn taffylib(py: Python, m: &PyModule) -> PyResult<()> {
+fn taffylib(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     Logger::new(py, Caching::LoggersAndLevels)?
         .filter(LevelFilter::Warn)
         // .filter_target("stretchable::taffylib".to_owned(), LevelFilter::Warn)
@@ -854,8 +844,6 @@ fn taffylib(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(free))?;
     m.add_wrapped(wrap_pyfunction!(enable_rounding))?;
     m.add_wrapped(wrap_pyfunction!(disable_rounding))?;
-    m.add_wrapped(wrap_pyfunction!(style_create))?;
-    m.add_wrapped(wrap_pyfunction!(style_drop))?;
     m.add_wrapped(wrap_pyfunction!(node_create))?;
     m.add_wrapped(wrap_pyfunction!(node_drop))?;
     m.add_wrapped(wrap_pyfunction!(node_drop_all))?;
@@ -867,7 +855,7 @@ fn taffylib(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(node_mark_dirty))?;
     m.add_wrapped(wrap_pyfunction!(node_set_style))?;
     m.add_wrapped(wrap_pyfunction!(node_get_layout))?;
-    m.add_wrapped(wrap_pyfunction!(node_set_context))?;
+    m.add_wrapped(wrap_pyfunction!(node_set_measure))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout_with_measure))?;
 

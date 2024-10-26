@@ -1,6 +1,6 @@
 import pytest
 
-from stretchable import Node
+from stretchable import Node, Style
 from stretchable.exceptions import NodeNotFound
 
 
@@ -46,3 +46,11 @@ def test_node_find():
         root.find("/2")
     with pytest.raises(NodeNotFound):
         root.find("2")
+
+
+def test_node_style_setter():
+    node = Node()
+    node.style = Style(size=(300, 200))
+    node.compute_layout()
+    size = node.get_box()
+    assert size.width == 300 and size.height == 200
