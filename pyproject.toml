@@ -49,7 +49,6 @@ docs = [
     "myst-parser",
     "furo",
     "sphinx-copybutton",
-    "readthedocs-sphinx-search",
     "sphinx-autobuild",
     "sphinx-autodoc-typehints",
     "sphinx_design>=0.5,<1.0",
