@@ -72,3 +72,5 @@ jobs:
           }
 
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
