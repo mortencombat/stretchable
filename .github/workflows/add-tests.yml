@@ -58,6 +58,10 @@ jobs:
           }
 
           if ($files -gt 0) {
+            # Configure git
+            git config --global user.name 'Kenneth Trelborg Vestergaard'
+            git config --global user.email 'mortencombat@users.noreply.github.com'
+
             # Commit files
             git add .
             git commit -m "test(layout): add new tests from Taffy repo"
