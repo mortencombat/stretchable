@@ -21,6 +21,7 @@ jobs:
         with:
           sparse-checkout: |
             tests/fixtures
+          path: 'stretchable'
 
       - run: |
           # Create branch
@@ -29,20 +30,20 @@ jobs:
 
           $files = 0
           $targetBasePath = "tests/fixtures"
-          foreach ($item in Get-ChildItem -Path "taffy/test_fixtures" -Recurse -Filter *.html)
+          foreach ($item in Get-ChildItem -Path "../taffy/test_fixtures" -Recurse -Filter *.html)
           {
             if ($item.BaseName.StartsWith("x")) {
               continue;
             }
             
-            $relPath = ($item | Resolve-Path -RelativeBasePath "taffy/test_fixtures" -Relative).TrimStart("./")
+            $relPath = ($item | Resolve-Path -RelativeBasePath "../taffy/test_fixtures" -Relative).TrimStart("./")
             $targetPath = Join-Path $targetBasePath $relPath
             if (Test-Path $targetPath) {
               continue;
             }            
 
-            Write-Host $item
-            Write-Host $targetPath
+            # Write-Host $item
+            # Write-Host $targetPath
 
             Copy-Item -Path $item.FullName -Destination $targetPath -Force -Confirm:$false
 
@@ -73,5 +74,6 @@ jobs:
           }
 
         shell: pwsh
+        working-directory: 'stretchable'
         env:
           GH_TOKEN: ${{ github.token }}
