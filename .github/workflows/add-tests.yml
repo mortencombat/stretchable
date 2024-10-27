@@ -22,18 +22,51 @@ jobs:
           sparse-checkout: |
             test_fixtures
 
-    # TODO: 
-    # iterate over all files in taffy/test_fixtures
-    # if file starts with x, skip it
-    # if file already exists in stretchable/tests/fixtures, skip it
-    # then copy the file to stretchable/tests/fixtures and modify it:
-    #   - Remove <script> block
-    #   - Fix path to stylesheet
-    #   - Fix other potential errors such as >> or misspellings
-    # commit the file
-    #   'Add path/name test'
-    #
-    # if at least one file committed, create a new branch and create a PR into main
-    #   'Add x new tests from Taffy'
+      - run: |
+          # Create branch
+          $branch = tests/add-tests-${{ github.run_attempt }}
+          git checkout -b $($branch)
 
+          $files = 0
+          $targetBasePath = "stretchable/tests/fixtures"
+          foreach ($item in Get-ChildItem -Path ../taffy/test_fixtures -Recurse -Filter *.html)
+          {
+            if ($item.BaseName.StartsWith("x")) {
+              continue;
+            }
+            
+            $relPath = ($item | Resolve-Path -RelativeBasePath ../taffy/test_fixtures -Relative).TrimStart("./")
+            $targetPath = Join-Path $targetBasePath $relPath
+            if (Test-Path $targetPath) {
+              continue;
+            }            
 
+            Write-Host $item
+            Write-Host $targetPath
+
+            Copy-Item -Path $item -Destination $targetPath -Force -Confirm
+
+            # TODO: Process file
+            # - Remove <script> block
+            # - Fix path to stylesheet
+            # - Fix other potential errors such as >> or misspellings
+
+            # Commit file
+            # $relTargetPath = Join-Path tests/fixtures $relPath
+            # git add $($relTargetPath)
+            # git commit -m "test(layout): add $($item.BaseName)"
+            $files++;
+          }
+
+          if ($files -gt 0) {
+            # Commit files
+            git add .
+            git commit -m "test(layout): add new tests from Taffy repo"
+
+            # Push to origin and create PR
+            git push -u origin $($branch)
+            gh pr create --head $($branch) --base refs/heads/main --title 'Add $($files) new tests from Taffy' --reviewer mortencombat
+          }
+
+        shell: pwsh
+        working-directory: ./stretchable/
