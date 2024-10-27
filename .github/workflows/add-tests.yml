@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          path: 'stretchable'
+          path: '${{ github.workspace }}/stretchable'
           sparse-checkout: |
             tests/fixtures
 
@@ -18,7 +18,7 @@ jobs:
         with:
           repository: 'DioxusLabs/Taffy'
           ref: 'refs/heads/main'
-          path: 'taffy'
+          path: '${{ github.workspace }}/taffy'
           sparse-checkout: |
             test_fixtures
 
@@ -28,14 +28,14 @@ jobs:
           git checkout -b $($branch)
 
           $files = 0
-          $targetBasePath = "stretchable/tests/fixtures"
-          foreach ($item in Get-ChildItem -Path ../taffy/test_fixtures -Recurse -Filter *.html)
+          $targetBasePath = "${{ github.workspace }}/stretchable/tests/fixtures"
+          foreach ($item in Get-ChildItem -Path "${{ github.workspace }}/taffy/test_fixtures" -Recurse -Filter *.html)
           {
             if ($item.BaseName.StartsWith("x")) {
               continue;
             }
             
-            $relPath = ($item | Resolve-Path -RelativeBasePath ../taffy/test_fixtures -Relative).TrimStart("./")
+            $relPath = ($item | Resolve-Path -RelativeBasePath "${{ github.workspace }}/taffy/test_fixtures" -Relative).TrimStart("./")
             $targetPath = Join-Path $targetBasePath $relPath
             if (Test-Path $targetPath) {
               continue;
@@ -69,4 +69,4 @@ jobs:
           }
 
         shell: pwsh
-        working-directory: ./stretchable/
+        working-directory: '${{ github.workspace }}/stretchable'
