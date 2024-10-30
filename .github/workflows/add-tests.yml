@@ -33,6 +33,7 @@ jobs:
 
           $files = 0
           $targetBasePath = "tests/fixtures"
+          $stylesheet = get-item "./stretchable/tests/fixtures/base_style.css"
           foreach ($item in Get-ChildItem -Path "../taffy/test_fixtures" -Recurse -Filter *.html)
           {
             if ($item.BaseName.StartsWith("x")) {
@@ -45,20 +46,31 @@ jobs:
               continue;
             }            
 
-            # Write-Host $item
-            # Write-Host $targetPath
-
-            Copy-Item -Path $item.FullName -Destination $targetPath -Force -Confirm:$false
-
-            # TODO: Process file
+            # Process source file and write processed file at target path
             # - Remove <script> block
             # - Fix path to stylesheet
-            # - Fix other potential errors such as >> or misspellings
+            $processed = @()
+            $has_style = $false
+            $stylesheet_link = ($stylesheet | Resolve-Path -RelativeBasePath $targetPath.Directory -Relative)
+            foreach($line in Get-Content $item) {
+              if ($line -match '<script.*>.*<\/script>') {
+                  continue
+              }
+          
+              if ($line -match '<link.*>') {
+                  if ($has_style) {
+                      continue
+                  }
+                  $line = "  <link rel=""stylesheet"" type=""text/css"" href=""$stylesheet_rel"">"
+                  $has_style = $true
+              }
+          
+              $processed += $line
+            }            
+            if ($has_style) {
+                Out-File -FilePath $targetPath -InputObject $processed -encoding utf8
+            }
 
-            # Commit file
-            # $relTargetPath = Join-Path tests/fixtures $relPath
-            # git add $($relTargetPath)
-            # git commit -m "test(layout): add $($item.BaseName)"
             $files++;
           }
 
@@ -69,11 +81,11 @@ jobs:
 
             # Commit files
             git add .
-            git commit -m "test(layout): add new tests from Taffy repo"
+            git commit -m "test(layout): add $($files) new tests from Taffy repo"
 
             # Push to origin and create PR
             git push -u origin $($branch)
-            gh pr create --head $($branch) --base refs/heads/main --title 'Add $($files) new tests from Taffy' --body 'Add $($files) new tests from Taffy' --reviewer mortencombat
+            gh pr create --head $($branch) --base refs/heads/main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
           }
 
         shell: pwsh
