@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - tests/add-tests-*
+      - main
+    paths:
+      - 'src/'
+      - 'tests/'
 
 jobs:
   test:
