@@ -31,7 +31,7 @@ jobs:
 
       - run: |
           # Create branch
-          $branch = "tests/add-tests-${{ github.run_attempt }}"
+          $branch = "tests/add-tests-${{ github.run_number }}"
           git checkout -b $($branch)
 
           $files = 0
