@@ -31,7 +31,7 @@ jobs:
 
       - run: |
           # Create branch
-          $branch = "tests/add-tests-${{ github.run_number }}"
+          $branch = "tests/add-tests-${{ github.run_number }}.${{ github.run_attempt }}"
           git checkout -b $($branch)
 
           $files = 0
@@ -54,7 +54,6 @@ jobs:
             # - Fix path to stylesheet
             $processed = @()
             $has_style = $false
-            $stylesheet_link = ($stylesheet | Resolve-Path -RelativeBasePath $targetPath.Directory -Relative)
             foreach($line in Get-Content $item) {
               if ($line -match '<script.*>.*<\/script>') {
                   continue
@@ -64,7 +63,8 @@ jobs:
                   if ($has_style) {
                       continue
                   }
-                  $line = "  <link rel=""stylesheet"" type=""text/css"" href=""$stylesheet_rel"">"
+                  $stylesheet_link = ($stylesheet | Resolve-Path -RelativeBasePath $targetPath.Directory -Relative)
+                  $line = "  <link rel=""stylesheet"" type=""text/css"" href=""$stylesheet_link"">"
                   $has_style = $true
               }
           
