@@ -2,6 +2,9 @@ name: Run Tests
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - tests/add-tests-*
 
 jobs:
   test:
