@@ -104,36 +104,3 @@ class RectPointsPercent(RectBase[LengthPointsPercent]):
 
 class RectPointsPercentAuto(RectBase[LengthPointsPercentAuto]):
     pass
-
-
-# def from_css_attrs(
-#     attributes: dict[str, Dim],
-#     *,
-#     prefix: str = None,
-#     common: str = None,
-#     left: str = "left",
-#     right: str = "right",
-#     top: str = "top",
-#     bottom: str = "bottom",
-#     default: Length = AUTO,
-# ) -> Self:
-#     def _get_attr_name(prefix: str, name: str) -> str:
-#         return f"{prefix}-{name}" if prefix else name
-
-#     if common:
-#         name = _get_attr_name(prefix, common)
-#         if name in attributes:
-#             return Rect(attributes[name])
-#     if prefix and prefix in attributes:
-#         return Rect(attributes[prefix])
-
-#     values = [default] * 4
-#     no_attrs = True
-#     for i, key in enumerate((top, right, bottom, left)):
-#         name = _get_attr_name(prefix, key)
-#         if name in attributes:
-#             values[i] = attributes[name]
-#             no_attrs = False
-#     if no_attrs:
-#         return None
-#     return Rect(*values)

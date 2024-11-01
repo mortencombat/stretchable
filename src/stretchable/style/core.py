@@ -6,9 +6,12 @@ from enum import Enum, IntEnum
 from typing import Any, Iterable, Optional
 
 from attrs import define, field, validators
+from tinycss2 import parse_blocks_contents, parse_one_declaration
+from tinycss2.ast import Declaration
 
 from .geometry import length, rect
 from .geometry import size as _size
+from .parser import adapters
 from .props import (
     AlignContent,
     AlignItems,
@@ -52,6 +55,26 @@ def grid_auto_from_any(value: Any) -> list[GridTrackSize]:
     if not isinstance(value, (list, tuple)):
         value = [value]
     return [GridTrackSize.from_any(v) for v in value]
+
+
+__PROP_NAME_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def to_css_prop_name(name: str) -> str:
+    """
+    Returns `name` converted to CSS naming convention, for example:
+    `aspectRatio` -> `aspect-ratio`
+    `aspect_ratio` -> `aspect-ratio`
+    `AspectRatio` -> `aspect-ratio`
+    `ASPECT_RATIO` -> `aspect-ratio`
+
+    :param name: CSS property name
+    :type name: str
+    :return: property name converted to CSS naming convention
+    :rtype: str
+    """
+
+    return __PROP_NAME_PATTERN.sub("-", name.strip()).lower().replace("_", "-")
 
 
 @define(frozen=True, kw_only=True)
@@ -279,6 +302,27 @@ class Style:
 
     def __str__(self) -> str:
         return self._str()
+
+    @staticmethod
+    def from_dict(style: dict[str, str]) -> Style:
+        return Style.from_decl(
+            [
+                parse_one_declaration(
+                    f"{to_css_prop_name(name)}: {value}", skip_comments=True
+                )
+                for name, value in style.items()
+            ]
+        )
+
+    @staticmethod
+    def from_str(style: str) -> Style:
+        return Style.from_decl(
+            parse_blocks_contents(style, skip_comments=True, skip_whitespace=True)
+        )
+
+    @staticmethod
+    def from_decl(style: list[Declaration]) -> Style:
+        return Style(**adapters.get_props(style))
 
     @staticmethod
     def from_inline(style: str) -> Style:
