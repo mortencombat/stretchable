@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "attrs>=24.0,<25.0",
+    "tinycss2>=1.4,<2.0",
     ]
 
 [tool.maturin]
