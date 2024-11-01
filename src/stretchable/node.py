@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-from enum import Enum, auto
 from typing import Callable, Iterable, Optional, SupportsIndex
 from xml.etree import ElementTree
 
@@ -17,7 +16,7 @@ from .exceptions import (
     NodeNotFound,
     TaffyUnavailableError,
 )
-from .style import Display, Rect, Style
+from .style import Display, Edge, Rect, Style
 from .style.geometry.length import AUTO, NAN, LengthAvailableSpace, Scale
 from .style.geometry.size import SizeAvailableSpace, SizePoints, SizePointsPercentAuto
 
@@ -60,15 +59,6 @@ def _measure_callback(
         result.width.value if result.width else NAN,
         result.height.value if result.height else NAN,
     )
-
-
-class Edge(Enum):
-    """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
-
-    CONTENT = auto()
-    PADDING = auto()
-    BORDER = auto()
-    MARGIN = auto()
 
 
 @define(frozen=True)

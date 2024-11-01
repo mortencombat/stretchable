@@ -20,6 +20,7 @@ from .core import (
 from .geometry.length import AUTO, NAN, PCT, PT, Length
 from .geometry.rect import Rect
 from .geometry.size import Size
+from .props import Edge
 
 __all__ = [
     "Style",
@@ -42,6 +43,7 @@ __all__ = [
     "AlignSelf",
     "AlignItems",
     "AlignContent",
+    "Edge",
     "PT",
     "PCT",
     "NAN",

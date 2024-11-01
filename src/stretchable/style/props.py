@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from enum import IntEnum
+from enum import Enum, IntEnum, auto
 from typing import Any, Optional
 
 from attrs import define, field, validators
@@ -36,6 +36,15 @@ def parse_value(
         return tuple(parse_single(v) for v in value.split(" "))
     else:
         return parse_single(value)
+
+
+class Edge(Enum):
+    """Describes which edge of a node a given :py:obj:`Box` corresponds to. See the :doc:`glossary` for a description of the box model and the different boxes."""
+
+    CONTENT = auto()
+    PADDING = auto()
+    BORDER = auto()
+    MARGIN = auto()
 
 
 # region Layout strategy/misc
