@@ -1,9 +1,12 @@
 import logging
+import re
+from enum import Enum
 from typing import Callable, Union
 
 from tinycss2.ast import (
     Declaration,
     DimensionToken,
+    IdentToken,
     LiteralToken,
     Node,
     PercentageToken,
@@ -12,7 +15,22 @@ from tinycss2.ast import (
 
 from .geometry.length import LengthPointsPercent, LengthPointsPercentAuto
 from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
-from .props import Edge
+from .props import (
+    AlignContent,
+    AlignItems,
+    AlignSelf,
+    BoxSizing,
+    Display,
+    Edge,
+    FlexDirection,
+    FlexWrap,
+    GridAutoFlow,
+    JustifyContent,
+    JustifyItems,
+    JustifySelf,
+    Overflow,
+    Position,
+)
 
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
@@ -40,9 +58,30 @@ The adapter will return a dictionary of properties with parsed values.
 Use an instanced class because it enables using the same adapter for different
 properties, fx margin, border and padding
 
+TODO: Consider if prefix should be supported by the base class and base class contain a default implementation of parse_single
+
 """
 
 Token = Union[DimensionToken, PercentageToken]
+
+__PROP_NAME_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def to_css_prop_name(name: str) -> str:
+    """
+    Returns `name` converted to CSS naming convention, for example:
+    `aspectRatio` -> `aspect-ratio`
+    `aspect_ratio` -> `aspect-ratio`
+    `AspectRatio` -> `aspect-ratio`
+    `ASPECT_RATIO` -> `aspect-ratio`
+
+    :param name: CSS property name
+    :type name: str
+    :return: property name converted to CSS naming convention
+    :rtype: str
+    """
+
+    return __PROP_NAME_PATTERN.sub("-", name.strip()).lower().replace("_", "-")
 
 
 def strip(
@@ -147,7 +186,7 @@ class Adapter:
     def recognized_props(self) -> list[str]:
         return self._recognized_props
 
-    def parse(self, decl: list[Declaration]) -> dict[str, object]:
+    def _parse(self, decl: list[Declaration]) -> dict[str, object]:
         # First use resolvers to parse the values
         values: dict[str, list[Token]] = {}
         remaining: set[str] = set({d.lower_name for d in decl})
@@ -169,30 +208,79 @@ class Adapter:
 
         return values
 
+    def parse_value(self, name: str, value: list[Token]) -> object | None:
+        raise NotImplementedError("parse_value must be implemented in subclass")
 
-class EdgeAdapter(Adapter):
-    def __init__(self, edge: Edge):
-        # Check if edge is supported
-        if edge not in self._prop_map:
-            raise ValueError(f"EdgeAdapter cannot be used for {edge}")
-        self._edge = edge
-        self._prefix = edge.name.lower()
+    def parse(self, decl: list[Declaration]) -> dict[str, object]:
+        raise NotImplementedError("parse must be implemented in subclass")
+
+
+class EnumAdapter(Adapter):
+    def __init__(self, enum: type[Enum], name: str = None):
+        self._enum = enum
+        self._name = name or to_css_prop_name(enum.__name__)
+        if self._name == "overflow":
+            resolvers = [
+                (
+                    self._name,
+                    lambda name, value: {"overflow-x": value, "overflow-y": value},
+                ),
+                (f"{self._name}-x", lambda name, value: {name: value}),
+                (f"{self._name}-y", lambda name, value: {name: value}),
+            ]
+            pass
+        else:
+            resolvers = [(self._name, lambda name, value: {name: value})]
+        super().__init__(resolvers)
+
+    def parse_value(self, name: str, value: list[Token]) -> Enum:
+        if not value:
+            raise ValueError(f"Missing value for {name}")
+        value = strip(value)
+        if len(value) != 1:
+            raise ValueError(f"Invalid value for {name}")
+        value = value[0]
+        if not isinstance(value, IdentToken):
+            raise ValueError(f"Unsupported token {value}")
+        try:
+            return self._enum[value.value.upper().replace("-", "_").replace(" ", "_")]
+        except KeyError:
+            raise ValueError(f"Invalid value {value.value} for {name}")
+
+    def parse(self, decl: list[Declaration]) -> dict[str, object]:
+        values = super()._parse(decl)
+        return {name.replace("-", "_"): values[name] for name in values}
+
+
+class RectAdapter(Adapter):
+    def __init__(self, prop: str, *, prefix: str = None, labels: list[str] = None):
+        # Check if prop is supported
+        if prop not in self._prop_map:
+            raise ValueError(f"RectAdapter cannot be used for {prop}")
+
+        self._prop = prop
+        self._prefix = prefix
+        self._labels = labels or ["top", "right", "bottom", "left"]
 
         # Define resolvers
-        super().__init__(
-            [
-                (self._prefix, self.parse_shorthand),
-                (f"{self._prefix}-top", self.parse_single),
-                (f"{self._prefix}-right", self.parse_single),
-                (f"{self._prefix}-bottom", self.parse_single),
-                (f"{self._prefix}-left", self.parse_single),
-            ],
-        )
+        resolvers = []
+        if self._prefix:
+            resolvers.append((self._prefix, self.parse_shorthand))
+        for label in self._labels:
+            resolvers.append(
+                (
+                    f"{self._prefix}-{label}" if self._prefix else label,
+                    self.parse_single,
+                )
+            )
 
-    _prop_map: dict[Edge, Rect] = {
-        Edge.MARGIN: RectPointsPercentAuto,
-        Edge.PADDING: RectPointsPercent,
-        Edge.BORDER: RectPointsPercent,
+        super().__init__(resolvers)
+
+    _prop_map: dict[str, Rect] = {
+        "inset": RectPointsPercentAuto,
+        "margin": RectPointsPercentAuto,
+        "padding": RectPointsPercent,
+        "border": RectPointsPercent,
     }
 
     def parse_shorthand(
@@ -203,21 +291,23 @@ class EdgeAdapter(Adapter):
         values = split(strip(value))
         n = len(values)
         if n == 1:
-            return dict(
-                top=values[0], right=values[0], bottom=values[0], left=values[0]
-            )
+            return {label: values[0] for label in self._labels}
         elif n == 2:
-            return dict(
-                top=values[0], right=values[1], bottom=values[0], left=values[1]
-            )
+            return {
+                self._labels[0]: values[0],
+                self._labels[1]: values[1],
+                self._labels[2]: values[0],
+                self._labels[3]: values[1],
+            }
         elif n == 3:
-            return dict(
-                top=values[0], right=values[1], bottom=values[2], left=values[1]
-            )
+            return {
+                self._labels[0]: values[0],
+                self._labels[1]: values[1],
+                self._labels[2]: values[2],
+                self._labels[3]: values[1],
+            }
         elif n == 4:
-            return dict(
-                top=values[0], right=values[1], bottom=values[2], left=values[3]
-            )
+            return {label: value for label, value in zip(self._labels, values)}
         else:
             raise ValueError(f"Invalid number of values for {name}")
 
@@ -254,8 +344,8 @@ class EdgeAdapter(Adapter):
         raise ValueError(f"Unsupported unit {value.unit}")
 
     def parse(self, decl: list[Declaration]) -> dict[str, object]:
-        values = super().parse(decl)
-        return {self._prefix: self._prop_map[self._edge](**values)}
+        values = super()._parse(decl)
+        return {self._prop: self._prop_map[self._prop](**values)}
 
 
 class Adapters:
@@ -297,4 +387,27 @@ class Adapters:
         return props
 
 
-adapters = Adapters(*[EdgeAdapter(edge) for edge in Edge if edge != Edge.CONTENT])
+adapters = Adapters(
+    *[
+        RectAdapter(prop, prefix=prop if prop != "inset" else None)
+        for prop in ("inset", "margin", "border", "padding")
+    ],
+    *[
+        EnumAdapter(enum)
+        for enum in (
+            Display,
+            BoxSizing,
+            Overflow,
+            JustifyContent,
+            JustifyItems,
+            JustifySelf,
+            AlignItems,
+            AlignSelf,
+            AlignContent,
+            FlexDirection,
+            Position,
+            FlexWrap,
+            GridAutoFlow,
+        )
+    ],
+)
