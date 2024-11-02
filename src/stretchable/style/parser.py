@@ -9,11 +9,17 @@ from tinycss2.ast import (
     IdentToken,
     LiteralToken,
     Node,
+    NumberToken,
     PercentageToken,
     WhitespaceToken,
 )
 
-from .geometry.length import LengthPointsPercent, LengthPointsPercentAuto
+from .geometry.length import (
+    Length,
+    LengthPoints,
+    LengthPointsPercent,
+    LengthPointsPercentAuto,
+)
 from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
 from .props import (
     AlignContent,
@@ -181,12 +187,13 @@ class Adapter:
     def __init__(self, resolvers: list[str, callable]):
         self._resolvers = resolvers
         self._recognized_props = [name for name, _ in resolvers]
+        self._uses_context = False
 
     @property
     def recognized_props(self) -> list[str]:
         return self._recognized_props
 
-    def _parse(self, decl: list[Declaration]) -> dict[str, object]:
+    def _parse(self, decl: list[Declaration], **kwargs) -> dict[str, object]:
         # First use resolvers to parse the values
         values: dict[str, list[Token]] = {}
         remaining: set[str] = set({d.lower_name for d in decl})
@@ -204,7 +211,7 @@ class Adapter:
 
         # Then use parse_value to convert the parsed values to the correct type
         for prop, value in values.items():
-            values[prop] = self.parse_value(prop, value)
+            values[prop] = self.parse_value(prop, value, **kwargs)
 
         return values
 
@@ -212,6 +219,22 @@ class Adapter:
         raise NotImplementedError("parse_value must be implemented in subclass")
 
     def parse(self, decl: list[Declaration]) -> dict[str, object]:
+        raise NotImplementedError("parse must be implemented in subclass")
+
+
+class AdapterContext(Adapter):
+    def __init__(self, resolvers: list[str, callable]):
+        super().__init__(resolvers)
+        self._uses_context = True
+
+    def parse_value(
+        self, name: str, value: list[Token], context: object | None = None
+    ) -> object | None:
+        raise NotImplementedError("parse_value must be implemented in subclass")
+
+    def parse(
+        self, decl: list[Declaration], context: object | None = None
+    ) -> dict[str, object]:
         raise NotImplementedError("parse must be implemented in subclass")
 
 
@@ -252,7 +275,7 @@ class EnumAdapter(Adapter):
         return {name.replace("-", "_"): values[name] for name in values}
 
 
-class RectAdapter(Adapter):
+class RectAdapter(AdapterContext):
     def __init__(self, prop: str, *, prefix: str = None, labels: list[str] = None):
         # Check if prop is supported
         if prop not in self._prop_map:
@@ -322,6 +345,7 @@ class RectAdapter(Adapter):
         self,
         name: str,
         value: list[Token],
+        context: object | None = None,
     ) -> Union[LengthPointsPercent, LengthPointsPercentAuto, None]:
         #   how to support relative/alternative units (fx em, rem, etc.), via a hook?
         #   how to provide context for the hook method?
@@ -333,19 +357,46 @@ class RectAdapter(Adapter):
         value = value[0]
         if isinstance(value, PercentageToken):
             return LengthPointsPercent.percent(value.value / 100)
-        if not isinstance(value, DimensionToken):
+        if not isinstance(value, (DimensionToken, NumberToken)):
             raise ValueError(f"Unsupported token {value}")
-        if value.unit == "auto":
-            if self._edge != Edge.MARGIN:
-                raise ValueError(f"Unsupported unit {value.unit} for {self._prefix}")
-            return LengthPointsPercentAuto.auto()
-        if value.unit in ("px", "pt", "", None):
-            return LengthPointsPercent.points(value.value)
-        raise ValueError(f"Unsupported unit {value.unit}")
+        value = adapters.dimension_converter(name, value, context)
+        # TODO: check if value is AUTO and if that is supported
+        return value
 
-    def parse(self, decl: list[Declaration]) -> dict[str, object]:
-        values = super()._parse(decl)
+    def parse(
+        self, decl: list[Declaration], context: object | None = None
+    ) -> dict[str, object]:
+        values = super()._parse(decl, context=context)
         return {self._prop: self._prop_map[self._prop](**values)}
+
+
+def standard_dimension_converter(
+    prop: str, token: DimensionToken | NumberToken, context: object
+) -> Length:
+    if isinstance(token, DimensionToken) and token.unit:
+        if token.unit != "auto":
+            raise ValueError(f"Unsupported unit {token.unit}")
+        return LengthPointsPercentAuto.auto()
+    return LengthPoints.points(token.value)
+
+
+def simple_dimension_converter(
+    prop: str,
+    token: DimensionToken | NumberToken,
+    context: object,
+    *,
+    unit_scales: dict[str, float],
+    require_unit: bool = False,
+) -> Length:
+    if not isinstance(token, DimensionToken) or not token.unit:
+        if require_unit:
+            raise ValueError(f"Missing unit for {prop}: {token}")
+        return LengthPoints.points(token.value)
+    elif token.unit == "auto":
+        return LengthPointsPercentAuto.auto()
+    elif token.unit in unit_scales:
+        return LengthPoints.points(token.value * unit_scales[token.unit])
+    raise ValueError(f"Unsupported unit {token.unit} for {prop}")
 
 
 class Adapters:
@@ -358,10 +409,25 @@ class Adapters:
                     raise ValueError(f"Duplicate property {prop}")
                 props.add(prop)
 
+        # Set the default dimension converter
+        self._dimension_converter = standard_dimension_converter
+
         # Store the adapters
         self._adapters = adapters
 
-    def get_props(self, decl: list[Declaration]) -> dict[str, object]:
+    @property
+    def dimension_converter(self) -> Callable[[str, DimensionToken, object], Length]:
+        return self._dimension_converter
+
+    @dimension_converter.setter
+    def dimension_converter(
+        self, value: Callable[[str, DimensionToken, object], Length]
+    ):
+        self._dimension_converter = value
+
+    def get_props(
+        self, decl: list[Declaration], context: object | None = None
+    ) -> dict[str, object]:
         """
         Parse a list of declarations and return a dictionary of properties with parsed values.
 
@@ -379,7 +445,11 @@ class Adapters:
                 if prop in decls:
                     _decls.append(decls.pop(prop))
             if _decls:
-                props.update(adapter.parse(_decls))
+                props.update(
+                    adapter.parse(_decls, context)
+                    if adapter._uses_context
+                    else adapter.parse(_decls)
+                )
 
         for d in decls:
             logger.warning(f"Property {d} not recognized")
