@@ -11,13 +11,15 @@ adapters.dimension_converter = lambda prop, token, context: simple_dimension_con
 # str2 = dict(width="50%", aspect_ratio=1.5)
 # style2 = Style.from_dict(str2)
 
-str3 = "margin: 10px; margin-left: 5pt; column-gap: 7px; row-gap: 3px; margin-right: 5pt; left: 25px; align-content: center; overflow: hidden; overflow-x: scroll"
+str3 = "margin: 10px; margin-left: 5pt; column-gap: 7px; row-gap: 3px; flex-basis: 2.7px; aspect-ratio: 1.5; margin-right: 5pt; left: 25px; align-content: center; overflow: hidden; overflow-x: scroll"
 style3 = Style.from_str(str3)
 print(style3.margin)
 print(style3.align_content)
 print(style3.overflow_x, style3.overflow_y)
 print(style3.inset)
 print(style3.gap)
+print(style3.aspect_ratio)
+print(style3.flex_basis)
 
 # str4 = "margin: 5px 10px 5%"
 # style4 = Style.from_str(str4)

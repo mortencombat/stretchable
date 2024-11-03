@@ -21,14 +21,13 @@ from .geometry.length import (
     LengthPointsPercentAuto,
 )
 from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
-from .geometry.size import Size, SizePointsPercent, SizePointsPercentAuto
+from .geometry.size import SizePointsPercent, SizePointsPercentAuto
 from .props import (
     AlignContent,
     AlignItems,
     AlignSelf,
     BoxSizing,
     Display,
-    Edge,
     FlexDirection,
     FlexWrap,
     GridAutoFlow,
@@ -43,30 +42,13 @@ logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
 """
-
-Use the concept of a property adapter, which takes:
-  a range of declarations (can include CSS shorthands)
-and returns:
-  a dictionary of properties with parsed values (may be one property or multiple)
-
-For example:
-  margin: 10px; margin-left: 5px; margin-right: 5px
-returns:
-  margin: RectPointsPercentAuto(10, 5, 10, 5)
-
-The adapter should define:
-    which CSS property names it can handle
-    
-
-The caller will consume the recognized CSS properties and pass it to the adapter.
-
-The adapter will return a dictionary of properties with parsed values.
-
-Use an instanced class because it enables using the same adapter for different
-properties, fx margin, border and padding
-
-TODO: Consider if prefix should be supported by the base class and base class contain a default implementation of parse_single
+TODO: Consider if prefix should be supported by the base class
 TODO: Consider order of styles passed to from_decl
+
+TODO: Props remaining:
+    grid-template-rows, grid-template-columns
+    grid-auto-rows, grid-auto-columns
+    grid-row, grid-column
 """
 
 Token = Union[DimensionToken, PercentageToken]
@@ -215,9 +197,10 @@ def simple_dimension_converter(
 
 class Adapter:
     def __init__(self, resolvers: list[str, callable]):
-        self._resolvers = resolvers
-        self._recognized_props = [name for name, _ in resolvers]
-        self._uses_context = False
+        self._resolvers = [
+            r if isinstance(r, tuple) else (r, lambda n, v: {n: v}) for r in resolvers
+        ]
+        self._recognized_props = [n for n, _ in self._resolvers]
 
     @property
     def recognized_props(self) -> list[str]:
@@ -266,8 +249,8 @@ class EnumAdapter(Adapter):
                     self._name,
                     lambda name, value: {"overflow-x": value, "overflow-y": value},
                 ),
-                (f"{self._name}-x", lambda name, value: {name: value}),
-                (f"{self._name}-y", lambda name, value: {name: value}),
+                f"{self._name}-x",
+                f"{self._name}-y",
             ]
             pass
         else:
@@ -390,6 +373,34 @@ class RectAdapter(Adapter):
         return {self._prop: self._prop_map[self._prop](**values)}
 
 
+class FloatAdapter(Adapter):
+    def __init__(self, prop: str):
+        self._prop = prop
+        super().__init__([(prop, lambda name, value: {name: value})])
+
+    def parse_value(
+        self,
+        name: str,
+        value: list[Token],
+        context: object | None = None,
+    ) -> Union[float, None]:
+        if not value:
+            return None
+        value = strip(value)
+        if len(value) != 1:
+            raise ValueError(f"Invalid value for {name}")
+        value = value[0]
+        if not isinstance(value, NumberToken):
+            raise ValueError(f"Unsupported token {value}")
+        return float(value.value)
+
+    def parse(
+        self, decl: list[Declaration], context: object | None = None
+    ) -> dict[str, object]:
+        values = super()._parse(decl, context=context)
+        return values
+
+
 class SizeAdapter(Adapter):
     def __init__(
         self,
@@ -411,8 +422,8 @@ class SizeAdapter(Adapter):
         resolvers = []
         if prop_shorthand:
             resolvers.append((prop_shorthand, self.parse_shorthand))
-        resolvers.append((prop_width, self.parse_single))
-        resolvers.append((prop_height, self.parse_single))
+        resolvers.append(prop_width)
+        resolvers.append(prop_height)
 
         super().__init__(resolvers)
 
@@ -477,6 +488,55 @@ class SizeAdapter(Adapter):
         }
 
 
+class LengthAdapter(Adapter):
+    def __init__(
+        self,
+        prop: str,
+    ):
+        # Check if prop is supported
+        if prop not in self._prop_map:
+            raise ValueError(f"LengthAdapter cannot be used for {prop}")
+
+        self._prop = prop
+
+        # Define resolvers
+        resolvers = [
+            to_css_prop_name(prop),
+        ]
+
+        super().__init__(resolvers)
+
+    _prop_map: dict[str, Rect] = {
+        "flex_basis": LengthPointsPercentAuto,
+    }
+
+    def parse_value(
+        self,
+        name: str,
+        value: list[Token],
+        context: object | None = None,
+    ) -> Union[LengthPointsPercent, LengthPointsPercentAuto, None]:
+        if not value:
+            return None
+        value = strip(value)
+        if len(value) != 1:
+            raise ValueError(f"Invalid value for {name}")
+        value = value[0]
+        if isinstance(value, PercentageToken):
+            return LengthPointsPercent.percent(value.value / 100)
+        if not isinstance(value, (DimensionToken, NumberToken)):
+            raise ValueError(f"Unsupported token {value}")
+        value = adapters.dimension_converter(name, value, context)
+        # TODO: check if value is AUTO and if that is supported
+        return value
+
+    def parse(
+        self, decl: list[Declaration], context: object | None = None
+    ) -> dict[str, object]:
+        values = super()._parse(decl, context=context)
+        return values
+
+
 class Adapters:
     def __init__(self, *adapters: Adapter):
         # Check for duplicate properties
@@ -526,11 +586,8 @@ class Adapters:
                 if prop in decls:
                     _decls.append(decls.pop(prop))
             if _decls:
-                props.update(
-                    adapter.parse(_decls, context)
-                    if adapter._uses_context
-                    else adapter.parse(_decls)
-                )
+                for prop, value in adapter.parse(_decls, context).items():
+                    props[prop.lower().replace("-", "_")] = value
 
         for d in decls:
             logger.warning(f"Property {d} not recognized")
@@ -552,6 +609,16 @@ adapters = Adapters(
             ("size", "width", "height"),
         )
     ],
+    *[
+        FloatAdapter(prop)
+        for prop in (
+            "aspect-ratio",
+            "flex-grow",
+            "flex-shrink",
+            "scrollbar-width",
+        )
+    ],
+    LengthAdapter("flex_basis"),
     *[
         EnumAdapter(enum)
         for enum in (
