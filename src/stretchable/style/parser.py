@@ -215,18 +215,6 @@ class Adapter:
 
         return values
 
-    def parse_value(self, name: str, value: list[Token]) -> object | None:
-        raise NotImplementedError("parse_value must be implemented in subclass")
-
-    def parse(self, decl: list[Declaration]) -> dict[str, object]:
-        raise NotImplementedError("parse must be implemented in subclass")
-
-
-class AdapterContext(Adapter):
-    def __init__(self, resolvers: list[str, callable]):
-        super().__init__(resolvers)
-        self._uses_context = True
-
     def parse_value(
         self, name: str, value: list[Token], context: object | None = None
     ) -> object | None:
@@ -256,7 +244,9 @@ class EnumAdapter(Adapter):
             resolvers = [(self._name, lambda name, value: {name: value})]
         super().__init__(resolvers)
 
-    def parse_value(self, name: str, value: list[Token]) -> Enum:
+    def parse_value(
+        self, name: str, value: list[Token], context: object | None = None
+    ) -> Enum:
         if not value:
             raise ValueError(f"Missing value for {name}")
         value = strip(value)
@@ -270,12 +260,14 @@ class EnumAdapter(Adapter):
         except KeyError:
             raise ValueError(f"Invalid value {value.value} for {name}")
 
-    def parse(self, decl: list[Declaration]) -> dict[str, object]:
+    def parse(
+        self, decl: list[Declaration], context: object | None = None
+    ) -> dict[str, object]:
         values = super()._parse(decl)
         return {name.replace("-", "_"): values[name] for name in values}
 
 
-class RectAdapter(AdapterContext):
+class RectAdapter(Adapter):
     def __init__(self, prop: str, *, prefix: str = None, labels: list[str] = None):
         # Check if prop is supported
         if prop not in self._prop_map:
