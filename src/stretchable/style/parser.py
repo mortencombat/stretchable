@@ -21,6 +21,7 @@ from .geometry.length import (
     LengthPointsPercentAuto,
 )
 from .geometry.rect import Rect, RectPointsPercent, RectPointsPercentAuto
+from .geometry.size import Size, SizePointsPercent, SizePointsPercentAuto
 from .props import (
     AlignContent,
     AlignItems,
@@ -65,7 +66,7 @@ Use an instanced class because it enables using the same adapter for different
 properties, fx margin, border and padding
 
 TODO: Consider if prefix should be supported by the base class and base class contain a default implementation of parse_single
-
+TODO: Consider order of styles passed to from_decl
 """
 
 Token = Union[DimensionToken, PercentageToken]
@@ -183,6 +184,35 @@ def split(
     return sets
 
 
+def standard_dimension_converter(
+    prop: str, token: DimensionToken | NumberToken, context: object
+) -> Length:
+    if isinstance(token, DimensionToken) and token.unit:
+        if token.unit != "auto":
+            raise ValueError(f"Unsupported unit {token.unit}")
+        return LengthPointsPercentAuto.auto()
+    return LengthPoints.points(token.value)
+
+
+def simple_dimension_converter(
+    prop: str,
+    token: DimensionToken | NumberToken,
+    context: object,
+    *,
+    unit_scales: dict[str, float],
+    require_unit: bool = False,
+) -> Length:
+    if not isinstance(token, DimensionToken) or not token.unit:
+        if require_unit:
+            raise ValueError(f"Missing unit for {prop}: {token}")
+        return LengthPoints.points(token.value)
+    elif token.unit == "auto":
+        return LengthPointsPercentAuto.auto()
+    elif token.unit in unit_scales:
+        return LengthPoints.points(token.value * unit_scales[token.unit])
+    raise ValueError(f"Unsupported unit {token.unit} for {prop}")
+
+
 class Adapter:
     def __init__(self, resolvers: list[str, callable]):
         self._resolvers = resolvers
@@ -268,14 +298,14 @@ class EnumAdapter(Adapter):
 
 
 class RectAdapter(Adapter):
-    def __init__(self, prop: str, *, prefix: str = None, labels: list[str] = None):
+    def __init__(self, prop: str, *, prefix: str = None):
         # Check if prop is supported
         if prop not in self._prop_map:
             raise ValueError(f"RectAdapter cannot be used for {prop}")
 
         self._prop = prop
         self._prefix = prefix
-        self._labels = labels or ["top", "right", "bottom", "left"]
+        self._labels = ["top", "right", "bottom", "left"]
 
         # Define resolvers
         resolvers = []
@@ -330,7 +360,7 @@ class RectAdapter(Adapter):
         self,
         name: str,
         value: list[Token],
-    ) -> dict[str, Union[LengthPointsPercent, LengthPointsPercentAuto]]:
+    ) -> dict[str, list[Token]]:
         return {name.removeprefix(f"{self._prefix}-"): value}
 
     def parse_value(
@@ -339,8 +369,6 @@ class RectAdapter(Adapter):
         value: list[Token],
         context: object | None = None,
     ) -> Union[LengthPointsPercent, LengthPointsPercentAuto, None]:
-        #   how to support relative/alternative units (fx em, rem, etc.), via a hook?
-        #   how to provide context for the hook method?
         if not value:
             return None
         value = strip(value)
@@ -362,33 +390,91 @@ class RectAdapter(Adapter):
         return {self._prop: self._prop_map[self._prop](**values)}
 
 
-def standard_dimension_converter(
-    prop: str, token: DimensionToken | NumberToken, context: object
-) -> Length:
-    if isinstance(token, DimensionToken) and token.unit:
-        if token.unit != "auto":
-            raise ValueError(f"Unsupported unit {token.unit}")
-        return LengthPointsPercentAuto.auto()
-    return LengthPoints.points(token.value)
+class SizeAdapter(Adapter):
+    def __init__(
+        self,
+        prop: str,
+        prop_width: str,
+        prop_height: str,
+        *,
+        prop_shorthand: str = None,
+    ):
+        # Check if prop is supported
+        if prop not in self._prop_map:
+            raise ValueError(f"SizeAdapter cannot be used for {prop}")
 
+        self._prop = prop
+        self._prop_width = prop_width
+        self._prop_height = prop_height
 
-def simple_dimension_converter(
-    prop: str,
-    token: DimensionToken | NumberToken,
-    context: object,
-    *,
-    unit_scales: dict[str, float],
-    require_unit: bool = False,
-) -> Length:
-    if not isinstance(token, DimensionToken) or not token.unit:
-        if require_unit:
-            raise ValueError(f"Missing unit for {prop}: {token}")
-        return LengthPoints.points(token.value)
-    elif token.unit == "auto":
-        return LengthPointsPercentAuto.auto()
-    elif token.unit in unit_scales:
-        return LengthPoints.points(token.value * unit_scales[token.unit])
-    raise ValueError(f"Unsupported unit {token.unit} for {prop}")
+        # Define resolvers
+        resolvers = []
+        if prop_shorthand:
+            resolvers.append((prop_shorthand, self.parse_shorthand))
+        resolvers.append((prop_width, self.parse_single))
+        resolvers.append((prop_height, self.parse_single))
+
+        super().__init__(resolvers)
+
+    _prop_map: dict[str, Rect] = {
+        "gap": SizePointsPercent,
+        "min_size": SizePointsPercentAuto,
+        "max_size": SizePointsPercentAuto,
+        "size": SizePointsPercentAuto,
+    }
+
+    def parse_shorthand(
+        self,
+        name,
+        value: list[Token],
+    ) -> dict[str, Union[LengthPointsPercent, LengthPointsPercentAuto]]:
+        values = split(strip(value))
+        n = len(values)
+        if n == 1:
+            values *= 2
+        elif n != 2:
+            raise ValueError(f"Invalid number of values for {name}")
+        return {
+            self._prop_width: values[0],
+            self._prop_height: values[1],
+        }
+
+    def parse_single(
+        self,
+        name: str,
+        value: list[Token],
+    ) -> dict[str, list[Token]]:
+        return {name: value}
+
+    def parse_value(
+        self,
+        name: str,
+        value: list[Token],
+        context: object | None = None,
+    ) -> Union[LengthPointsPercent, LengthPointsPercentAuto, None]:
+        if not value:
+            return None
+        value = strip(value)
+        if len(value) != 1:
+            raise ValueError(f"Invalid value for {name}")
+        value = value[0]
+        if isinstance(value, PercentageToken):
+            return LengthPointsPercent.percent(value.value / 100)
+        if not isinstance(value, (DimensionToken, NumberToken)):
+            raise ValueError(f"Unsupported token {value}")
+        value = adapters.dimension_converter(name, value, context)
+        # TODO: check if value is AUTO and if that is supported
+        return value
+
+    def parse(
+        self, decl: list[Declaration], context: object | None = None
+    ) -> dict[str, object]:
+        values = super()._parse(decl, context=context)
+        return {
+            self._prop: self._prop_map[self._prop](
+                width=values[self._prop_width], height=values[self._prop_height]
+            )
+        }
 
 
 class Adapters:
@@ -427,6 +513,9 @@ class Adapters:
         :type decl: list[Declaration]
         :return: Properties with parsed values
         :rtype: dict[str, object]
+
+        TODO: Consider order of decl, order is lowest to highest priority
+              Check how this works with shorthands
         """
 
         props: dict[str, object] = {}
@@ -453,6 +542,15 @@ adapters = Adapters(
     *[
         RectAdapter(prop, prefix=prop if prop != "inset" else None)
         for prop in ("inset", "margin", "border", "padding")
+    ],
+    *[
+        SizeAdapter(p, w, h, prop_shorthand=p if p == "gap" else None)
+        for p, w, h in (
+            ("gap", "column-gap", "row-gap"),
+            ("min_size", "min-width", "min-height"),
+            ("max_size", "max-width", "max-height"),
+            ("size", "width", "height"),
+        )
     ],
     *[
         EnumAdapter(enum)
