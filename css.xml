@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<props>
+    <margin type="length|percentage|auto" rect="true" initial="0">
+        <margin-top />
+        <margin-right />
+        <margin-bottom />
+        <margin-left />
+    </margin>
+    <padding type="length|percentage" rect="true" initial="0">
+        <padding-top />
+        <padding-right />
+        <padding-bottom />
+        <padding-left />
+    </padding>
+    <border>
+        <border-width type="keyword|length" rect="true" keywords="thin, medium, thick" initial="medium">
+            <border-top-width />
+            <border-right-width />
+            <border-bottom-width />
+            <border-left-width />
+        </border-width>
+        <border-style type="keyword" rect="true" keywords="none, hidden, dotted, dashed, solid, double, groove, ridge, inset, outset" initial="none">
+            <border-top-style />
+            <border-right-style />
+            <border-bottom-style />
+            <border-left-style />
+        </border-style>
+        <border-color type="color" rect="true" initial="currentcolor">
+            <border-top-color />
+            <border-right-color />
+            <border-bottom-color />
+            <border-left-color />
+        </border-color>
+    </border>
+    <gap type="keyword|length|percentage" keywords="normal" initial="normal">
+        <column-gap />
+        <row-gap default="column-gap" />
+    </gap>
+    <flex>
+        <flex-grow type="number" initial="0" />
+        <flex-shrink type="number" initial="1" />
+        <flex-basis type="keyword|length|auto" keywords="max-content, min-content, fit-content" initial="auto" />
+    </flex>
+    <flex-direction type="keyword" keywords="row, row-reverse, column, column-reverse" initial="row" />
+    <!-- NOTE: grid shorthand is not currently supported -->
+    <grid-auto-columns type="keyword|length|percentage|function|auto" keywords="min-content, max-content" functions="minmax, fit-content" multiple="true" />
+    <grid-auto-flow type="keyword" keywords="row, column, dense, row dense, column dense" initial="row" />
+    <grid-auto-rows type="keyword|length|percentage|function|auto" keywords="min-content, max-content" functions="minmax, fit-content" multiple="true" />
+    <grid-template-areas />
+    <grid-template-columns type="keyword|length|function" keywords="none, subgrid, masonry" functions="minmax, fit-content, repeat" multiple="true" />
+    <grid-template-rows type="keyword|length|function" keywords="none, subgrid, masonry" functions="minmax, fit-content, repeat" multiple="true" />
+</props>
+
+<!-- 
+
+NOTE: order of properties is important. 
+
+Example:
+    border-top-color: green
+    border-color: red
+will set all border colors to red, because border-color is defined after border-top-color.
+
+Whereas:
+    border-color: red
+    border-top-color: green
+will set all border colors to red, except for the top border which will be green.
+
+The parser will process supplied properties in the order received. This means
+that properties should be supplied in increasing order of specificity. 
+
+How to handle 1-4 value and 1-2 value shorthands? 
+Consider that grid-auto-flow can have two IdentToken corresponding to a single keyword value.
+Functions should be predefined:
+    minmax(min, max): 
+        min: length|percentage|auto|min-content|max-content
+        max: length|percentage|auto|min-content|max-content
+    fit-content(length|percentage)
+    repeat(count, tracks)
+
+How to handle gracefully fx grid-template-areas which is not supported?
+
+auto type is a "shortcut" for a keyword type with the only allowed value being "auto". If keyword type is also defined, auto will be added to the list of allowed keywords.
+-->
