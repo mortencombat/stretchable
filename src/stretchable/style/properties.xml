@@ -46,9 +46,10 @@
     <grid-auto-columns type="keyword|length|percentage|function|auto" keywords="min-content, max-content" functions="minmax, fit-content" multiple="true" />
     <grid-auto-flow type="keyword" keywords="row, column, dense, row dense, column dense" initial="row" />
     <grid-auto-rows type="keyword|length|percentage|function|auto" keywords="min-content, max-content" functions="minmax, fit-content" multiple="true" />
-    <grid-template-areas />
+    <!-- <grid-template-areas /> -->
     <grid-template-columns type="keyword|length|function" keywords="none, subgrid, masonry" functions="minmax, fit-content, repeat" multiple="true" />
     <grid-template-rows type="keyword|length|function" keywords="none, subgrid, masonry" functions="minmax, fit-content, repeat" multiple="true" />
+    <aspect-ratio type="ratio" initial="auto" />
 </props>
 
 <!-- 
