@@ -35,11 +35,12 @@ jobs:
       - name: Create new branch, add tests and create PR
         run: |
           # Find most recent test branch
-          $latest_branch = git branch -r | Where-Object { $_ -match 'origin/tests/add-tests-\d+\.\d+$' } | 
+          $latest_branch = git branch -r | Where-Object { $_ -match 'origin/tests/add-tests-\d{8}$' } | 
             ForEach-Object { $_.Trim() } | Sort-Object -Descending | Select-Object -First 1
           
-          # Create new branch name
-          $branch = "tests/add-tests-${{ github.run_number }}.${{ github.run_attempt }}"
+          # Create new branch name with date suffix (YYYYMMDD)
+          $date = Get-Date -Format "yyyyMMdd"
+          $branch = "tests/add-tests-$date"
           
           if ($latest_branch) {
             # Checkout from the latest branch without tracking
