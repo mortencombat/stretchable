@@ -51,6 +51,7 @@ jobs:
           $files = 0
           $targetBasePath = "tests/fixtures"
           $stylesheet = get-item "./tests/fixtures/base_style.css"
+          $existing_files = (git ls-tree -r HEAD --name-only) -split "\n"
           foreach ($item in Get-ChildItem -Path "../taffy/test_fixtures" -Recurse -Filter *.html)
           {
             if ($item.BaseName.StartsWith("x")) {
@@ -59,9 +60,9 @@ jobs:
             
             $relPath = ($item | Resolve-Path -RelativeBasePath "../taffy/test_fixtures" -Relative).TrimStart("./")
             $targetPath = Join-Path $targetBasePath $relPath
-            if (git ls-tree -r HEAD --name-only | Select-String -Pattern [regex]::Escape($targetPath)) {
+            if ($existing_files -contains $targetPath) {
               continue;
-            }            
+            }
 
             # Process source file and write processed file at target path
             # - Remove <script> block
