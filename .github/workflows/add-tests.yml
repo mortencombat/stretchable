@@ -52,6 +52,7 @@ jobs:
           $targetBasePath = "tests/fixtures"
           $stylesheet = get-item "./tests/fixtures/base_style.css"
           $existing_files = (git ls-tree -r HEAD --name-only) -split "\n"
+          Write-Host "Existing files: $existing_files"
           foreach ($item in Get-ChildItem -Path "../taffy/test_fixtures" -Recurse -Filter *.html)
           {
             if ($item.BaseName.StartsWith("x")) {
@@ -60,7 +61,9 @@ jobs:
             
             $relPath = ($item | Resolve-Path -RelativeBasePath "../taffy/test_fixtures" -Relative).TrimStart("./")
             $targetPath = Join-Path $targetBasePath $relPath
+            Write-Host "Target path: $targetPath"
             if ($existing_files -contains $targetPath) {
+              Write-Host "Skipping $targetPath because it already exists"
               continue;
             }
 
