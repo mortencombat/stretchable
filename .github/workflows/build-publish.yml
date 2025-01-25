@@ -44,7 +44,7 @@ jobs:
           - target: x86_64
             arch: x64
           - target: aarch64
-            arch: x64
+            arch: arm64
 
     runs-on: ${{ matrix.os }}
     steps:
