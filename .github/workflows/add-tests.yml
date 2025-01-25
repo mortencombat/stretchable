@@ -101,8 +101,10 @@ jobs:
             git commit -m "test(layout): add $($files) new tests from Taffy repo"
 
             # Push to origin and create PR
-            git push -u origin $($branch)
-            gh pr create --head $($branch) --base refs/heads/main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
+            # git push -u origin $($branch)
+            # gh pr create --head $($branch) --base refs/heads/main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
+            git push origin HEAD:$branch
+            gh pr create --head $branch --base main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
           }
 
         shell: pwsh
