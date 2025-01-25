@@ -40,7 +40,7 @@ jobs:
           
           if ($latest_branch) {
             # Checkout from the latest branch instead of main
-            git checkout -b $branch ($latest_branch -replace 'origin/')
+            git checkout -b $branch $latest_branch
             Write-Host "Created new branch $branch from $latest_branch"
           } else {
             # If no previous branch exists, create from main
