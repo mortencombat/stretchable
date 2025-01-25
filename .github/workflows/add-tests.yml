@@ -59,7 +59,7 @@ jobs:
             
             $relPath = ($item | Resolve-Path -RelativeBasePath "../taffy/test_fixtures" -Relative).TrimStart("./")
             $targetPath = Join-Path $targetBasePath $relPath
-            if (Test-Path $targetPath) {
+            if (git ls-tree -r HEAD --name-only | Select-String -Pattern [regex]::Escape($targetPath)) {
               continue;
             }            
 
@@ -101,8 +101,6 @@ jobs:
             git commit -m "test(layout): add $($files) new tests from Taffy repo"
 
             # Push to origin and create PR
-            # git push -u origin $($branch)
-            # gh pr create --head $($branch) --base refs/heads/main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
             git push origin HEAD:$branch
             gh pr create --head $branch --base main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
           }
