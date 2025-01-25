@@ -102,14 +102,17 @@ jobs:
           args: --release --out dist -m Cargo.toml -v
           command: build
           rust-toolchain: stable
-          sccache: true
+          sccache: false
       - name: Build wheels (musllinux)
         uses: PyO3/maturin-action@v1
         if: matrix.os == 'ubuntu-latest'
         with:
           target: ${{ matrix.target }}-unknown-linux-musl
           manylinux: musllinux_1_2
-          args: --release --out dist -m Cargo.toml
+          args: --release --out dist -m Cargo.toml -v
+          command: build
+          rust-toolchain: stable
+          sccache: false
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
