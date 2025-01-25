@@ -102,7 +102,6 @@ jobs:
           args: --release --out dist -m Cargo.toml -v
           command: build
           rust-toolchain: stable
-          sccache: true
       - name: Build wheels (musllinux)
         uses: PyO3/maturin-action@v1
         if: matrix.os == 'ubuntu-latest'
