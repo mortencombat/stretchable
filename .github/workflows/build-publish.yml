@@ -75,6 +75,7 @@ jobs:
         if: matrix.target == 'aarch64-pc-windows-msvc'
         run: |
           rustup target add aarch64-pc-windows-msvc
+          rustup toolchain install stable-aarch64-pc-windows-msvc
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -101,6 +102,7 @@ jobs:
           args: --release --out dist -m Cargo.toml -v
           command: build
           rust-toolchain: stable
+          sccache: true
       - name: Build wheels (musllinux)
         uses: PyO3/maturin-action@v1
         if: matrix.os == 'ubuntu-latest'
