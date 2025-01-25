@@ -35,6 +35,8 @@ jobs:
     needs: prepare
     strategy:
       matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        target: [x86_64, aarch64]
         include:
           # Windows builds
           - os: windows-latest
@@ -42,7 +44,7 @@ jobs:
             arch: x64
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            arch: arm64
+            arch: x64
           - os: windows-latest
             target: i686
             arch: x86
