@@ -15,20 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 'refs/heads/main'
-          path: 'stretchable'
-          fetch-depth: 0
-          sparse-checkout: |
-            tests/fixtures
-
-      - uses: actions/checkout@v4
-        with:
           repository: 'DioxusLabs/Taffy'
           ref: 'refs/heads/main'
           path: 'taffy'
           sparse-checkout: |
             test_fixtures
           persist-credentials: false
+
+      - uses: actions/checkout@v4
+        with:
+          ref: 'refs/heads/main'
+          path: 'stretchable'
+          fetch-depth: 0
+          sparse-checkout: |
+            tests/fixtures
 
       - run: |
           # Find most recent test branch
