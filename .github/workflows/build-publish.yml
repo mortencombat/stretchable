@@ -35,16 +35,33 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        target: [x86_64, aarch64]
         include:
+          # Windows builds
+          - os: windows-latest
+            target: x86_64
+            arch: x64
+          - os: windows-latest
+            target: aarch64
+            arch: arm64
           - os: windows-latest
             target: i686
             arch: x86
-          - target: x86_64
+          
+          # macOS builds
+          - os: macos-latest
+            target: x86_64
             arch: x64
-          - target: aarch64
-            arch: arm64
+          - os: macos-latest
+            target: aarch64
+            arch: x64
+          
+          # Ubuntu builds
+          - os: ubuntu-latest
+            target: x86_64
+            arch: x64
+          - os: ubuntu-latest
+            target: aarch64
+            arch: x64
 
     runs-on: ${{ matrix.os }}
     steps:
