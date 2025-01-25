@@ -15,6 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: 'refs/heads/main'
+          path: 'stretchable'
+          fetch-depth: 0
+          sparse-checkout: |
+            tests/fixtures
+
+      - uses: actions/checkout@v4
+        with:
           repository: 'DioxusLabs/Taffy'
           ref: 'refs/heads/main'
           path: 'taffy'
@@ -22,17 +30,24 @@ jobs:
             test_fixtures
           persist-credentials: false
 
-      - uses: actions/checkout@v4
-        with:
-          ref: 'refs/heads/main'
-          path: 'stretchable'
-          sparse-checkout: |
-            tests/fixtures
-
       - run: |
-          # Create branch
-          $branch = "tests/add-tests-${{ github.run_number }}.${{ github.run_attempt }}"
-          git checkout -b $($branch)
+          # Find most recent test branch
+          $latest_branch = git branch -r | Where-Object { $_ -match 'origin/tests/add-tests-\d+\.\d+$' } | 
+            ForEach-Object { $_.Trim() } | Sort-Object -Descending | Select-Object -First 1
+          
+          # Create new branch name
+          $new_branch = "tests/add-tests-${{ github.run_number }}.${{ github.run_attempt }}"
+          echo "new_branch=$new_branch" >> $env:GITHUB_OUTPUT
+          
+          if ($latest_branch) {
+            # Checkout from the latest branch instead of main
+            git checkout -b $new_branch ($latest_branch -replace 'origin/')
+            Write-Host "Created new branch $new_branch from $latest_branch"
+          } else {
+            # If no previous branch exists, create from main
+            git checkout -b $new_branch
+            Write-Host "Created new branch $new_branch from main"
+          }
 
           $files = 0
           $targetBasePath = "tests/fixtures"
