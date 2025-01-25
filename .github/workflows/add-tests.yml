@@ -13,7 +13,8 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Taffy
+        uses: actions/checkout@v4
         with:
           repository: 'DioxusLabs/Taffy'
           ref: 'refs/heads/main'
@@ -22,7 +23,8 @@ jobs:
             test_fixtures
           persist-credentials: false
 
-      - uses: actions/checkout@v4
+      - name: Checkout stretchable
+        uses: actions/checkout@v4
         with:
           ref: 'refs/heads/main'
           path: 'stretchable'
@@ -30,7 +32,8 @@ jobs:
           sparse-checkout: |
             tests/fixtures
 
-      - run: |
+      - name: Create new branch, add tests and create PR
+        run: |
           # Find most recent test branch
           $latest_branch = git branch -r | Where-Object { $_ -match 'origin/tests/add-tests-\d+\.\d+$' } | 
             ForEach-Object { $_.Trim() } | Sort-Object -Descending | Select-Object -First 1
@@ -39,8 +42,8 @@ jobs:
           $branch = "tests/add-tests-${{ github.run_number }}.${{ github.run_attempt }}"
           
           if ($latest_branch) {
-            # Checkout from the latest branch instead of main
-            git checkout -b $branch $latest_branch
+            # Checkout from the latest branch without tracking
+            git checkout --no-track -b $branch $latest_branch
             Write-Host "Created new branch $branch from $latest_branch"
           } else {
             # If no previous branch exists, create from main
@@ -88,10 +91,12 @@ jobs:
           
               $processed += $line
             }            
-            if ($has_style) {
-                Out-File -FilePath $targetPath -InputObject $processed -encoding utf8
+            if (-not $has_style) {
+              Write-Host "Skipping $targetPath because it doesn't have a stylesheet"
+              continue;
             }
 
+            Out-File -FilePath $targetPath -InputObject $processed -encoding utf8
             $files++;
           }
 
@@ -105,7 +110,8 @@ jobs:
             git commit -m "test(layout): add $($files) new tests from Taffy repo"
 
             # Push to origin and create PR
-            git push origin HEAD:$branch
+            git push -u origin $branch
+            # git push origin HEAD:$branch
             gh pr create --head $branch --base main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
           }
 
