@@ -23,7 +23,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "attrs>=23.1.0,<24.0",
+    "attrs>=23.1,<26.0",
     ]
 
 [tool.maturin]
