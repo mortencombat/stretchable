@@ -41,16 +41,6 @@ from .props import (
 logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
-"""
-TODO: Consider if prefix should be supported by the base class
-TODO: Consider order of styles passed to from_decl
-
-TODO: Props remaining:
-    grid-template-rows, grid-template-columns
-    grid-auto-rows, grid-auto-columns
-    grid-row, grid-column
-"""
-
 Token = Union[DimensionToken, PercentageToken]
 
 __PROP_NAME_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")

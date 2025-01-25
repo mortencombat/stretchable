@@ -580,7 +580,11 @@ class Node(list):
             taffy._ptr,
             ptr,
             available_space.to_dict(),
-            lambda known_width, known_height, available_width, available_height, context: _measure_callback(
+            lambda known_width,
+            known_height,
+            available_width,
+            available_height,
+            context: _measure_callback(
                 _node_refs,
                 known_width,
                 known_height,

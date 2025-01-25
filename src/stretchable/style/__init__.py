@@ -1,8 +1,16 @@
-from .core import (
+from .core import Style
+from .geometry.length import AUTO, NAN, PCT, PT, Length
+from .geometry.rect import Rect
+from .geometry.size import Size
+from .props import (
     AlignContent,
     AlignItems,
     AlignSelf,
+    BorderStyle,
+    BorderWidth,
+    BoxSizing,
     Display,
+    Edge,
     FlexDirection,
     FlexWrap,
     GridAutoFlow,
@@ -15,12 +23,8 @@ from .core import (
     JustifySelf,
     Overflow,
     Position,
-    Style,
+    ScrollbarWidth,
 )
-from .geometry.length import AUTO, NAN, PCT, PT, Length
-from .geometry.rect import Rect
-from .geometry.size import Size
-from .props import Edge
 
 __all__ = [
     "Style",
@@ -43,6 +47,10 @@ __all__ = [
     "AlignSelf",
     "AlignItems",
     "AlignContent",
+    "ScrollbarWidth",
+    "BorderWidth",
+    "BorderStyle",
+    "BoxSizing",
     "Edge",
     "PT",
     "PCT",

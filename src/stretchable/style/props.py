@@ -69,8 +69,8 @@ class BoxSizing(IntEnum):
     See `box-sizing <https://developer.mozilla.org/en-US/docs/Web/CSS/box-sizing>`_ on MDN for more information.
     """
 
-    BORDER = 0
-    CONTENT = 1
+    BORDER_BOX = 0
+    CONTENT_BOX = 1
 
 
 class Overflow(IntEnum):
@@ -83,6 +83,17 @@ class Overflow(IntEnum):
     HIDDEN = 1
     SCROLL = 2
     CLIP = 3
+
+
+class ScrollbarWidth(Enum):
+    """Controls the visibility of scrollbars.
+
+    See `scrollbar-width <https://developer.mozilla.org/en-US/docs/Web/CSS/scrollbar-width>`_ on MDN for more information.
+    """
+
+    AUTO = "auto"
+    THIN = "thin"
+    NONE = "none"
 
 
 class Position(IntEnum):
@@ -235,7 +246,7 @@ class FlexWrap(IntEnum):
     See `flex-wrap <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap>`_ on MDN for more information.
     """
 
-    NO_WRAP = 0
+    NOWRAP = 0
     WRAP = 1
     WRAP_REVERSE = 2
 
@@ -655,3 +666,32 @@ class GridPlacement:
 
 
 # endregion
+
+
+class BorderWidth(Enum):
+    """The width of the border around a node.
+
+    See `border-width <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>`_ on MDN for more information.
+    """
+
+    THIN = "thin"
+    MEDIUM = "medium"
+    THICK = "thick"
+
+
+class BorderStyle(Enum):
+    """The style of the border around a node.
+
+    See `border-style <https://developer.mozilla.org/en-US/docs/Web/CSS/border-style>`_ on MDN for more information.
+    """
+
+    NONE = "none"
+    HIDDEN = "hidden"
+    DOTTED = "dotted"
+    DASHED = "dashed"
+    SOLID = "solid"
+    DOUBLE = "double"
+    GROOVE = "groove"
+    RIDGE = "ridge"
+    INSET = "inset"
+    OUTSET = "outset"
