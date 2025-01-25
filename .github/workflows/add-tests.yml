@@ -26,13 +26,27 @@ jobs:
         with:
           ref: 'refs/heads/main'
           path: 'stretchable'
+          fetch-depth: 0
           sparse-checkout: |
             tests/fixtures
 
       - run: |
-          # Create branch
+          # Find most recent test branch
+          $latest_branch = git branch -r | Where-Object { $_ -match 'origin/tests/add-tests-\d+\.\d+$' } | 
+            ForEach-Object { $_.Trim() } | Sort-Object -Descending | Select-Object -First 1
+          
+          # Create new branch name
           $branch = "tests/add-tests-${{ github.run_number }}.${{ github.run_attempt }}"
-          git checkout -b $($branch)
+          
+          if ($latest_branch) {
+            # Checkout from the latest branch instead of main
+            git checkout -b $branch ($latest_branch -replace 'origin/')
+            Write-Host "Created new branch $branch from $latest_branch"
+          } else {
+            # If no previous branch exists, create from main
+            git checkout -b $branch
+            Write-Host "Created new branch $branch from main"
+          }
 
           $files = 0
           $targetBasePath = "tests/fixtures"
