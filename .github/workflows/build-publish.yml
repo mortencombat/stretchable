@@ -42,14 +42,20 @@ jobs:
           if [[ "${{ github.ref }}" =~ $pattern ]]
           then
             ver="${BASH_REMATCH[1]}"
-            pub="true"
+            if [[ -n "${BASH_REMATCH[2]}" ]]
+            then
+              pub="false"
+            else
+              pub="true"
+            fi
           else
             ver=""
             pub="false"
           fi
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "publish=$pub" >> "$GITHUB_OUTPUT"
-
+          echo "version=$ver"
+          echo "publish=$pub"
   build:
     name: Build packages
     needs: prepare
