@@ -54,8 +54,8 @@ jobs:
           fi
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "publish=$pub" >> "$GITHUB_OUTPUT"
-          echo "version=$ver"
-          echo "publish=$pub"
+          echo "Version: $ver"
+          echo "Publish: $pub"
   build:
     name: Build packages
     needs: prepare
