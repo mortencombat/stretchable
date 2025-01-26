@@ -1,9 +1,10 @@
 [build-system]
-requires = ["maturin>=1.7.4,<2.0"]
+requires = ["maturin>=1.8.1,<2.0"]
 build-backend = "maturin"
 
 [project]
 name = "stretchable"
+version = "1.2.0"
 requires-python = ">=3.8"
 keywords = ["flexbox", "grid", "block", "stretch", "css", "layout"]
 classifiers = [
@@ -32,7 +33,7 @@ module-name = "stretchable.taffylib"
 
 [project.optional-dependencies]
 build = [
-    "maturin>=1.7.4,<2.0",
+    "maturin>=1.8.1,<2.0",
     "build",
     "twine",
 ]

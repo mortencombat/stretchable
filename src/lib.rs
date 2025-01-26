@@ -7,7 +7,8 @@ use taffy::Overflow;
 use std::f32;
 
 extern crate dict_derive;
-use dict_derive::{FromPyObject, IntoPyObject};
+// use dict_derive::FromPyObject;
+// use dict_derive::FromPyObject;
 
 extern crate pyo3;
 use pyo3::prelude::*;
@@ -177,7 +178,9 @@ impl FromIndex<GridAutoFlow> for GridAutoFlow {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+// #[pyclass]
+// #[derive(FromPyObject)]
+#[derive(Clone, dict_derive::FromPyObject, dict_derive::IntoPyObject)]
 struct PyLength {
     dim: i32,
     value: f32,
@@ -239,9 +242,12 @@ impl From<PyLength> for LengthPercentage {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
 pub struct PySize {
+    #[pyo3(get, set)]
     width: PyLength,
+    #[pyo3(get, set)]
     height: PyLength,
 }
 
@@ -272,7 +278,8 @@ impl From<PySize> for Size<AvailableSpace> {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
 pub struct PyRect {
     left: PyLength,
     right: PyLength,
@@ -313,7 +320,8 @@ impl From<PyRect> for Rect<Dimension> {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
 pub struct PyGridIndex {
     kind: i8,
     value: i16,
@@ -329,7 +337,8 @@ impl From<PyGridIndex> for GridPlacement {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
 pub struct PyGridPlacement {
     start: PyGridIndex,
     end: PyGridIndex,
@@ -344,7 +353,8 @@ impl From<PyGridPlacement> for Line<GridPlacement> {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
 pub struct PyGridTrackSize {
     min_size: PyLength,
     max_size: PyLength,
@@ -373,7 +383,8 @@ impl FromIndex<GridTrackRepetition> for GridTrackRepetition {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
 pub struct PyGridTrackSizing {
     repetition: i32,
     single: Option<PyGridTrackSize>,
@@ -426,7 +437,8 @@ impl From<PyLength> for MaxTrackSizingFunction {
     }
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
 pub struct PyStyle {
     // Layout mode/strategy
     display: i32,
@@ -718,7 +730,7 @@ fn measure_function(
         match result {
             Ok(result) => result.extract(py).unwrap(),
             Err(err) => {
-                let traceback = match err.traceback_bound(py) {
+                let traceback = match err.traceback(py) {
                     Some(value) => match value.format() {
                         Ok(tb) => format!("{}\n", tb),
                         Err(_) => String::new(),
@@ -757,7 +769,9 @@ fn node_compute_layout_with_measure(taffy: usize, node_id: u64, available_space:
     result.is_ok()
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(FromPyObject)]
+#[allow(dead_code)]
 pub struct PyLayout {
     order: i64,
     location: Vec<f32>,
@@ -779,7 +793,6 @@ impl<T> FromPoint<T> for Vec<T> {
     }
 }
 
-
 trait FromSize<T> {
     fn from_size(value: taffy::geometry::Size<T>) -> Vec<T>;
 }
@@ -790,7 +803,6 @@ impl<T> FromSize<T> for Vec<T> {
     }
 }
 
-
 trait FromRect<T> {
     fn from_rect(value: taffy::geometry::Rect<T>) -> Vec<T>;
 }
@@ -800,7 +812,6 @@ impl<T> FromRect<T> for Vec<T> {
         vec![ value.top, value.right, value.bottom, value.left ]
     }
 }
-
 
 impl From<Layout> for PyLayout {
     fn from(layout: Layout) -> Self {

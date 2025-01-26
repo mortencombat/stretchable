@@ -590,7 +590,11 @@ class Node(list):
             taffy._ptr,
             ptr,
             available_space.to_dict(),
-            lambda known_width, known_height, available_width, available_height, context: _measure_callback(
+            lambda known_width,
+            known_height,
+            available_width,
+            available_height,
+            context: _measure_callback(
                 _node_refs,
                 known_width,
                 known_height,
@@ -614,8 +618,8 @@ class Node(list):
             raise LayoutNotComputedError
 
         layout = taffylib.node_get_layout(taffy._ptr, self._node_id)
-
-        self._zorder = layout["order"]
+        print(dir(layout))
+        self._zorder = layout.order  # ["order"]
 
         # Border box
         box = Box(*layout["location"], *layout["size"])

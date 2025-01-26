@@ -8,6 +8,13 @@ T = TypeVar("T")
 NAN = float("nan")
 
 
+# class PyLength(NamedTuple):
+#     """A named tuple representing a length with scale and value."""
+
+#     scale: int
+#     value: float
+
+
 class Scale(IntEnum):
     """All available length scales/settings (support is context-dependent)."""
 
@@ -101,7 +108,7 @@ class LengthBase(Generic[T]):
         elif self.scale == Scale.POINTS:
             return f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
         elif self.scale == Scale.PERCENT:
-            return f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
+            return f"{self.value * 100:.2f} %" if not isnan(self.value) else "nan"
         elif self.scale == Scale.MIN_CONTENT:
             return "min-content"
         elif self.scale == Scale.MAX_CONTENT:
@@ -110,7 +117,7 @@ class LengthBase(Generic[T]):
             value = f"{self.value:.2f} pt" if not isnan(self.value) else "nan"
             return f"fit-content({value})"
         elif self.scale == Scale.FIT_CONTENT_PERCENT:
-            value = f"{self.value*100:.2f} %" if not isnan(self.value) else "nan"
+            value = f"{self.value * 100:.2f} %" if not isnan(self.value) else "nan"
             return f"fit-content({value})"
         elif self.scale == Scale.FLEX:
             return f"{self.value:.2f} fr" if not isnan(self.value) else "nan"
@@ -144,6 +151,7 @@ class LengthBase(Generic[T]):
         return cls(value.scale, value.value)
 
     def to_dict(self) -> dict[str, int | float]:
+        # return PyLength(self.scale.value, self.value)
         return dict(dim=self.scale.value, value=self.value)
 
     def to_pts(self, container: Optional[float] = None) -> float:
