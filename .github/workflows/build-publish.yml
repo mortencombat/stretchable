@@ -10,59 +10,62 @@ permissions:
 
 jobs:
   prepare:
-    name: Get release version
+    name: Get maturin version and release version
     runs-on: ubuntu-latest
     outputs:
+      maturin_version: ${{ steps.get-maturin-version.outputs.maturin_version }}
       version: ${{ steps.get-version.outputs.version }}
       publish: ${{ steps.get-version.outputs.publish }}
     steps:
-      - name: Get version from tag
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Get maturin version from pyproject.toml
+        id: get-maturin-version
+        shell: python
+        run: |
+          import os
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          maturin_req = next(req for req in data["build-system"]["requires"] if req.startswith("maturin"))
+          version = maturin_req.split(">=")[1] if ">=" in maturin_req else maturin_req.split("==")[1]
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"maturin_version={version}\n")
+          print(f"Maturin version: {version}")
+      - name: Get stretchable version from tag
         id: get-version
         run: |
           pattern="^refs\/tags\/v([0-9]+\.[0-9]+\.[0-9]+(-(a|alpha|b|beta|dev)[0-9]+)?)$"
           if [[ "${{ github.ref }}" =~ $pattern ]]
           then
             ver="${BASH_REMATCH[1]}"
-            pub="true"
+            if [[ -n "${BASH_REMATCH[2]}" ]]
+            then
+              pub="false"
+            else
+              pub="true"
+            fi
           else
             ver=""
             pub="false"
           fi
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "publish=$pub" >> "$GITHUB_OUTPUT"
-
+          echo "Version: $ver"
+          echo "Publish: $pub"
   build:
     name: Build packages
     needs: prepare
     strategy:
       matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        target: [x86_64, aarch64]
         include:
-          # Windows builds
-          # - os: windows-latest
-          #   target: x86_64
-          #   arch: x64
           - os: windows-latest
-            target: aarch64
-            arch: x64
-          # - os: windows-latest
-          #   target: i686
-          #   arch: x86
-          
-          # macOS builds
-          # - os: macos-latest
-          #   target: x86_64
-          #   arch: x64
-          # - os: macos-latest
-          #   target: aarch64
-          #   arch: x64
-          
-          # Ubuntu builds
-          # - os: ubuntu-latest
-          #   target: x86_64
-          #   arch: x64
-          # - os: ubuntu-latest
-          #   target: aarch64
-          #   arch: x64
+            target: i686
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -70,12 +73,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.12
-          architecture: ${{ matrix.arch }}
+          python-version: 3.13
+          architecture: ${{ matrix.target == 'i686' && 'x86' || 'x64' }}
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "maturin>=1.7.4,<2.0" build
+          pip install "maturin==${{ needs.prepare.outputs.maturin_version }}" build
       - name: Update Cargo.toml version
         if: needs.prepare.outputs.publish == 'true'
         env:
@@ -93,6 +96,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: ${{ needs.prepare.outputs.maturin_version }}
           target: ${{ matrix.target }}
           manylinux: auto
           args: --release --out dist -m Cargo.toml
@@ -103,6 +107,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         if: matrix.os == 'ubuntu-latest'
         with:
+          maturin-version: ${{ needs.prepare.outputs.maturin_version }}
           target: ${{ matrix.target }}-unknown-linux-musl
           manylinux: musllinux_1_2
           args: --release --out dist -m Cargo.toml
@@ -112,7 +117,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.arch }}
+          name: ${{ matrix.os }}-${{ matrix.target }}
           path: dist/
 
   publish:
