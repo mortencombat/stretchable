@@ -10,12 +10,12 @@ permissions:
 
 jobs:
   prepare:
-    name: Get release version
+    name: Get maturin version and release version
     runs-on: ubuntu-latest
     outputs:
+      maturin_version: ${{ steps.get-maturin-version.outputs.maturin_version }}
       version: ${{ steps.get-version.outputs.version }}
       publish: ${{ steps.get-version.outputs.publish }}
-      maturin_version: ${{ steps.get-maturin-version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -32,8 +32,10 @@ jobs:
               data = tomllib.load(f)
           maturin_req = next(req for req in data["build-system"]["requires"] if req.startswith("maturin"))
           version = maturin_req.split(">=")[1] if ">=" in maturin_req else maturin_req.split("==")[1]
-          print(f"maturin_version={version}", file=open(os.environ["GITHUB_OUTPUT"], "a"))
-      - name: Get version from tag
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"maturin_version={version}\n")
+          print(f"Maturin version: {version}")
+      - name: Get stretchable version from tag
         id: get-version
         run: |
           pattern="^refs\/tags\/v([0-9]+\.[0-9]+\.[0-9]+(-(a|alpha|b|beta|dev)[0-9]+)?)$"
