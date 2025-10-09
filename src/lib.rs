@@ -3,8 +3,8 @@
 
 use core::panic;
 use log::{error, LevelFilter};
-use taffy::Overflow;
 use std::f32;
+use taffy::Overflow;
 
 extern crate dict_derive;
 use dict_derive::{FromPyObject, IntoPyObject};
@@ -481,7 +481,10 @@ impl From<PyStyle> for Style {
             display: Display::from_index(raw.display),
             box_sizing: BoxSizing::from_index(raw.box_sizing),
             // Overflow
-            overflow: taffy::geometry::Point { x: Overflow::from_index(raw.overflow_x), y: Overflow::from_index(raw.overflow_y)},
+            overflow: taffy::geometry::Point {
+                x: Overflow::from_index(raw.overflow_x),
+                y: Overflow::from_index(raw.overflow_y),
+            },
             scrollbar_width: raw.scrollbar_width,
             // Position
             position: Position::from_index(raw.position),
@@ -510,19 +513,23 @@ impl From<PyStyle> for Style {
             flex_shrink: raw.flex_shrink,
             flex_basis: Dimension::from(raw.flex_basis),
             // Grid container properties
-            grid_template_rows: raw.grid_template_rows
+            grid_template_rows: raw
+                .grid_template_rows
                 .into_iter()
                 .map(|e| TrackSizingFunction::from(e))
                 .collect(),
-            grid_template_columns: raw.grid_template_columns
+            grid_template_columns: raw
+                .grid_template_columns
                 .into_iter()
                 .map(|e| TrackSizingFunction::from(e))
                 .collect(),
-            grid_auto_rows: raw.grid_auto_rows
+            grid_auto_rows: raw
+                .grid_auto_rows
                 .into_iter()
                 .map(|e| NonRepeatedTrackSizingFunction::from(e))
                 .collect(),
-            grid_auto_columns: raw.grid_auto_columns
+            grid_auto_columns: raw
+                .grid_auto_columns
                 .into_iter()
                 .map(|e| NonRepeatedTrackSizingFunction::from(e))
                 .collect(),
@@ -638,7 +645,7 @@ fn node_dirty(taffy_ptr: usize, node_id: u64) -> bool {
 #[pyfunction]
 fn node_mark_dirty(taffy_ptr: usize, node_id: u64) {
     let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
-    
+
     let node = NodeId::from(node_id);
     taffy.mark_dirty(node).unwrap();
 
@@ -647,7 +654,7 @@ fn node_mark_dirty(taffy_ptr: usize, node_id: u64) {
 
 #[pyfunction]
 unsafe fn node_set_style(taffy_ptr: usize, node_id: u64, style: PyStyle) {
-    let mut taffy = unsafe {Box::from_raw(taffy_ptr as *mut TaffyTree<NodeContext>) };
+    let mut taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree<NodeContext>) };
 
     let node = NodeId::from(node_id);
     taffy.set_style(node, Style::from(style)).unwrap();
@@ -659,14 +666,16 @@ unsafe fn node_set_style(taffy_ptr: usize, node_id: u64, style: PyStyle) {
 unsafe fn node_set_measure(taffy: i64, node_id: u64, measure: bool) {
     let mut taffy = Box::from_raw(taffy as *mut TaffyTree<NodeContext>);
 
-    let node = NodeId::from(node_id);    
-    taffy.set_node_context(
-        node, 
-        match measure {
-            false => None,
-            true => Some(NodeContext { node_id: node_id }),
-        }
-    ).unwrap();
+    let node = NodeId::from(node_id);
+    taffy
+        .set_node_context(
+            node,
+            match measure {
+                false => None,
+                true => Some(NodeContext { node_id: node_id }),
+            },
+        )
+        .unwrap();
 
     Box::leak(taffy);
 }
@@ -675,7 +684,7 @@ unsafe fn node_set_measure(taffy: i64, node_id: u64, measure: bool) {
 fn node_compute_layout(taffy: usize, node_id: u64, available_space: PySize) -> bool {
     let mut taffy = unsafe { Box::from_raw(taffy as *mut TaffyTree) };
 
-    let node = NodeId::from(node_id);    
+    let node = NodeId::from(node_id);
     let result = taffy.compute_layout(node, Size::from(available_space));
 
     Box::leak(taffy);
@@ -693,7 +702,11 @@ fn measure_function(
     node_context: Option<&mut NodeContext>,
     measure_callback: &PyObject,
 ) -> Size<f32> {
-    if let Size { width: Some(width), height: Some(height) } = known_dimensions {
+    if let Size {
+        width: Some(width),
+        height: Some(height),
+    } = known_dimensions
+    {
         return Size { width, height };
     }
 
@@ -736,17 +749,21 @@ fn measure_function(
         width: size[0],
         height: size[1],
     }
-    
 }
 
 #[pyfunction]
-fn node_compute_layout_with_measure(taffy: usize, node_id: u64, available_space: PySize, measure_fn: PyObject) -> bool {
+fn node_compute_layout_with_measure(
+    taffy: usize,
+    node_id: u64,
+    available_space: PySize,
+    measure_fn: PyObject,
+) -> bool {
     let mut taffy = unsafe { Box::from_raw(taffy as *mut TaffyTree<NodeContext>) };
 
     let node = NodeId::from(node_id);
     let result = taffy.compute_layout_with_measure(
-        node, 
-        Size::from(available_space), 
+        node,
+        Size::from(available_space),
         |known_dimensions, available_space, _node_id, node_context, _style| {
             measure_function(known_dimensions, available_space, node_context, &measure_fn)
         },
@@ -757,76 +774,122 @@ fn node_compute_layout_with_measure(taffy: usize, node_id: u64, available_space:
     result.is_ok()
 }
 
-#[derive(FromPyObject, IntoPyObject)]
+#[pyclass]
+#[derive(Default, Clone)]
 pub struct PyLayout {
-    order: i64,
-    location: Vec<f32>,
-    size: Vec<f32>,
-    content_size: Vec<f32>,
-    scrollbar_size: Vec<f32>,
-    border: Vec<f32>,
-    padding: Vec<f32>,
-    margin: Vec<f32>,
+    #[pyo3(get, set)]
+    pub order: i64,
+    #[pyo3(get, set)]
+    pub x: f32,
+    #[pyo3(get, set)]
+    pub y: f32,
+    #[pyo3(get, set)]
+    pub width: f32,
+    #[pyo3(get, set)]
+    pub height: f32,
+    #[pyo3(get, set)]
+    pub content_size_w: f32,
+    #[pyo3(get, set)]
+    pub content_size_h: f32,
+    #[pyo3(get, set)]
+    pub scrollbar_w: f32,
+    #[pyo3(get, set)]
+    pub scrollbar_h: f32,
+    #[pyo3(get, set)]
+    pub border_top: f32,
+    #[pyo3(get, set)]
+    pub border_right: f32,
+    #[pyo3(get, set)]
+    pub border_bottom: f32,
+    #[pyo3(get, set)]
+    pub border_left: f32,
+    #[pyo3(get, set)]
+    pub padding_top: f32,
+    #[pyo3(get, set)]
+    pub padding_right: f32,
+    #[pyo3(get, set)]
+    pub padding_bottom: f32,
+    #[pyo3(get, set)]
+    pub padding_left: f32,
+    #[pyo3(get, set)]
+    pub margin_top: f32,
+    #[pyo3(get, set)]
+    pub margin_right: f32,
+    #[pyo3(get, set)]
+    pub margin_bottom: f32,
+    #[pyo3(get, set)]
+    pub margin_left: f32,
 }
 
-trait FromPoint<T> {
-    fn from_point(value: taffy::geometry::Point<T>) -> Vec<T>;
-}
-
-impl<T> FromPoint<T> for Vec<T> {
-    fn from_point(value: taffy::geometry::Point<T>) -> Self {
-        vec![ value.x, value.y ]
-    }
-}
-
-
-trait FromSize<T> {
-    fn from_size(value: taffy::geometry::Size<T>) -> Vec<T>;
-}
-
-impl<T> FromSize<T> for Vec<T> {
-    fn from_size(value: taffy::geometry::Size<T>) -> Self {
-        vec![ value.width, value.height ]
-    }
-}
-
-
-trait FromRect<T> {
-    fn from_rect(value: taffy::geometry::Rect<T>) -> Vec<T>;
-}
-
-impl<T> FromRect<T> for Vec<T> {
-    fn from_rect(value: taffy::geometry::Rect<T>) -> Self {
-        vec![ value.top, value.right, value.bottom, value.left ]
-    }
-}
-
-
-impl From<Layout> for PyLayout {
-    fn from(layout: Layout) -> Self {
+#[pymethods]
+impl PyLayout {
+    #[new]
+    pub fn new() -> Self {
         PyLayout {
-            order: layout.order as i64,
-            location: Vec::from_point(layout.location),            
-            size: Vec::from_size(layout.size),            
-            content_size: Vec::from_size(layout.content_size),            
-            scrollbar_size: Vec::from_size(layout.scrollbar_size),
-            border: Vec::from_rect(layout.border),  
-            padding: Vec::from_rect(layout.padding),  
-            margin: Vec::from_rect(layout.margin),  
+            order: 0,
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+            content_size_w: 0.0,
+            content_size_h: 0.0,
+            scrollbar_w: 0.0,
+            scrollbar_h: 0.0,
+            border_top: 0.0,
+            border_right: 0.0,
+            border_bottom: 0.0,
+            border_left: 0.0,
+            padding_top: 0.0,
+            padding_right: 0.0,
+            padding_bottom: 0.0,
+            padding_left: 0.0,
+            margin_top: 0.0,
+            margin_right: 0.0,
+            margin_bottom: 0.0,
+            margin_left: 0.0,
         }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PyLayout(order={}, x={}, y={}, width={}, height={}, margin=({}, {}, {}, {}), border=({}, {}, {}, {}), padding=({}, {}, {}, {}))",
+            self.order, self.x, self.y, self.width, self.height, self.margin_top, self.margin_right, self.margin_bottom, self.margin_left,
+            self.border_top, self.border_right, self.border_bottom, self.border_left,
+            self.padding_top, self.padding_right, self.padding_bottom, self.padding_left,
+        )
     }
 }
 
 #[pyfunction]
-fn node_get_layout(taffy_ptr: usize, node_id: u64) -> PyLayout {
+fn node_get_layout(taffy_ptr: usize, node_id: u64, node_layout: &mut PyLayout) {
     let taffy = unsafe { Box::from_raw(taffy_ptr as *mut TaffyTree) };
 
     let node = NodeId::from(node_id);
-    let layout = PyLayout::from(*taffy.layout(node).unwrap());
+    let layout = taffy.layout(node).unwrap();
+
+    node_layout.order = layout.order as i64;
+    node_layout.x = layout.location.x;
+    node_layout.y = layout.location.y;
+    node_layout.width = layout.size.width;
+    node_layout.height = layout.size.height;
+    node_layout.content_size_w = layout.content_size.width;
+    node_layout.content_size_h = layout.content_size.height;
+    node_layout.scrollbar_w = layout.scrollbar_size.width;
+    node_layout.scrollbar_h = layout.scrollbar_size.height;
+    node_layout.border_top = layout.border.top;
+    node_layout.border_right = layout.border.right;
+    node_layout.border_bottom = layout.border.bottom;
+    node_layout.border_left = layout.border.left;
+    node_layout.padding_top = layout.padding.top;
+    node_layout.padding_right = layout.padding.right;
+    node_layout.padding_bottom = layout.padding.bottom;
+    node_layout.padding_left = layout.padding.left;
+    node_layout.margin_top = layout.margin.top;
+    node_layout.margin_right = layout.margin.right;
+    node_layout.margin_bottom = layout.margin.bottom;
+    node_layout.margin_left = layout.margin.left;
 
     Box::leak(taffy);
-
-    layout
 }
 
 // MODULE
@@ -858,6 +921,7 @@ fn taffylib(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(node_set_measure))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout))?;
     m.add_wrapped(wrap_pyfunction!(node_compute_layout_with_measure))?;
+    m.add_class::<PyLayout>()?;
 
     Ok(())
 }
