@@ -12,8 +12,6 @@ import tinycss2
 from lxml import etree
 
 """
-Write out CSS shorthand/property tree for border and flexbox properties.
-
 NOTE: we should require length values to have units, eg. they should become DimensionToken.
     ALTHOUGH, consider that lengths can be 0, which should be allowed without a unit.
 
@@ -86,6 +84,7 @@ Some properties may be possible to infer automatically, based on the type(s) sup
 """
 
 # Properties that should be passed to Taffy
+# TODO: this should be defined in properties.xml, use export="true" to include
 _PROPS_TAFFY = {
     # Layout/sizing mode
     "display",
@@ -571,6 +570,7 @@ class Property:
     initial: object = None
     array: bool = None
     default: str = None
+    export: bool = True
     inactive: bool = field(default=False, init=False)
 
     def parse(
@@ -621,14 +621,22 @@ class Property:
     def from_xml_node(node: etree.Element):
         """Parse a property from an XML node and return a Property instance."""
 
-        def get_attrib(node: etree.Element, name: str) -> str | None:
-            """Get an attribute from an XML node. If not present on node, traverse up
-            the element tree and get attribute from nearest parent element. Return None
-            if it does not exist on node or parents."""
+        def get_attrib(
+            node: etree.Element, name: str, *, inherit: bool = True
+        ) -> str | None:
+            """
+            Get an attribute from an XML node.
+
+            If not present on node and inherit == True, traverse up the element
+            tree and get attribute from nearest parent element. Return None if
+            it does not exist on node or parents.
+            """
 
             while node is not None:
                 if name in node.attrib:
                     return node.attrib[name]
+                if not inherit:
+                    return None
                 node = node.getparent()
 
         name = node.tag
@@ -714,8 +722,16 @@ class Property:
 
         initial = get_attrib(node, "initial")
         default = get_attrib(node, "default")
+        export = get_attrib(node, "export", inherit=False)
+        export = export is None or not export.strip().lower() == "false"
 
-        return Property(name, parsers=tuple(parsers), initial=initial, default=default)
+        return Property(
+            name,
+            parsers=tuple(parsers),
+            initial=initial,
+            default=default,
+            export=export,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1137,13 +1153,19 @@ class Style:
 
         args: dict[str, Any] = {}
 
-        for css_name in _PROPS_TAFFY:
-            value = self[css_name]
+        """
+        Does properties iterate over all properties including children?
+        Should it be properties.properties?
+        
+        """
 
-            if css_name in _PROPS_TAFFY_ADAPTERS:
-                value = _PROPS_TAFFY_ADAPTERS[css_name](value)
+        for prop in properties:
+            if not prop.export:
+                continue
+            value = self[prop.name]
 
-            prop = properties[css_name]
+            if prop.name in _PROPS_TAFFY_ADAPTERS:
+                value = _PROPS_TAFFY_ADAPTERS[prop.name](value)
 
             """
             How to handle shorthand properties? size + rect should be mapped, other shorthands are not supported natively
@@ -1162,9 +1184,9 @@ class Style:
             """
 
             if value is not None:
-                value = value._to_taffy(css_name, context)
+                value = value._to_taffy(prop.name, context)
 
-            args[css_name.replace("-", "_")] = value
+            args[prop.name.replace("-", "_")] = value
 
         return args
 

@@ -19,25 +19,25 @@
             <border-bottom-width />
             <border-left-width />
         </border-width>
-        <border-style type="keyword" keywords="stretchable.style.BorderStyle" initial="none">
+        <border-style type="keyword" keywords="stretchable.style.BorderStyle" initial="none" export="false">
             <border-top-style />
             <border-right-style />
             <border-bottom-style />
             <border-left-style />
         </border-style>
-        <border-color type="color" initial="currentcolor">
+        <border-color type="color" initial="currentcolor" export="false">
             <border-top-color />
             <border-right-color />
             <border-bottom-color />
             <border-left-color />
         </border-color>
     </border>
-    <background-color type="color" initial="transparent" />
+    <background-color type="color" initial="transparent" export="false" />
     <gap type="keyword|length|percentage" keywords="normal" initial="normal">
         <column-gap />
         <row-gap default="column-gap" />
     </gap>
-    <overflow type="keyword" keywords="stretchable.style.Overflow" initial="visible">
+    <overflow type="keyword" keywords="stretchable.style.Overflow" initial="visible" export="false">
         <overflow-x />
         <overflow-y default="overflow-x" />
     </overflow>
