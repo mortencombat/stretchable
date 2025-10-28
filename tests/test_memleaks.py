@@ -2,8 +2,6 @@ import gc
 import random
 import tracemalloc
 
-import pytest
-
 from stretchable import Node, Style
 
 ITERATIONS: int = 1000
