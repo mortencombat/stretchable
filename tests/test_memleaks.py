@@ -2,6 +2,8 @@ import gc
 import random
 import tracemalloc
 
+import pytest
+
 from stretchable import Node, Style
 
 ITERATIONS: int = 1000
@@ -30,6 +32,7 @@ def modify_layout(root: Node):
     root.compute_layout()
 
 
+@pytest.mark.critical
 def test_no_memleak():
     """Run repeated layout modifications and assert no growing memory leak."""
 
@@ -45,14 +48,14 @@ def test_no_memleak():
     tracemalloc.start()
     _, before_peak = tracemalloc.get_traced_memory()
 
-    for i in range(ITERATIONS):
+    for i in range(1, ITERATIONS + 1):
         modify_layout(root)
 
         if (i & 0x7F) == 0:
             # occasional GC helps avoid transient spikes being counted as leaks
             gc.collect()
 
-        if i > 0 and i % sample_interval == 0:
+        if i > 1 and (i == ITERATIONS or i % sample_interval == 0):
             _, current_peak = tracemalloc.get_traced_memory()
             memory_increase = max(0, current_peak - before_peak)
             memory_samples.append((i, memory_increase))

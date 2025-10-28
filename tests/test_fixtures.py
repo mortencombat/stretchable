@@ -17,12 +17,6 @@ from stretchable.style.geometry.length import LengthAvailableSpace, Scale
 from stretchable.style.geometry.size import SizeAvailableSpace, SizePoints
 
 logger = logging.getLogger("stretchable")
-logger.setLevel(logging.DEBUG)
-logFormatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
-fileHandler = logging.FileHandler("debug.log")
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
-
 
 H_WIDTH: float = 10.0
 H_HEIGHT: float = 10.0
@@ -96,6 +90,7 @@ def driver():
     "filepath",
     **get_fixtures(),
 )
+# @pytest.mark.skip()
 def test_html_fixtures(driver: webdriver.Chrome, filepath: Path):
     # Read html file, extract content between <body> and </body> and convert <div> to <node>
     logger.debug("Fixture: %s", filepath.stem)
