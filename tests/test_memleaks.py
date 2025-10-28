@@ -1,9 +1,3 @@
-"""
-Run continous layout calculations and monitor memory usage.
-
-Layout should include border, padding, margin, and resizing/recalculating layout.
-"""
-
 import gc
 import random
 import tracemalloc
