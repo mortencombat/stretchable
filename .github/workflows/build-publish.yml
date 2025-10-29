@@ -71,9 +71,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: 3.12
+          python-version: 3.13
           architecture: ${{ matrix.target == 'i686' && 'x86' || matrix.target == 'aarch64' && matrix.os == 'windows-latest' && 'arm64' || 'x64' }}
       - name: Install dependencies
         run: |
