@@ -169,6 +169,7 @@ class Node(list):
         "_zorder",
         "_parent",
         "__node_id",
+        "_taffy_layout",
     )
 
     def __init__(
@@ -190,6 +191,7 @@ class Node(list):
             raise ValueError("The given `key` is not valid")
         self._key = key
 
+        self._taffy_layout = taffylib.PyLayout()
         self._box: dict[Edge, Box] = None
         self._zorder = None
         self._parent = None
@@ -613,30 +615,45 @@ class Node(list):
         if self.is_dirty:
             raise LayoutNotComputedError
 
-        layout = taffylib.node_get_layout(taffy._ptr, self._node_id)
+        taffylib.node_get_layout(taffy._ptr, self._node_id, self._taffy_layout)
 
-        self._zorder = layout["order"]
+        self._zorder = self._taffy_layout.order
 
         # Border box
-        box = Box(*layout["location"], *layout["size"])
+        box = Box(x=self._taffy_layout.x, y=self._taffy_layout.y, width=self._taffy_layout.width, height=self._taffy_layout.height)
         self._box = {Edge.BORDER: box}
 
         # Margin box (border box outset by margins)
-        self._box[Edge.MARGIN] = box._inset(layout["margin"], k=-1)
+        self._box[Edge.MARGIN] = box._inset((
+            self._taffy_layout.margin_top,
+            self._taffy_layout.margin_right,
+            self._taffy_layout.margin_bottom,
+            self._taffy_layout.margin_left,
+        ), k=-1)
 
         # Padding box (border box inset by borders)
-        box = box._inset(layout["border"])
+        box = box._inset((
+            self._taffy_layout.border_top,
+            self._taffy_layout.border_right,
+            self._taffy_layout.border_bottom,
+            self._taffy_layout.border_left,
+        ))
         self._box[Edge.PADDING] = box
 
         # Content box (padding box inset by padding)
-        box = box._inset(layout["padding"])
+        box = box._inset((
+            self._taffy_layout.padding_top,
+            self._taffy_layout.padding_right,
+            self._taffy_layout.padding_bottom,
+            self._taffy_layout.padding_left,
+        ))
         self._box[Edge.CONTENT] = box
 
         logger.debug(
             "node_get_layout(taffy: %s, node_id: %s) -> %s, margin: %s, border: %s, padding: %s, content: %s",
             taffy._ptr,
             self._node_id,
-            layout,
+            self._taffy_layout,
             self._box[Edge.MARGIN],
             self._box[Edge.BORDER],
             self._box[Edge.PADDING],
