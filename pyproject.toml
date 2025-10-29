@@ -60,3 +60,8 @@ Homepage = "https://stretchable.readthedocs.io/en/latest/"
 Documentation = "https://stretchable.readthedocs.io/en/latest/"
 Source = "https://github.com/mortencombat/stretchable"
 Tracker = "https://github.com/mortencombat/stretchable/issues"
+
+[tool.pytest.ini_options]
+markers = [
+    "critical: marks tests as critical (run first, fail fast)",
+]
