@@ -13,7 +13,8 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Taffy
+        uses: actions/checkout@v4
         with:
           repository: 'DioxusLabs/Taffy'
           ref: 'refs/heads/main'
@@ -22,21 +23,39 @@ jobs:
             test_fixtures
           persist-credentials: false
 
-      - uses: actions/checkout@v4
+      - name: Checkout stretchable
+        uses: actions/checkout@v4
         with:
           ref: 'refs/heads/main'
           path: 'stretchable'
+          fetch-depth: 0
           sparse-checkout: |
             tests/fixtures
 
-      - run: |
-          # Create branch
-          $branch = "tests/add-tests-${{ github.run_number }}.${{ github.run_attempt }}"
-          git checkout -b $($branch)
+      - name: Create new branch, add tests and create PR
+        run: |
+          # Find most recent test branch
+          $latest_branch = git branch -r | Where-Object { $_ -match 'origin/tests/add-tests-\d{8}$' } | 
+            ForEach-Object { $_.Trim() } | Sort-Object -Descending | Select-Object -First 1
+          
+          # Create new branch name with date suffix (YYYYMMDD)
+          $date = Get-Date -Format "yyyyMMdd"
+          $branch = "tests/add-tests-$date"
+          
+          if ($latest_branch) {
+            # Checkout from the latest branch without tracking
+            git checkout --no-track -b $branch $latest_branch
+            Write-Host "Created new branch $branch from $latest_branch"
+          } else {
+            # If no previous branch exists, create from main
+            git checkout -b $branch
+            Write-Host "Created new branch $branch from main"
+          }
 
           $files = 0
           $targetBasePath = "tests/fixtures"
           $stylesheet = get-item "./tests/fixtures/base_style.css"
+          $existing_files = (git ls-tree -r HEAD --name-only) -split "\n"
           foreach ($item in Get-ChildItem -Path "../taffy/test_fixtures" -Recurse -Filter *.html)
           {
             if ($item.BaseName.StartsWith("x")) {
@@ -45,9 +64,9 @@ jobs:
             
             $relPath = ($item | Resolve-Path -RelativeBasePath "../taffy/test_fixtures" -Relative).TrimStart("./")
             $targetPath = Join-Path $targetBasePath $relPath
-            if (Test-Path $targetPath) {
+            if ($existing_files -contains $targetPath) {
               continue;
-            }            
+            }
 
             # Process source file and write processed file at target path
             # - Remove <script> block
@@ -70,10 +89,12 @@ jobs:
           
               $processed += $line
             }            
-            if ($has_style) {
-                Out-File -FilePath $targetPath -InputObject $processed -encoding utf8
+            if (-not $has_style) {
+              Write-Host "Skipping $targetPath because it doesn't have a stylesheet"
+              continue;
             }
 
+            Out-File -FilePath $targetPath -InputObject $processed -encoding utf8
             $files++;
           }
 
@@ -87,8 +108,8 @@ jobs:
             git commit -m "test(layout): add $($files) new tests from Taffy repo"
 
             # Push to origin and create PR
-            git push -u origin $($branch)
-            gh pr create --head $($branch) --base refs/heads/main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
+            git push -u origin $branch
+            gh pr create --head $branch --base main --title "Add $($files) new tests from Taffy" --body "Add $($files) new tests from Taffy" --reviewer mortencombat
           }
 
         shell: pwsh

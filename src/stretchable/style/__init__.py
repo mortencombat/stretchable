@@ -33,6 +33,7 @@ __all__ = [
     "Position",
     "Overflow",
     "Length",
+    "BoxSizing",
     "JustifySelf",
     "JustifyItems",
     "JustifyContent",

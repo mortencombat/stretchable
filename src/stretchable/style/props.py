@@ -376,8 +376,8 @@ class GridTrackSize:
             elif value.scale == length.Scale.MAX_CONTENT:
                 return GridTrackSize.max_content()
             elif (
-                value.scale
-                == length.Scale.FIT_CONTENT_PERCENT | length.Scale.FIT_CONTENT_POINTS
+                value.scale == length.Scale.FIT_CONTENT_PERCENT
+                or value.scale == length.Scale.FIT_CONTENT_POINTS
             ):
                 return GridTrackSize.fit_content(value)
             elif value.scale == length.Scale.POINTS:
